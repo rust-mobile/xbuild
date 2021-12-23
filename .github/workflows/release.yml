@@ -1,0 +1,30 @@
+on:
+  release:
+    types:
+    - created
+
+name: release xcross
+
+jobs:
+  xcross:
+    runs-on: macos-latest
+    steps:
+    - run: mkdir -p xcross/android
+    - run: ls /Users/runner/Library/Android/sdk/ndk
+    - run: cp -r /Users/runner/Library/Android/sdk/ndk/23.1.7779620/toolchains/llvm/prebuilt/darwin-x86_64/sysroot xcross/android
+    - run: cp -r /Users/runner/Library/Android/sdk/ndk/23.1.7779620/toolchains/llvm/prebuilt/darwin-x86_64/lib64/clang/12.0.8 xcross/android/clang
+    - run: echo "INPUT(-lunwind)" > xcross/android/clang/lib/linux/aarch64/libgcc.a
+    - run: ls /Applications/Xcode*
+    - run: cp -r /Applications/Xcode_12.4.0.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk xcross/macos
+      # sdk can contain symlink cycles that cause a non zero exit code.
+      continue-on-error: true
+    - run: cp -r /Applications/Xcode_12.4.0.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk xcross/ios
+    #- name: Install rust toolchain
+    #  uses: hecrj/setup-rust-action@v1
+    #- run: cargo install xwin
+    #- run: xwin --accept-license yes splat --output xcross/windows --disable-symlinks
+    - run: gtar --zstd -cf xcross.tar.zst xcross
+    - run: gh release upload $TAG xcross.tar.zst -R cloudpeers/xcross
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        TAG: ${{ github.event.release.tag_name }}
