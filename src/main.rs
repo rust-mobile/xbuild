@@ -1,5 +1,5 @@
 use iced::{
-    button, executor, Application, Button, Clipboard, Column, Command, Element, Settings, Text,
+    button, executor, Application, Button, Column, Command, Element, Settings, Text,
 };
 
 #[derive(Default)]
@@ -53,7 +53,7 @@ impl Application for Counter {
             .into()
     }
 
-    fn update(&mut self, message: Message, _clipboard: &mut Clipboard) -> Command<Self::Message> {
+    fn update(&mut self, message: Message) -> Command<Self::Message> {
         match message {
             Message::IncrementPressed => {
                 self.value += 1;
