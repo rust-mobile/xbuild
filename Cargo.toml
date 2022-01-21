@@ -1,0 +1,13 @@
+[package]
+name = "xstore"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.52"
+byteorder = "1.4.3"
+clap = { version = "3.0.7", features = ["derive"] }
+image = "0.23.14"
+rsa = "0.5.0"
+sha2 = "0.10.1"
+x509-parser = "0.12.0"
