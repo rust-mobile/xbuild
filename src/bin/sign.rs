@@ -12,6 +12,7 @@ struct Args {
 fn main() -> Result<()> {
     let args = Args::parse();
     //xstore::sign::android::read_zip(&args.input)?;
-    xstore::sign::windows::read_p7x(&args.input)?;
+    //xstore::sign::windows::read_p7x(&args.input)?;
+    xstore::sign::windows::read_cms(&args.input)?;
     Ok(())
 }

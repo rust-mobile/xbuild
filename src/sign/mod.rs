@@ -1,6 +1,9 @@
 use anyhow::Result;
 use rasn::prelude::*;
-use rasn_cms::{AlgorithmIdentifier, EncapsulatedContentInfo, SignedData, SignerInfo};
+use rasn_cms::{
+    AlgorithmIdentifier, EncapsulatedContentInfo, IssuerAndSerialNumber, SignedData,
+    SignerIdentifier, SignerInfo,
+};
 use rasn_pkix::{Attribute, Certificate};
 use rsa::pkcs8::FromPrivateKey;
 use rsa::RsaPrivateKey;
@@ -31,12 +34,22 @@ impl Signer {
 
     pub fn sign_pkcs7(
         &self,
+        digests: &[[u8; 32]; 5],
+        encap_content_info: EncapsulatedContentInfo,
         digest: [u8; 32],
         signature: Vec<u8>,
-        encap_content_info: EncapsulatedContentInfo,
+        cert: &Certificate,
     ) -> SignedData {
         const SPC_INDIRECT_DATA_OBJID: ConstOid = ConstOid(&[1, 3, 6, 1, 4, 1, 311, 2, 1, 4]);
         const SPC_SP_OPUS_INFO_OBJID: ConstOid = ConstOid(&[1, 3, 6, 1, 4, 1, 311, 2, 1, 12]);
+        const SZOID_CTL: ConstOid = ConstOid(&[1, 3, 6, 2, 4, 1, 311, 10, 1]);
+
+        /*let encap_content_info = EncapsulatedContentInfo {
+            content_type: SPC_INDIRECT_DATA_OBJID.into(),
+            // class ContextSpecific, raw_tag: 160
+            content: Any::new(vec![]),
+        };*/
+        //let digest = Sha256::digest(encap_content_info.contents.as_bytes()[..8]);
 
         let digest_algorithm = AlgorithmIdentifier {
             algorithm:
@@ -46,7 +59,10 @@ impl Signer {
         };
         let signer_info = SignerInfo {
             version: 1.into(),
-            sid: todo!(),
+            sid: SignerIdentifier::IssuerAndSerialNumber(IssuerAndSerialNumber {
+                issuer: cert.tbs_certificate.issuer.clone(),
+                serial_number: cert.tbs_certificate.serial_number.clone(),
+            }),
             digest_algorithm: digest_algorithm.clone(),
             signed_attrs: Some({
                 let mut signed_attrs = SetOf::default();
