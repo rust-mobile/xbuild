@@ -1,16 +1,121 @@
 use anyhow::Result;
-use rsa::pkcs1::FromRsaPrivateKey;
+use rasn::prelude::*;
+use rasn_cms::{AlgorithmIdentifier, EncapsulatedContentInfo, SignedData, SignerInfo};
+use rasn_pkix::{Attribute, Certificate};
+use rsa::pkcs8::FromPrivateKey;
 use rsa::RsaPrivateKey;
 
 pub mod android;
+pub mod windows;
 
 pub struct Signer {
     key: RsaPrivateKey,
+    cert: Certificate,
 }
 
 impl Signer {
-    pub fn new(private_key: &str) -> Result<Self> {
-        let key = RsaPrivateKey::from_pkcs1_pem(private_key)?;
-        Ok(Self { key })
+    /// Creates a new signer using a private key and a certificate.
+    ///
+    /// A new self signed certificate can be generated using openssl:
+    /// ```sh
+    /// openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout key.pem -out cert.pem
+    /// ```
+    pub fn new(private_key: &str, certificate: &str) -> Result<Self> {
+        let key = RsaPrivateKey::from_pkcs8_pem(private_key)?;
+        let pem = pem::parse(certificate)?;
+        anyhow::ensure!(pem.tag == "CERTIFICATE");
+        let cert = rasn::der::decode::<Certificate>(&pem.contents)
+            .map_err(|err| anyhow::anyhow!("{}", err))?;
+        Ok(Self { key, cert })
+    }
+
+    pub fn sign_pkcs7(
+        &self,
+        digest: [u8; 32],
+        signature: Vec<u8>,
+        encap_content_info: EncapsulatedContentInfo,
+    ) -> SignedData {
+        const SPC_INDIRECT_DATA_OBJID: ConstOid = ConstOid(&[1, 3, 6, 1, 4, 1, 311, 2, 1, 4]);
+        const SPC_SP_OPUS_INFO_OBJID: ConstOid = ConstOid(&[1, 3, 6, 1, 4, 1, 311, 2, 1, 12]);
+
+        let digest_algorithm = AlgorithmIdentifier {
+            algorithm:
+                Oid::JOINT_ISO_ITU_T_COUNTRY_US_ORGANIZATION_GOV_CSOR_NIST_ALGORITHMS_HASH_SHA256
+                    .into(),
+            parameters: Some(Any::new(vec![5, 0])),
+        };
+        let signer_info = SignerInfo {
+            version: 1.into(),
+            sid: todo!(),
+            digest_algorithm: digest_algorithm.clone(),
+            signed_attrs: Some({
+                let mut signed_attrs = SetOf::default();
+                signed_attrs.insert(Attribute {
+                    r#type: Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_CONTENT_TYPE.into(),
+                    value: {
+                        let mut content_type = SetOf::default();
+                        content_type.insert(ObjectIdentifier::from(SPC_INDIRECT_DATA_OBJID));
+                        Any::new(rasn::der::encode(&content_type).unwrap())
+                    },
+                });
+                signed_attrs.insert(Attribute {
+                    r#type: Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_MESSAGE_DIGEST.into(),
+                    value: {
+                        let mut digests = SetOf::default();
+                        digests.insert(OctetString::from(digest.to_vec()));
+                        Any::new(rasn::der::encode(&digests).unwrap())
+                    },
+                });
+                // TODO: is this needed?
+                signed_attrs.insert(Attribute {
+                    r#type: SPC_SP_OPUS_INFO_OBJID.into(),
+                    value: {
+                        let mut info = SetOf::default();
+                        info.insert(SequenceOf::<()>::default());
+                        Any::new(rasn::der::encode(&info).unwrap())
+                    },
+                });
+                signed_attrs
+            }),
+            signature_algorithm: AlgorithmIdentifier {
+                algorithm: Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS1.into(),
+                parameters: Some(Any::new(vec![5, 0])),
+            },
+            signature: OctetString::from(signature.to_vec()),
+            unsigned_attrs: Some({
+                let mut unsigned_attrs = SetOf::default();
+                // TODO: 1.3.6.1.4.1.311.3.3.1 timestamp? optional?
+                unsigned_attrs
+            }),
+        };
+        SignedData {
+            version: 1.into(),
+            digest_algorithms: {
+                let mut digest_algorithms = SetOf::default();
+                digest_algorithms.insert(digest_algorithm);
+                digest_algorithms
+            },
+            encap_content_info,
+            certificates: Some(SetOf::default()),
+            crls: None,
+            signer_infos: {
+                let mut signer_infos = SetOf::default();
+                signer_infos.insert(signer_info);
+                signer_infos
+            },
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const KEY: &str = include_str!("key.pem");
+    const CERT: &str = include_str!("cert.pem");
+
+    #[test]
+    fn create_signer() {
+        Signer::new(KEY, CERT).unwrap();
     }
 }
