@@ -13,7 +13,7 @@ pub const SPC_SIPINFO_OBJID: ConstOid = ConstOid(&[1, 3, 6, 1, 4, 1, 311, 2, 1, 
 pub const SZOID_CTL: ConstOid = ConstOid(&[1, 3, 6, 2, 4, 1, 311, 10, 1]);
 
 pub fn build_pkcs7(signer: &Signer, encap_content_info: EncapsulatedContentInfo) -> SignedData {
-    let digest = Sha256::digest(&encap_content_info.content.as_bytes()[..8]);
+    let digest = Sha256::digest(&encap_content_info.content.as_bytes()[8..]);
     let signature = signer.sign(digest.into());
     let cert = signer.cert();
 
