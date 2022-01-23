@@ -1,6 +1,6 @@
 pub mod cat;
 pub mod p7x;
-pub mod pkcs7;
+mod pkcs7;
 
 #[cfg(test)]
 mod tests {
@@ -31,45 +31,6 @@ mod tests {
             75, 131, 41, 111, 247, 70, 28, 251, 130, 190, 57, 136, 200, 159, 93, 116,
         ];
         let (rem, res) = der_parser::parse_der(&message_digest).unwrap();
-        assert!(rem.is_empty());
-        println!("{:#?}", res);
-        assert!(false);
-    }
-
-    #[test]
-    fn decode_sp_indirect_data() {
-        let indirect_data = [
-            //160, 130, 1, 8,
-            48, 130, 1, 4, // hash rest
-            48, 53, // oid 1.3.6.1.4.1.311.2.1.30
-            6, 10, 43, 6, 1, 4, 1, 130, 55, 2, 1, 30, // start sequence
-            48, 39, // integer
-            2, 4, 1, 1, 0, 0, // octet string tag
-            4, 16, // octet string payload
-            75, 223, 197, 10, 7, 206, 226, 77, 183, 110, 35, 200, 57, 160, 159, 209,
-            // int 0
-            2, 1, 0, // int 0
-            2, 1, 0, // int 0
-            2, 1, 0, // int 0
-            2, 1, 0, // int 0
-            2, 1, 0, // start sequence
-            48, 129, 202, // start sequence
-            48, 13, // oid 2.16.840.1.101.3.4.2.1
-            6, 9, 96, 134, 72, 1, 101, 3, 4, 2, 1, // null
-            5, 0, // octet string tag
-            4, 129, 184, // octet string bytes
-            65, 80, 80, 88, 65, 88, 80, 67, 37, 112, 168, 185, 134, 72, 152, 136, 166, 55, 137,
-            233, 153, 167, 81, 229, 137, 229, 158, 190, 214, 181, 211, 85, 93, 172, 161, 115, 74,
-            99, 165, 156, 65, 88, 67, 68, 29, 87, 205, 69, 139, 92, 201, 89, 248, 232, 221, 244,
-            67, 120, 231, 192, 229, 135, 200, 178, 242, 207, 83, 145, 88, 83, 238, 30, 255, 54,
-            226, 31, 65, 88, 67, 84, 188, 251, 66, 139, 217, 90, 175, 33, 93, 159, 193, 116, 124,
-            19, 113, 188, 195, 138, 75, 212, 185, 133, 87, 115, 195, 93, 4, 189, 198, 152, 59, 190,
-            65, 88, 66, 77, 228, 142, 202, 253, 204, 232, 223, 220, 131, 162, 12, 252, 106, 74, 3,
-            180, 190, 71, 230, 173, 146, 218, 209, 13, 101, 4, 43, 186, 70, 46, 196, 194, 65, 88,
-            67, 73, 175, 56, 231, 224, 95, 58, 68, 216, 201, 155, 33, 50, 3, 124, 19, 157, 149,
-            107, 194, 174, 170, 108, 34, 110, 128, 107, 240, 29, 11, 129, 67, 233,
-        ];
-        let (rem, res) = der_parser::parse_der(&indirect_data).unwrap();
         assert!(rem.is_empty());
         println!("{:#?}", res);
         assert!(false);
@@ -152,7 +113,7 @@ mod tests {
         println!("{}", 130 & 0x80);
     }
 
-    #[test]
+    /*#[test]
     fn test_sign() {
         use rsa::pkcs8::FromPrivateKey;
         use rsa::{Hash, PaddingScheme, RsaPrivateKey};
@@ -167,5 +128,5 @@ mod tests {
         let sig = key.sign(padding, &digest).unwrap();
         assert_eq!(sig.len(), signature.len());
         assert_eq!(sig, signature);
-    }
+    }*/
 }

@@ -47,7 +47,6 @@ pub fn build_pkcs7(signer: &Signer, encap_content_info: EncapsulatedContentInfo)
                     Any::new(rasn::der::encode(&digests).unwrap())
                 },
             });
-            // TODO: is this needed?
             signed_attrs.insert(Attribute {
                 r#type: SPC_SP_OPUS_INFO_OBJID.into(),
                 value: {
