@@ -8,13 +8,17 @@ anyhow = "1.0.52"
 byteorder = "1.4.3"
 clap = { version = "3.0.7", features = ["derive"] }
 image = "0.23.14"
+mime_guess = "2.0.3"
 pem = "1.0.2"
+quick-xml = { version = "0.22.0", features = ["serialize"] }
 rasn = "0.5.0"
 rasn-cms = "0.5.0"
 rasn-pkix = "0.5.0"
 rsa = "0.5.0"
+serde = { version = "1.0.135", features = ["derive"] }
 sha2 = "0.10.1"
 x509-parser = "0.12.0"
+zip = "0.5.13"
 
 [patch.crates-io]
 rasn = { path = "../rasn" }

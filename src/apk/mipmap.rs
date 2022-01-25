@@ -1,4 +1,4 @@
-use crate::icon::Scaler;
+use crate::Scaler;
 use anyhow::Result;
 use std::path::Path;
 

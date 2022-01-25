@@ -1,5 +1,5 @@
 use super::pkcs7::{build_pkcs7, SPC_INDIRECT_DATA_OBJID, SPC_SIPINFO_OBJID};
-use crate::sign::Signer;
+use crate::Signer;
 use anyhow::Result;
 use byteorder::{BigEndian, ReadBytesExt};
 use rasn::prelude::*;
@@ -177,7 +177,7 @@ mod tests {
         ],
     ];
 
-    const KEY: &str = include_str!("../key.pem");
+    const KEY: &str = include_str!("../../assets/key.pem");
 
     #[test]
     fn sp_indirect_data() {

@@ -1,4 +1,4 @@
-use crate::sign::Signer;
+use crate::Signer;
 use rasn::prelude::*;
 use rasn_cms::{
     AlgorithmIdentifier, EncapsulatedContentInfo, IssuerAndSerialNumber, SignedData,
