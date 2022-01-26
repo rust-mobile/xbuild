@@ -10,7 +10,6 @@ use sha2::{Digest, Sha256};
 pub const SPC_INDIRECT_DATA_OBJID: ConstOid = ConstOid(&[1, 3, 6, 1, 4, 1, 311, 2, 1, 4]);
 pub const SPC_SP_OPUS_INFO_OBJID: ConstOid = ConstOid(&[1, 3, 6, 1, 4, 1, 311, 2, 1, 12]);
 pub const SPC_SIPINFO_OBJID: ConstOid = ConstOid(&[1, 3, 6, 1, 4, 1, 311, 2, 1, 30]);
-pub const SZOID_CTL: ConstOid = ConstOid(&[1, 3, 6, 2, 4, 1, 311, 10, 1]);
 
 pub fn build_pkcs7(signer: &Signer, encap_content_info: EncapsulatedContentInfo) -> SignedData {
     let digest = Sha256::digest(&encap_content_info.content.as_bytes()[8..]);

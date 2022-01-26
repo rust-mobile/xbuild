@@ -1,16 +1,12 @@
 use super::pkcs7::{build_pkcs7, SPC_INDIRECT_DATA_OBJID, SPC_SIPINFO_OBJID};
 use crate::Signer;
 use anyhow::Result;
-use byteorder::{BigEndian, ReadBytesExt};
 use rasn::prelude::*;
-use rasn_cms::{ContentInfo, EncapsulatedContentInfo, SignedData, CONTENT_SIGNED_DATA};
-use std::fs::File;
-use std::io::{BufReader, Read};
-use std::path::Path;
+use rasn_cms::{ContentInfo, EncapsulatedContentInfo, CONTENT_SIGNED_DATA};
 
 const P7X_MAGIC: u32 = 0x504b4358;
 
-pub fn read_p7x(path: &Path) -> Result<()> {
+/*pub fn read_p7x(path: &Path) -> Result<()> {
     let f = File::open(path)?;
     let mut r = BufReader::new(f);
     let magic = r.read_u32::<BigEndian>()?;
@@ -25,7 +21,7 @@ pub fn read_p7x(path: &Path) -> Result<()> {
         .map_err(|err| anyhow::anyhow!("{}", err))?;
     println!("{:#?}", data);
     Ok(())
-}
+}*/
 
 pub fn p7x(signer: &Signer, hashes: &[[u8; 32]; 5]) -> Vec<u8> {
     let payload = Payload::new(hashes);

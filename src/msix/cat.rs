@@ -4,6 +4,8 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
 
+pub const SZOID_CTL: ConstOid = ConstOid(&[1, 3, 6, 2, 4, 1, 311, 10, 1]);
+
 pub fn read_cms(path: &Path) -> Result<()> {
     let f = File::open(path)?;
     let mut r = BufReader::new(f);

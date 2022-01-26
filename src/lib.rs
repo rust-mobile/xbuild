@@ -9,6 +9,7 @@ use std::path::Path;
 use zip::CompressionMethod;
 
 pub mod apk;
+pub mod appimage;
 pub mod msix;
 
 pub struct Scaler {

@@ -12,7 +12,7 @@ struct Args {
 }
 
 fn main() -> Result<()> {
-    let args = Args::parse();
+    //let args = Args::parse();
     //xstore::apk::mipmap::mipmap_ic_launcher(&args.icon, &args.res)?;
     Ok(())
 }

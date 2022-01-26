@@ -3,10 +3,8 @@ use crate::{Signer, ZipFileOptions};
 use anyhow::Result;
 use serde::Serialize;
 use std::io::{Cursor, Read, Seek, Write};
-use std::path::Path;
 use zip::write::{FileOptions, ZipWriter};
 
-//mod cat;
 mod block_map;
 mod content_types;
 pub mod manifest;

@@ -46,15 +46,6 @@ impl Default for AndroidManifest {
     }
 }
 
-impl AndroidManifest {
-    pub fn write_to(&self, dir: &Path) -> Result<()> {
-        let file = File::create(dir.join("AndroidManifest.xml"))?;
-        let w = std::io::BufWriter::new(file);
-        quick_xml::se::to_writer(w, &self)?;
-        Ok(())
-    }
-}
-
 /// Android [application element](https://developer.android.com/guide/topics/manifest/application-element), containing an [`Activity`] element.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Application {

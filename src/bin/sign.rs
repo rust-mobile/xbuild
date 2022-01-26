@@ -10,7 +10,7 @@ struct Args {
 }
 
 fn main() -> Result<()> {
-    let args = Args::parse();
+    //let args = Args::parse();
     //xstore::apk::read_zip(&args.input)?;
     //xstore::msix::p7x::read_p7x(&args.input)?;
     Ok(())

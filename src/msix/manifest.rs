@@ -1,5 +1,4 @@
 use anyhow::Result;
-use rasn_pkix::Certificate;
 use serde::ser::{SerializeTuple, Serializer};
 use serde::{Deserialize, Serialize};
 
@@ -126,13 +125,14 @@ where
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Resource {
     #[serde(rename(serialize = "Language"))]
+    #[serde(default = "default_language")]
     language: String,
 }
 
 impl Default for Resource {
     fn default() -> Self {
         Self {
-            language: "en-us".into(),
+            language: default_language(),
         }
     }
 }
