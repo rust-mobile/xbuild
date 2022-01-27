@@ -102,17 +102,7 @@ impl Xml {
         let mut chunks = vec![Chunk::Null];
         compile_node(doc.root(), &mut strings, &mut chunks);
         let strings = strings.finalize();
-        chunks[0] = Chunk::StringPool(
-            ResStringPoolHeader {
-                string_count: strings.len() as u32,
-                style_count: 0,
-                flags: 0,
-                strings_start: 28 + strings.len() as u32 * 4,
-                styles_start: 0,
-            },
-            strings,
-            vec![],
-        );
+        chunks[0] = Chunk::StringPool(strings, vec![]);
         let mut buf = vec![];
         let mut w = Cursor::new(&mut buf);
         Chunk::Xml(chunks).write(&mut w)?;
@@ -224,7 +214,7 @@ impl ResChunkHeader {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct ResStringPoolHeader {
     string_count: u32,
     style_count: u32,
@@ -665,7 +655,7 @@ impl ResSpan {
 #[derive(Clone, Debug)]
 pub enum Chunk {
     Null,
-    StringPool(ResStringPoolHeader, Vec<String>, Vec<Vec<ResSpan>>),
+    StringPool(Vec<String>, Vec<Vec<ResSpan>>),
     Table(ResTableHeader, Vec<Chunk>),
     Xml(Vec<Chunk>),
     XmlStartNamespace(ResXmlNodeHeader, ResXmlNamespace),
@@ -756,7 +746,7 @@ impl Chunk {
                     }
                     styles.push(spans);
                 }
-                Ok(Chunk::StringPool(string_pool_header, strings, styles))
+                Ok(Chunk::StringPool(strings, styles))
             }
             Some(ChunkType::Table) => {
                 let table_header = ResTableHeader::read(r)?;
@@ -860,7 +850,7 @@ impl Chunk {
             }
 
             #[must_use]
-            fn end_chunk<W: Seek + Write>(self, w: &mut W) -> Result<()> {
+            fn end_chunk<W: Seek + Write>(self, w: &mut W) -> Result<(u64, u64)> {
                 assert_ne!(self.end_header, 0);
                 let end_chunk = w.seek(SeekFrom::Current(0))?;
                 let header = ResChunkHeader {
@@ -871,18 +861,56 @@ impl Chunk {
                 w.seek(SeekFrom::Start(self.start_chunk))?;
                 header.write(w)?;
                 w.seek(SeekFrom::Start(end_chunk))?;
-                Ok(())
+                Ok((self.start_chunk, end_chunk))
             }
         }
         match self {
             Chunk::Null => {}
-            Chunk::StringPool(string_pool_header, strings, styles) => {
+            Chunk::StringPool(strings, styles) => {
                 let mut chunk = ChunkWriter::start_chunk(ChunkType::StringPool, w)?;
-                let mut string_pool_header = string_pool_header.clone();
-                string_pool_header.string_count = 0;
-                string_pool_header.write(w)?;
+                ResStringPoolHeader::default().write(w)?;
                 chunk.end_header(w)?;
-                chunk.end_chunk(w)?;
+                let indices_count = strings.len() + styles.len();
+                let mut indices = Vec::with_capacity(indices_count);
+                for _ in 0..indices_count {
+                    w.write_u32::<LittleEndian>(0)?;
+                }
+                let strings_start = w.seek(SeekFrom::Current(0))?;
+                for string in strings {
+                    indices.push(w.seek(SeekFrom::Current(0))? - strings_start);
+                    assert!(string.len() < 0x7f);
+                    let chars = string.chars().count();
+                    w.write_u8(chars as u8)?;
+                    w.write_u8(string.len() as u8)?;
+                    w.write_all(string.as_bytes())?;
+                    w.write_u8(0)?;
+                }
+                while w.seek(SeekFrom::Current(0))? % 4 != 0 {
+                    w.write_u8(0)?;
+                }
+                let styles_start = w.seek(SeekFrom::Current(0))?;
+                for style in styles {
+                    indices.push(w.seek(SeekFrom::Current(0))? - styles_start);
+                    for span in style {
+                        span.write(w)?;
+                    }
+                    w.write_i32::<LittleEndian>(-1)?;
+                }
+                let (start_chunk, end_chunk) = chunk.end_chunk(w)?;
+
+                w.seek(SeekFrom::Start(start_chunk + 8))?;
+                ResStringPoolHeader {
+                    string_count: strings.len() as u32,
+                    style_count: styles.len() as u32,
+                    flags: ResStringPoolHeader::UTF8_FLAG,
+                    strings_start: (strings_start - start_chunk) as u32,
+                    styles_start: (styles_start - start_chunk) as u32,
+                }
+                .write(w)?;
+                for index in indices {
+                    w.write_u32::<LittleEndian>(index as u32)?;
+                }
+                w.seek(SeekFrom::Start(end_chunk))?;
             }
             Chunk::Table(table_header, chunks) => {
                 let mut chunk = ChunkWriter::start_chunk(ChunkType::Table, w)?;
