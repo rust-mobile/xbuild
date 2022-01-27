@@ -3,7 +3,7 @@ use anyhow::Result;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use roxmltree::{Document, Node};
 use std::collections::{BTreeMap, HashMap};
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 
 pub struct Xml(String);
@@ -26,21 +26,15 @@ impl Xml {
     }
 
     pub fn compile(&self) -> Result<Vec<u8>> {
-        fn compile_node(node: Node, strings: &mut Strings, chunks: &mut Vec<u8>) -> Result<()> {
+        fn compile_node(node: Node, strings: &mut Strings, chunks: &mut Vec<Chunk>) {
             for ns in node.namespaces() {
-                Chunk::XmlStartNamespace(
-                    ResChunkHeader {
-                        ty: ChunkType::XmlStartNamespace as u16,
-                        header_size: 16,
-                        size: 24,
-                    },
+                chunks.push(Chunk::XmlStartNamespace(
                     ResXmlNodeHeader::default(),
                     ResXmlNamespace {
                         prefix: ns.name().map(|ns| strings.id(ns)).unwrap_or(-1),
                         uri: strings.id(ns.uri()),
                     },
-                )
-                .write(chunks)?;
+                ));
             }
             let mut id_index = 0;
             let mut class_index = 0;
@@ -71,12 +65,7 @@ impl Xml {
                 .map(|ns| strings.id(ns))
                 .unwrap_or(-1);
             let name = strings.id(node.tag_name().name());
-            Chunk::XmlStartElement(
-                ResChunkHeader {
-                    ty: ChunkType::XmlStartElement as u16,
-                    header_size: 16,
-                    size: 36 + attrs.len() as u32 * 20,
-                },
+            chunks.push(Chunk::XmlStartElement(
                 ResXmlNodeHeader::default(),
                 ResXmlStartElement {
                     namespace,
@@ -89,58 +78,31 @@ impl Xml {
                     style_index,
                 },
                 attrs,
-            )
-            .write(chunks)?;
+            ));
             for node in node.children() {
-                compile_node(node, strings, chunks)?;
+                compile_node(node, strings, chunks);
             }
-            Chunk::XmlEndElement(
-                ResChunkHeader {
-                    ty: ChunkType::XmlEndElement as u16,
-                    header_size: 16,
-                    size: 24,
-                },
+            chunks.push(Chunk::XmlEndElement(
                 ResXmlNodeHeader::default(),
                 ResXmlEndElement { namespace, name },
-            )
-            .write(chunks)?;
+            ));
             for ns in node.namespaces() {
-                Chunk::XmlEndNamespace(
-                    ResChunkHeader {
-                        ty: ChunkType::XmlEndNamespace as u16,
-                        header_size: 16,
-                        size: 24,
-                    },
+                chunks.push(Chunk::XmlEndNamespace(
                     ResXmlNodeHeader::default(),
                     ResXmlNamespace {
                         prefix: ns.name().map(|ns| strings.id(ns)).unwrap_or(-1),
                         uri: strings.id(ns.uri()),
                     },
-                )
-                .write(chunks)?;
+                ));
             }
-            Ok(())
         }
 
         let doc = Document::parse(&self.0)?;
         let mut strings = Strings::default();
-        let mut chunks = vec![];
-        compile_node(doc.root(), &mut strings, &mut chunks)?;
+        let mut chunks = vec![Chunk::Null];
+        compile_node(doc.root(), &mut strings, &mut chunks);
         let strings = strings.finalize();
-
-        let mut buf = vec![];
-        ResChunkHeader {
-            ty: ChunkType::Xml as u16,
-            header_size: 8,
-            size: 0,
-        }
-        .write(&mut buf)?;
-        Chunk::StringPool(
-            ResChunkHeader {
-                ty: ChunkType::StringPool as u16,
-                header_size: 28,
-                size: 0,
-            },
+        chunks[0] = Chunk::StringPool(
             ResStringPoolHeader {
                 string_count: strings.len() as u32,
                 style_count: 0,
@@ -150,13 +112,10 @@ impl Xml {
             },
             strings,
             vec![],
-        )
-        .write(&mut buf)?;
-        let string_pool_size = buf.len() as u32 - 8;
-        buf[12..16].copy_from_slice(&string_pool_size.to_le_bytes());
-        buf.extend(chunks);
-        let xml_size = buf.len() as u32;
-        buf[4..8].copy_from_slice(&xml_size.to_le_bytes());
+        );
+        let mut buf = vec![];
+        let mut w = Cursor::new(&mut buf);
+        Chunk::Xml(chunks).write(&mut w)?;
         Ok(buf)
     }
 }
@@ -229,7 +188,7 @@ impl ChunkType {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct ResChunkHeader {
     /// Type identifier for this chunk. The meaning of this value depends
     /// on the containing chunk.
@@ -705,27 +664,18 @@ impl ResSpan {
 
 #[derive(Clone, Debug)]
 pub enum Chunk {
-    StringPool(
-        ResChunkHeader,
-        ResStringPoolHeader,
-        Vec<String>,
-        Vec<Vec<ResSpan>>,
-    ),
-    Table(ResChunkHeader, ResTableHeader, Vec<Chunk>),
-    Xml(ResChunkHeader, Vec<Chunk>),
-    XmlStartNamespace(ResChunkHeader, ResXmlNodeHeader, ResXmlNamespace),
-    XmlEndNamespace(ResChunkHeader, ResXmlNodeHeader, ResXmlNamespace),
-    XmlStartElement(
-        ResChunkHeader,
-        ResXmlNodeHeader,
-        ResXmlStartElement,
-        Vec<ResXmlAttribute>,
-    ),
-    XmlEndElement(ResChunkHeader, ResXmlNodeHeader, ResXmlEndElement),
-    XmlResourceMap(ResChunkHeader, Vec<u32>),
-    TablePackage(ResChunkHeader, ResTablePackageHeader, Vec<Chunk>),
-    TableType(ResChunkHeader, ResTableTypeHeader, Vec<u8>),
-    TableTypeSpec(ResChunkHeader, ResTableTypeSpecHeader, Vec<u32>),
+    Null,
+    StringPool(ResStringPoolHeader, Vec<String>, Vec<Vec<ResSpan>>),
+    Table(ResTableHeader, Vec<Chunk>),
+    Xml(Vec<Chunk>),
+    XmlStartNamespace(ResXmlNodeHeader, ResXmlNamespace),
+    XmlEndNamespace(ResXmlNodeHeader, ResXmlNamespace),
+    XmlStartElement(ResXmlNodeHeader, ResXmlStartElement, Vec<ResXmlAttribute>),
+    XmlEndElement(ResXmlNodeHeader, ResXmlEndElement),
+    XmlResourceMap(Vec<u32>),
+    TablePackage(ResTablePackageHeader, Vec<Chunk>),
+    TableType(ResTableTypeHeader, Vec<u8>),
+    TableTypeSpec(ResTableTypeSpecHeader, Vec<u32>),
 }
 
 impl Chunk {
@@ -806,12 +756,7 @@ impl Chunk {
                     }
                     styles.push(spans);
                 }
-                Ok(Chunk::StringPool(
-                    header,
-                    string_pool_header,
-                    strings,
-                    styles,
-                ))
+                Ok(Chunk::StringPool(string_pool_header, strings, styles))
             }
             Some(ChunkType::Table) => {
                 let table_header = ResTableHeader::read(r)?;
@@ -819,24 +764,24 @@ impl Chunk {
                 while r.seek(SeekFrom::Current(0))? < end_pos {
                     chunks.push(Chunk::parse(r)?);
                 }
-                Ok(Chunk::Table(header, table_header, chunks))
+                Ok(Chunk::Table(table_header, chunks))
             }
             Some(ChunkType::Xml) => {
                 let mut chunks = vec![];
                 while r.seek(SeekFrom::Current(0))? < end_pos {
                     chunks.push(Chunk::parse(r)?);
                 }
-                Ok(Chunk::Xml(header, chunks))
+                Ok(Chunk::Xml(chunks))
             }
             Some(ChunkType::XmlStartNamespace) => {
                 let node_header = ResXmlNodeHeader::read(r)?;
                 let namespace = ResXmlNamespace::read(r)?;
-                Ok(Chunk::XmlStartNamespace(header, node_header, namespace))
+                Ok(Chunk::XmlStartNamespace(node_header, namespace))
             }
             Some(ChunkType::XmlEndNamespace) => {
                 let node_header = ResXmlNodeHeader::read(r)?;
                 let namespace = ResXmlNamespace::read(r)?;
-                Ok(Chunk::XmlEndNamespace(header, node_header, namespace))
+                Ok(Chunk::XmlEndNamespace(node_header, namespace))
             }
             Some(ChunkType::XmlStartElement) => {
                 let node_header = ResXmlNodeHeader::read(r)?;
@@ -846,7 +791,6 @@ impl Chunk {
                     attributes.push(ResXmlAttribute::read(r)?);
                 }
                 Ok(Chunk::XmlStartElement(
-                    header,
                     node_header,
                     start_element,
                     attributes,
@@ -855,7 +799,7 @@ impl Chunk {
             Some(ChunkType::XmlEndElement) => {
                 let node_header = ResXmlNodeHeader::read(r)?;
                 let end_element = ResXmlEndElement::read(r)?;
-                Ok(Chunk::XmlEndElement(header, node_header, end_element))
+                Ok(Chunk::XmlEndElement(node_header, end_element))
             }
             Some(ChunkType::XmlResourceMap) => {
                 let mut resource_map =
@@ -863,7 +807,7 @@ impl Chunk {
                 for _ in 0..resource_map.capacity() {
                     resource_map.push(r.read_u32::<LittleEndian>()?);
                 }
-                Ok(Chunk::XmlResourceMap(header, resource_map))
+                Ok(Chunk::XmlResourceMap(resource_map))
             }
             Some(ChunkType::TablePackage) => {
                 let package_header = ResTablePackageHeader::read(r)?;
@@ -871,13 +815,13 @@ impl Chunk {
                 while r.seek(SeekFrom::Current(0))? < end_pos {
                     chunks.push(Chunk::parse(r)?);
                 }
-                Ok(Chunk::TablePackage(header, package_header, chunks))
+                Ok(Chunk::TablePackage(package_header, chunks))
             }
             Some(ChunkType::TableType) => {
                 let type_header = ResTableTypeHeader::read(r)?;
                 let mut ty = vec![0; header.size as usize - 20]; //header.header_size as usize];
                 r.read_exact(&mut ty)?;
-                Ok(Chunk::TableType(header, type_header, ty))
+                Ok(Chunk::TableType(type_header, ty))
             }
             Some(ChunkType::TableTypeSpec) => {
                 let type_spec_header = ResTableTypeSpecHeader::read(r)?;
@@ -885,7 +829,7 @@ impl Chunk {
                 for c in type_spec.iter_mut() {
                     *c = r.read_u32::<LittleEndian>()?;
                 }
-                Ok(Chunk::TableTypeSpec(header, type_spec_header, type_spec))
+                Ok(Chunk::TableTypeSpec(type_spec_header, type_spec))
             }
             None => {
                 anyhow::bail!("unrecognized chunk {:?}", header);
@@ -893,73 +837,133 @@ impl Chunk {
         }
     }
 
-    pub fn write(&self, w: &mut impl Write) -> Result<()> {
+    pub fn write<W: Seek + Write>(&self, w: &mut W) -> Result<()> {
+        struct ChunkWriter {
+            ty: ChunkType,
+            start_chunk: u64,
+            end_header: u64,
+        }
+        impl ChunkWriter {
+            fn start_chunk<W: Seek + Write>(ty: ChunkType, w: &mut W) -> Result<Self> {
+                let start_chunk = w.seek(SeekFrom::Current(0))?;
+                ResChunkHeader::default().write(w)?;
+                Ok(Self {
+                    ty,
+                    start_chunk,
+                    end_header: 0,
+                })
+            }
+
+            fn end_header<W: Seek + Write>(&mut self, w: &mut W) -> Result<()> {
+                self.end_header = w.seek(SeekFrom::Current(0))?;
+                Ok(())
+            }
+
+            #[must_use]
+            fn end_chunk<W: Seek + Write>(self, w: &mut W) -> Result<()> {
+                assert_ne!(self.end_header, 0);
+                let end_chunk = w.seek(SeekFrom::Current(0))?;
+                let header = ResChunkHeader {
+                    ty: self.ty as u16,
+                    header_size: (self.end_header - self.start_chunk) as u16,
+                    size: (end_chunk - self.start_chunk) as u32,
+                };
+                w.seek(SeekFrom::Start(self.start_chunk))?;
+                header.write(w)?;
+                w.seek(SeekFrom::Start(end_chunk))?;
+                Ok(())
+            }
+        }
         match self {
-            Chunk::StringPool(header, string_pool_header, strings, styles) => {
-                header.write(w)?;
+            Chunk::Null => {}
+            Chunk::StringPool(string_pool_header, strings, styles) => {
+                let mut chunk = ChunkWriter::start_chunk(ChunkType::StringPool, w)?;
+                let mut string_pool_header = string_pool_header.clone();
+                string_pool_header.string_count = 0;
                 string_pool_header.write(w)?;
-                todo!()
+                chunk.end_header(w)?;
+                chunk.end_chunk(w)?;
             }
-            Chunk::Table(header, table_header, chunks) => {
-                header.write(w)?;
+            Chunk::Table(table_header, chunks) => {
+                let mut chunk = ChunkWriter::start_chunk(ChunkType::Table, w)?;
                 table_header.write(w)?;
+                chunk.end_header(w)?;
                 for chunk in chunks {
                     chunk.write(w)?;
                 }
+                chunk.end_chunk(w)?;
             }
-            Chunk::Xml(header, chunks) => {
-                header.write(w)?;
+            Chunk::Xml(chunks) => {
+                let mut chunk = ChunkWriter::start_chunk(ChunkType::Xml, w)?;
+                chunk.end_header(w)?;
                 for chunk in chunks {
                     chunk.write(w)?;
                 }
+                chunk.end_chunk(w)?;
             }
-            Chunk::XmlStartNamespace(header, node_header, namespace) => {
-                header.write(w)?;
+            Chunk::XmlStartNamespace(node_header, namespace) => {
+                let mut chunk = ChunkWriter::start_chunk(ChunkType::XmlStartNamespace, w)?;
                 node_header.write(w)?;
+                chunk.end_header(w)?;
                 namespace.write(w)?;
+                chunk.end_chunk(w)?;
             }
-            Chunk::XmlEndNamespace(header, node_header, namespace) => {
-                header.write(w)?;
+            Chunk::XmlEndNamespace(node_header, namespace) => {
+                let mut chunk = ChunkWriter::start_chunk(ChunkType::XmlEndNamespace, w)?;
                 node_header.write(w)?;
+                chunk.end_header(w)?;
                 namespace.write(w)?;
+                chunk.end_chunk(w)?;
             }
-            Chunk::XmlStartElement(header, node_header, start_element, attributes) => {
-                header.write(w)?;
+            Chunk::XmlStartElement(node_header, start_element, attributes) => {
+                let mut chunk = ChunkWriter::start_chunk(ChunkType::XmlStartElement, w)?;
                 node_header.write(w)?;
+                chunk.end_header(w)?;
                 start_element.write(w)?;
                 for attr in attributes {
                     attr.write(w)?;
                 }
+                chunk.end_chunk(w)?;
             }
-            Chunk::XmlEndElement(header, node_header, end_element) => {
-                header.write(w)?;
+            Chunk::XmlEndElement(node_header, end_element) => {
+                let mut chunk = ChunkWriter::start_chunk(ChunkType::XmlEndElement, w)?;
                 node_header.write(w)?;
+                chunk.end_header(w)?;
                 end_element.write(w)?;
+                chunk.end_chunk(w)?;
             }
-            Chunk::XmlResourceMap(header, resource_map) => {
-                header.write(w)?;
+            Chunk::XmlResourceMap(resource_map) => {
+                let mut chunk = ChunkWriter::start_chunk(ChunkType::XmlResourceMap, w)?;
+                chunk.end_header(w)?;
                 for entry in resource_map {
                     w.write_u32::<LittleEndian>(*entry)?;
                 }
+                chunk.end_chunk(w)?;
             }
-            Chunk::TablePackage(header, package_header, chunks) => {
-                header.write(w)?;
+            Chunk::TablePackage(package_header, chunks) => {
+                let mut chunk = ChunkWriter::start_chunk(ChunkType::TablePackage, w)?;
                 package_header.write(w)?;
+                chunk.end_header(w)?;
                 for chunk in chunks {
                     chunk.write(w)?;
                 }
+                chunk.end_chunk(w)?;
             }
-            Chunk::TableType(header, type_header, ty) => {
-                header.write(w)?;
+            Chunk::TableType(type_header, ty) => {
+                let mut chunk = ChunkWriter::start_chunk(ChunkType::TableType, w)?;
                 type_header.write(w)?;
+                chunk.end_header(w)?;
                 w.write_all(&ty)?;
+                chunk.end_chunk(w)?;
             }
-            Chunk::TableTypeSpec(header, type_spec_header, type_spec) => {
-                header.write(w)?;
+            Chunk::TableTypeSpec(type_spec_header, type_spec) => {
+                let mut chunk = ChunkWriter::start_chunk(ChunkType::TableTypeSpec, w)?;
                 type_spec_header.write(w)?;
+                chunk.end_header(w)?;
                 for spec in type_spec {
                     w.write_u32::<LittleEndian>(*spec)?;
                 }
+                chunk.end_chunk(w)?;
             }
         }
         Ok(())
