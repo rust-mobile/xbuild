@@ -1,7 +1,5 @@
-use crate::apk::bxml::Xml;
 use crate::{Signer, ZipFileOptions};
 use anyhow::Result;
-use serde::Serialize;
 use std::fs::File;
 use std::io::{Seek, Write};
 use std::path::Path;
@@ -12,6 +10,8 @@ pub mod bxml;
 pub mod manifest;
 pub mod mipmap;
 pub mod sign;
+
+pub use bxml::Xml;
 
 pub struct ApkBuilder<W: Write + Seek> {
     zip: ZipWriter<W>,
@@ -25,7 +25,9 @@ impl<W: Write + Seek> ApkBuilder<W> {
     }
 
     pub fn add_manifest(&mut self, manifest: &Xml) -> Result<()> {
-        //self.add_xml_file("AndroidManifest.xml", manifest)
+        let bxml = manifest.compile()?;
+        self.start_file("AndroidManifest.xml", ZipFileOptions::Compressed)?;
+        self.zip.write_all(&bxml)?;
         Ok(())
     }
 
@@ -48,14 +50,6 @@ impl<W: Write + Seek> ApkBuilder<W> {
             Path::new("")
         };
         add_recursive(self, source, dest)?;
-        Ok(())
-    }
-
-    fn add_xml_file<T: Serialize>(&mut self, name: &str, xml: &T) -> Result<()> {
-        self.start_file(name, ZipFileOptions::Compressed)?;
-        self.zip
-            .write_all(r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>"#.as_bytes())?;
-        quick_xml::se::to_writer(&mut self.zip, xml)?;
         Ok(())
     }
 

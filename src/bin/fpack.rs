@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::path::Path;
 use std::process::Command;
-use xstore::apk::ApkBuilder;
+use xstore::apk::{ApkBuilder, Xml};
 use xstore::appimage::AppImageBuilder;
 use xstore::{Signer, ZipFileOptions};
 use zip::read::ZipArchive;
@@ -92,8 +92,12 @@ fn main() -> Result<()> {
                 .join("mergeDexDebug")
                 .join("classes.dex");
             builder.add_file(&classes, "classes.dex", ZipFileOptions::Compressed)?;
-            //let manifest = intermediates.join("merged_manifest").join(opt).join("out").join("AndroidManifest.xml");
-            //builder.add_file(&manifest, "AndroidManifest.xml", ZipFileOptions::Compressed)?;
+            let manifest = intermediates
+                .join("merged_manifest")
+                .join(opt)
+                .join("out")
+                .join("AndroidManifest.xml");
+            builder.add_manifest(&Xml::from_path(&manifest)?)?;
             // TODO: generate resources*/
             let apk = Path::new("build")
                 .join("app")
@@ -105,10 +109,7 @@ fn main() -> Result<()> {
             let mut zip = ZipArchive::new(&mut f)?;
             let mut file_names = vec![];
             for name in zip.file_names() {
-                if name.starts_with("res")
-                    || name == "resources.arsc"
-                    || name == "AndroidManifest.xml"
-                {
+                if name.starts_with("res") || name == "resources.arsc" {
                     file_names.push(name.to_string());
                 }
             }

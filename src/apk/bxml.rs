@@ -1,7 +1,7 @@
 use crate::apk::manifest::AndroidManifest;
 use anyhow::Result;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use roxmltree::{Document, Node};
+use roxmltree::{Document, Node, NodeType};
 use std::collections::{BTreeMap, HashMap};
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 use std::path::Path;
@@ -27,6 +27,13 @@ impl Xml {
 
     pub fn compile(&self) -> Result<Vec<u8>> {
         fn compile_node(node: Node, strings: &mut Strings, chunks: &mut Vec<Chunk>) {
+            if node.node_type() != NodeType::Element {
+                for node in node.children() {
+                    compile_node(node, strings, chunks);
+                }
+                return;
+            }
+
             for ns in node.namespaces() {
                 chunks.push(Chunk::XmlStartNamespace(
                     ResXmlNodeHeader::default(),
