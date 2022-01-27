@@ -1,7 +1,7 @@
 use crate::apk::manifest::AndroidManifest;
 use anyhow::Result;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use roxmltree::{Document, Node, NodeType};
+use roxmltree::{Attribute, Document, Node, NodeType};
 use std::collections::{BTreeMap, HashMap};
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 use std::path::Path;
@@ -26,6 +26,15 @@ impl Xml {
     }
 
     pub fn compile(&self) -> Result<Vec<u8>> {
+        // TODO: temproary hack
+        fn compile_attr<'a>(attr: &'a Attribute) -> &'a str {
+            match attr.name() {
+                "configChanges" => "0x40003fb4",
+                "windowSoftInputMode" => "0x10",
+                "launchMode" => "1",
+                _ => attr.value()
+            }
+        }
         fn compile_node(node: Node, strings: &mut Strings, chunks: &mut Vec<Chunk>) {
             if node.node_type() != NodeType::Element {
                 for node in node.children() {
@@ -54,10 +63,11 @@ impl Xml {
                     "style" => style_index = i as u16 + 1,
                     _ => {}
                 }
+                let raw_value = compile_attr(attr);
                 attrs.push(ResXmlAttribute {
                     namespace: attr.namespace().map(|ns| strings.id(ns)).unwrap_or(-1),
                     name: strings.id(attr.name()),
-                    raw_value: strings.id(attr.value()),
+                    raw_value: strings.id(raw_value),
                     typed_value: ResValue {
                         size: attr.value().len() as u16,
                         res0: 0,

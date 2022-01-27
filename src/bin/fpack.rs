@@ -99,7 +99,7 @@ fn main() -> Result<()> {
                 .join("AndroidManifest.xml");
             builder.add_manifest(&Xml::from_path(&manifest)?)?;
             // TODO: generate resources*/
-            let apk = Path::new("build")
+            /*let apk = Path::new("build")
                 .join("app")
                 .join("outputs")
                 .join("apk")
@@ -116,7 +116,7 @@ fn main() -> Result<()> {
             for name in file_names {
                 let f = zip.by_name(&name)?;
                 builder.add_file_from_archive(f)?;
-            }
+            }*/
             builder.sign(&signer)?;
         }
         "aab" => {
