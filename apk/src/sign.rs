@@ -1,12 +1,16 @@
 use anyhow::Result;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use rasn_pkix::Certificate;
 use rsa::pkcs8::FromPublicKey;
 use rsa::{Hash, PaddingScheme, PublicKey, RsaPublicKey};
 use sha2::{Digest as _, Sha256};
 use std::fs::File;
 use std::io::{BufReader, Cursor, Read, Seek, SeekFrom};
 use std::path::Path;
-use x509_parser::prelude::{FromDer, X509Certificate};
+use xcommon::Signer;
+
+const DEBUG_KEY_PEM: &str = include_str!("../assets/debug.key.pem");
+const DEBUG_CERT_PEM: &str = include_str!("../assets/debug.cert.pem");
 
 const CENTRAL_DIRECTORY_END_SIGNATURE: u32 = 0x06054b50;
 const APK_SIGNING_BLOCK_MAGIC: &[u8] = b"APK Sig Block 42";
@@ -16,7 +20,7 @@ const APK_SIGNING_BLOCK_V4_ID: u32 = 0x42726577;
 const RSA_PKCS1V15_SHA2_256: u32 = 0x0103;
 const MAX_CHUNK_SIZE: usize = 1024 * 1024;
 
-pub fn read_zip(path: &Path) -> Result<()> {
+pub fn verify(path: &Path) -> Result<Vec<Certificate>> {
     let f = File::open(path)?;
     let mut r = BufReader::new(f);
     let sblock = parse_apk_signing_block(&mut r)?;
@@ -24,17 +28,17 @@ pub fn read_zip(path: &Path) -> Result<()> {
     for block in &sblock.blocks {
         match block.id {
             APK_SIGNING_BLOCK_V2_ID => {
-                println!("v2 signing block");
+                tracing::debug!("v2 signing block");
                 sblockv2 = Some(*block);
             }
             APK_SIGNING_BLOCK_V3_ID => {
-                println!("v3 signing block");
+                tracing::debug!("v3 signing block");
             }
             APK_SIGNING_BLOCK_V4_ID => {
-                println!("v4 signing block");
+                tracing::debug!("v4 signing block");
             }
             id => {
-                println!("unknown signing block 0x{:x}", id);
+                tracing::debug!("unknown signing block 0x{:x}", id);
             }
         }
     }
@@ -44,6 +48,7 @@ pub fn read_zip(path: &Path) -> Result<()> {
         anyhow::bail!("no sigining block v2 found");
     };
     let zip_hash = compute_digest(&mut r, sblock.sb_start, sblock.cd_start, sblock.cde_start)?;
+    let mut certificates = vec![];
     for signer in &block.signers {
         if signer.signatures.is_empty() {
             anyhow::bail!("found no signatures in v2 block");
@@ -77,18 +82,22 @@ pub fn read_zip(path: &Path) -> Result<()> {
             }
         }
         for cert in &signed_data.certificates {
-            let (rem, cert) = X509Certificate::from_der(cert)?;
-            if !rem.is_empty() {
-                anyhow::bail!("failed to parse x509 certificate");
-            }
-            println!("v2: subject: {}", cert.subject());
-            println!("v2: issuer: {}", cert.issuer());
+            let cert =
+                rasn::der::decode::<Certificate>(cert).map_err(|err| anyhow::anyhow!("{}", err))?;
+            certificates.push(cert);
         }
         for attr in &signed_data.additional_attributes {
-            println!("v2: additional attribute: 0x{:x} {:?}", attr.0, &attr.1);
+            tracing::debug!("v2: additional attribute: 0x{:x} {:?}", attr.0, &attr.1);
         }
     }
-    Ok(())
+    Ok(certificates)
+}
+
+pub fn sign(path: &Path, signer: Option<Signer>) -> Result<()> {
+    let _singer = signer
+        .map(Ok)
+        .unwrap_or_else(|| Signer::new(DEBUG_KEY_PEM, DEBUG_CERT_PEM))?;
+    todo!();
 }
 
 fn compute_digest<R: Read + Seek>(
@@ -201,25 +210,25 @@ fn parse_signed_data<R: Read + Seek>(r: &mut R) -> Result<SignedData> {
 
 #[derive(Debug)]
 pub struct ApkSignatureBlockV2 {
-    pub signers: Vec<Signer>,
+    pub signers: Vec<ApkSigner>,
 }
 
 #[derive(Debug)]
-pub struct Signer {
+pub struct ApkSigner {
     pub signed_data: Vec<u8>,
-    pub signatures: Vec<Signature>,
+    pub signatures: Vec<ApkSignature>,
     pub public_key: Vec<u8>,
 }
 
 #[derive(Debug)]
-pub struct Signature {
+pub struct ApkSignature {
     pub algorithm: u32,
     pub signature: Vec<u8>,
 }
 
 fn parse_apk_signing_block_v2<R: Read + Seek>(
     r: &mut R,
-    block: OpaqueBlock,
+    block: ApkOpaqueBlock,
 ) -> Result<ApkSignatureBlockV2> {
     r.seek(SeekFrom::Start(block.start))?;
     let mut signers = vec![];
@@ -239,7 +248,7 @@ fn parse_apk_signing_block_v2<R: Read + Seek>(
             let size = r.read_u32::<LittleEndian>()?;
             let mut signature = vec![0; size as usize];
             r.read_exact(&mut signature)?;
-            signatures.push(Signature {
+            signatures.push(ApkSignature {
                 algorithm,
                 signature,
             });
@@ -250,7 +259,7 @@ fn parse_apk_signing_block_v2<R: Read + Seek>(
         let mut public_key = vec![0; public_key_size as _];
         r.read_exact(&mut public_key)?;
 
-        signers.push(Signer {
+        signers.push(ApkSigner {
             signed_data,
             signatures,
             public_key,
@@ -262,14 +271,14 @@ fn parse_apk_signing_block_v2<R: Read + Seek>(
 
 #[derive(Debug, Default)]
 pub struct ApkSignatureBlock {
-    pub blocks: Vec<OpaqueBlock>,
+    pub blocks: Vec<ApkOpaqueBlock>,
     pub sb_start: u64,
     pub cd_start: u64,
     pub cde_start: u64,
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct OpaqueBlock {
+pub struct ApkOpaqueBlock {
     pub id: u32,
     pub start: u64,
     pub len: u64,
@@ -293,7 +302,7 @@ fn parse_apk_signing_block<R: Read + Seek>(r: &mut R) -> Result<ApkSignatureBloc
     while remaining_size > 24 {
         let length = r.read_u64::<LittleEndian>()?;
         let id = r.read_u32::<LittleEndian>()?;
-        block.blocks.push(OpaqueBlock {
+        block.blocks.push(ApkOpaqueBlock {
             id,
             start: pos + 8 + 4,
             len: length - 4,
