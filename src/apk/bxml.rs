@@ -32,7 +32,7 @@ impl Xml {
                 "configChanges" => "0x40003fb4",
                 "windowSoftInputMode" => "0x10",
                 "launchMode" => "1",
-                _ => attr.value()
+                _ => attr.value(),
             }
         }
         fn compile_node(node: Node, strings: &mut Strings, chunks: &mut Vec<Chunk>) {

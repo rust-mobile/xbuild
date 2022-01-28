@@ -2,7 +2,8 @@ use super::pkcs7::{build_pkcs7, SPC_INDIRECT_DATA_OBJID, SPC_SIPINFO_OBJID};
 use crate::Signer;
 use anyhow::Result;
 use rasn::prelude::*;
-use rasn_cms::{ContentInfo, EncapsulatedContentInfo, CONTENT_SIGNED_DATA};
+use rasn_cms::pkcs7_compat::EncapsulatedContentInfo;
+use rasn_cms::{ContentInfo, CONTENT_SIGNED_DATA};
 
 const P7X_MAGIC: u32 = 0x504b4358;
 

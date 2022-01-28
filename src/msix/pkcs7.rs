@@ -1,9 +1,7 @@
 use crate::Signer;
 use rasn::prelude::*;
-use rasn_cms::{
-    AlgorithmIdentifier, EncapsulatedContentInfo, IssuerAndSerialNumber, SignedData,
-    SignerIdentifier, SignerInfo,
-};
+use rasn_cms::pkcs7_compat::{EncapsulatedContentInfo, SignedData};
+use rasn_cms::{AlgorithmIdentifier, IssuerAndSerialNumber, SignerIdentifier, SignerInfo};
 use rasn_pkix::Attribute;
 use sha2::{Digest, Sha256};
 
