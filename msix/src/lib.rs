@@ -1,8 +1,8 @@
-use crate::msix::manifest::AppxManifest;
-use crate::{Signer, ZipFileOptions};
+use crate::manifest::AppxManifest;
 use anyhow::Result;
 use serde::Serialize;
 use std::io::{Cursor, Read, Seek, Write};
+use xcommon::{Signer, ZipFileOptions};
 use zip::write::{FileOptions, ZipWriter};
 
 mod block_map;

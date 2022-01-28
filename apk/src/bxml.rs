@@ -1,4 +1,4 @@
-use crate::apk::manifest::AndroidManifest;
+use crate::manifest::AndroidManifest;
 use anyhow::Result;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use roxmltree::{Attribute, Document, Node, NodeType};

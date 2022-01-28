@@ -1,0 +1,16 @@
+[package]
+name = "xmsix"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.53"
+mime_guess = "2.0.3"
+quick-xml = "0.22.0"
+rasn = "0.5.0"
+rasn-cms = "0.5.0"
+rasn-pkix = "0.5.0"
+serde = { version = "1.0.136", features = ["derive"] }
+sha2 = "0.10.1"
+xcommon = { version = "0.1.0", path = "../xcommon" }
+zip = "0.5.13"

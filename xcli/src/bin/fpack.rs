@@ -4,10 +4,9 @@ use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::path::Path;
 use std::process::Command;
-use xstore::apk::{ApkBuilder, Xml};
-use xstore::appimage::AppImageBuilder;
-use xstore::{Signer, ZipFileOptions};
-use zip::read::ZipArchive;
+use xapk::{ApkBuilder, Xml};
+use xappimage::AppImageBuilder;
+use xcommon::{Signer, ZipFileOptions};
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]

@@ -1,10 +1,10 @@
-use crate::Signer;
 use anyhow::{Context, Result};
 use std::fs::{File, Permissions};
 use std::io::{Read, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use xcommon::Signer;
 
 pub struct AppImageBuilder {
     appdir: PathBuf,

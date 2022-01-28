@@ -1,0 +1,13 @@
+[package]
+name = "xcommon"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.53"
+image = "0.23.14"
+pem = "1.0.2"
+rasn = "0.5.0"
+rasn-pkix = "0.5.0"
+rsa = "0.5.0"
+zip = "0.5.13"

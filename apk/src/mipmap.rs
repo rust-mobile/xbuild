@@ -1,6 +1,6 @@
-use crate::Scaler;
 use anyhow::Result;
 use std::path::Path;
+use xcommon::Scaler;
 
 pub const DPI_LABEL: [&str; 5] = ["mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"];
 

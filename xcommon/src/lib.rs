@@ -8,10 +8,6 @@ use rsa::{Hash, PaddingScheme, RsaPrivateKey};
 use std::path::Path;
 use zip::CompressionMethod;
 
-pub mod apk;
-pub mod appimage;
-pub mod msix;
-
 pub struct Scaler {
     img: RgbaImage,
 }
@@ -76,14 +72,14 @@ pub enum ZipFileOptions {
 }
 
 impl ZipFileOptions {
-    fn alignment(self) -> u16 {
+    pub fn alignment(self) -> u16 {
         match self {
             Self::Aligned(align) => align,
             _ => 1,
         }
     }
 
-    fn compression_method(&self) -> CompressionMethod {
+    pub fn compression_method(&self) -> CompressionMethod {
         match self {
             Self::Compressed => CompressionMethod::Deflated,
             _ => CompressionMethod::Stored,

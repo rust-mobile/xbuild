@@ -1,8 +1,8 @@
-use crate::{Signer, ZipFileOptions};
 use anyhow::Result;
 use std::fs::File;
 use std::io::{Seek, Write};
 use std::path::Path;
+use xcommon::{Signer, ZipFileOptions};
 use zip::read::ZipFile;
 use zip::write::{FileOptions, ZipWriter};
 
