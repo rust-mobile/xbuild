@@ -8,7 +8,7 @@ use zip::write::{FileOptions, ZipWriter};
 mod block_map;
 mod content_types;
 pub mod manifest;
-mod p7x;
+pub mod p7x;
 mod pkcs7;
 
 pub struct MsixBuilder<W: Write + Seek> {

@@ -147,6 +147,15 @@ fn cmd_sign(opts: SignOptions, file: &Path) -> Result<()> {
 fn cmd_verify(file: &Path) -> Result<()> {
     let certs = match Format::from_path(file)? {
         Format::Apk => xapk::sign::verify(file)?,
+        Format::Msix => {
+            let signed_data = xmsix::p7x::read_p7x(file)?;
+            for signer in &signed_data.signer_infos {
+                if let rasn_cms::SignerIdentifier::IssuerAndSerialNumber(isn) = &signer.sid {
+                    println!("issuer: {}", display_cert_name(&isn.issuer)?);
+                }
+            }
+            return Ok(());
+        }
         f => unimplemented!("{:?}", f),
     };
     for cert in certs {

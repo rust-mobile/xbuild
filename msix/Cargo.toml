@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.53"
+byteorder = "1.4.3"
 mime_guess = "2.0.3"
 quick-xml = "0.22.0"
 rasn = "0.5.0"
