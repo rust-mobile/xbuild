@@ -8,14 +8,20 @@ use xcommon::Signer;
 
 pub struct AppImageBuilder {
     appdir: PathBuf,
+    out: PathBuf,
     name: String,
 }
 
 impl AppImageBuilder {
-    pub fn new(path: &Path, name: String) -> Result<Self> {
-        let appdir = path.join(format!("{}.AppDir", name));
+    pub fn new(build_dir: &Path, out: &Path, name: String) -> Result<Self> {
+        let appdir = build_dir.join(format!("{}.AppDir", name));
+        std::fs::remove_dir_all(&appdir).ok();
         std::fs::create_dir_all(&appdir)?;
-        Ok(Self { appdir, name })
+        Ok(Self {
+            appdir,
+            out: out.to_path_buf(),
+            name,
+        })
     }
 
     pub fn add_apprun(&self) -> Result<()> {
@@ -71,8 +77,11 @@ impl AppImageBuilder {
         Ok(())
     }
 
-    pub fn sign(self, _signer: &Signer) -> Result<()> {
-        let status = Command::new("appimagetool").arg(self.appdir).status()?;
+    pub fn sign(self, _signer: Option<Signer>) -> Result<()> {
+        let status = Command::new("appimagetool")
+            .arg(self.appdir)
+            .arg(self.out)
+            .status()?;
         if !status.success() {
             anyhow::bail!("failed to build appimage");
         }

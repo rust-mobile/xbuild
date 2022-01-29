@@ -59,7 +59,7 @@ impl<W: Write + Seek> ApkBuilder<W> {
         Ok(())
     }
 
-    pub fn sign(mut self, _signer: &Signer) -> Result<()> {
+    pub fn sign(mut self, _signer: Option<Signer>) -> Result<()> {
         self.zip.finish()?;
         // TODO: sign
         Ok(())
