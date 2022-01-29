@@ -2,7 +2,7 @@ use anyhow::Result;
 use std::fs::File;
 use std::io::{Seek, Write};
 use std::path::Path;
-use xcommon::{Signer, ZipFileOptions};
+use xcommon::ZipFileOptions;
 use zip::read::ZipFile;
 use zip::write::{FileOptions, ZipWriter};
 
@@ -59,9 +59,8 @@ impl<W: Write + Seek> ApkBuilder<W> {
         Ok(())
     }
 
-    pub fn sign(mut self, _signer: Option<Signer>) -> Result<()> {
+    pub fn build(mut self) -> Result<()> {
         self.zip.finish()?;
-        // TODO: sign
         Ok(())
     }
 }

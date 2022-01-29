@@ -159,7 +159,8 @@ fn cmd_build_and_sign(build: BuildOptions, sign: SignOptions) -> Result<PathBuf>
                 .join("out")
                 .join("AndroidManifest.xml");
             builder.add_manifest(&xapk::Xml::from_path(&manifest)?)?;
-            builder.sign(signer)?;
+            builder.build()?;
+            xapk::sign::sign(&out, signer)?;
             Ok(out)
         }
         f => unimplemented!("{:?}", f),

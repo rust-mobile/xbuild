@@ -4,7 +4,8 @@ use image::io::Reader as ImageReader;
 use image::{ImageFormat, RgbaImage};
 use rasn_pkix::Certificate;
 use rsa::pkcs8::FromPrivateKey;
-use rsa::{Hash, PaddingScheme, RsaPrivateKey};
+use rsa::{Hash, PaddingScheme, RsaPrivateKey, RsaPublicKey};
+use sha2::{Digest, Sha256};
 use std::path::Path;
 use zip::CompressionMethod;
 
@@ -35,6 +36,7 @@ impl Scaler {
 
 pub struct Signer {
     key: RsaPrivateKey,
+    pubkey: RsaPublicKey,
     cert: Certificate,
 }
 
@@ -47,16 +49,22 @@ impl Signer {
     /// ```
     pub fn new(private_key: &str, certificate: &str) -> Result<Self> {
         let key = RsaPrivateKey::from_pkcs8_pem(private_key)?;
+        let pubkey = RsaPublicKey::from(&key);
         let pem = pem::parse(certificate)?;
         anyhow::ensure!(pem.tag == "CERTIFICATE");
         let cert = rasn::der::decode::<Certificate>(&pem.contents)
             .map_err(|err| anyhow::anyhow!("{}", err))?;
-        Ok(Self { key, cert })
+        Ok(Self { key, pubkey, cert })
     }
 
-    pub fn sign(&self, digest: [u8; 32]) -> Vec<u8> {
+    pub fn sign(&self, bytes: &[u8]) -> Vec<u8> {
+        let digest = Sha256::digest(bytes);
         let padding = PaddingScheme::new_pkcs1v15_sign(Some(Hash::SHA2_256));
         self.key.sign(padding, &digest).unwrap()
+    }
+
+    pub fn pubkey(&self) -> &RsaPublicKey {
+        &self.pubkey
     }
 
     pub fn cert(&self) -> &Certificate {
