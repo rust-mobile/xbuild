@@ -99,8 +99,8 @@ impl ZipFileOptions {
 mod tests {
     use super::*;
 
-    const KEY: &str = include_str!("../assets/key.pem");
-    const CERT: &str = include_str!("../assets/cert.pem");
+    const KEY: &str = include_str!("../../assets/key.pem");
+    const CERT: &str = include_str!("../../assets/cert.pem");
 
     #[test]
     fn create_signer() {

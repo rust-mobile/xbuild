@@ -43,15 +43,6 @@ impl Xml {
                 return;
             }
 
-            for ns in node.namespaces() {
-                chunks.push(Chunk::XmlStartNamespace(
-                    ResXmlNodeHeader::default(),
-                    ResXmlNamespace {
-                        prefix: ns.name().map(|ns| strings.id(ns)).unwrap_or(-1),
-                        uri: strings.id(ns.uri()),
-                    },
-                ));
-            }
             let mut id_index = 0;
             let mut class_index = 0;
             let mut style_index = 0;
@@ -69,7 +60,7 @@ impl Xml {
                     name: strings.id(attr.name()),
                     raw_value: strings.id(raw_value),
                     typed_value: ResValue {
-                        size: attr.value().len() as u16,
+                        size: 8,
                         res0: 0,
                         data_type: 0x03, // string
                         data: strings.id(attr.value()) as u32,
@@ -103,21 +94,36 @@ impl Xml {
                 ResXmlNodeHeader::default(),
                 ResXmlEndElement { namespace, name },
             ));
-            for ns in node.namespaces() {
-                chunks.push(Chunk::XmlEndNamespace(
-                    ResXmlNodeHeader::default(),
-                    ResXmlNamespace {
-                        prefix: ns.name().map(|ns| strings.id(ns)).unwrap_or(-1),
-                        uri: strings.id(ns.uri()),
-                    },
-                ));
-            }
         }
 
         let doc = Document::parse(&self.0)?;
         let mut strings = Strings::default();
         let mut chunks = vec![Chunk::Null];
-        compile_node(doc.root(), &mut strings, &mut chunks);
+        // add resource map entry for `name`
+        strings.id("name");
+        chunks.push(Chunk::XmlResourceMap(vec![16842755]));
+        strings.id("value");
+        chunks.push(Chunk::XmlResourceMap(vec![16842788]));
+        let root = doc.root_element();
+        for ns in root.namespaces() {
+            chunks.push(Chunk::XmlStartNamespace(
+                ResXmlNodeHeader::default(),
+                ResXmlNamespace {
+                    prefix: ns.name().map(|ns| strings.id(ns)).unwrap_or(-1),
+                    uri: strings.id(ns.uri()),
+                },
+            ));
+        }
+        compile_node(root, &mut strings, &mut chunks);
+        for ns in root.namespaces() {
+            chunks.push(Chunk::XmlEndNamespace(
+                ResXmlNodeHeader::default(),
+                ResXmlNamespace {
+                    prefix: ns.name().map(|ns| strings.id(ns)).unwrap_or(-1),
+                    uri: strings.id(ns.uri()),
+                },
+            ));
+        }
         let strings = strings.finalize();
         chunks[0] = Chunk::StringPool(strings, vec![]);
         let mut buf = vec![];
@@ -1024,9 +1030,11 @@ mod tests {
     fn test_bxml_parse_manifest() -> Result<()> {
         const BXML: &[u8] = include_bytes!("../../assets/AndroidManifest.bxml");
         let mut r = Cursor::new(BXML);
-        let _chunk = Chunk::parse(&mut r)?;
+        let chunk = Chunk::parse(&mut r)?;
         let pos = r.seek(SeekFrom::Current(0))?;
         assert_eq!(pos, BXML.len() as u64);
+        println!("{:#?}", chunk);
+        assert!(false);
         Ok(())
     }
 
@@ -1035,9 +1043,11 @@ mod tests {
         const XML: &str = include_str!("../../assets/AndroidManifest.xml");
         let bxml = Xml::new(XML.to_string()).compile()?;
         let mut cursor = Cursor::new(bxml.as_slice());
-        let _chunk = Chunk::parse(&mut cursor).unwrap();
+        let chunk = Chunk::parse(&mut cursor).unwrap();
         let pos = cursor.seek(SeekFrom::Current(0))?;
         assert_eq!(pos, bxml.len() as u64);
+        println!("{:#?}", chunk);
+        assert!(false);
         Ok(())
     }
 

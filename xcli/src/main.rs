@@ -158,6 +158,11 @@ fn cmd_build_and_sign(build: BuildOptions, sign: SignOptions) -> Result<PathBuf>
                 .join(opt)
                 .join("out")
                 .join("AndroidManifest.xml");
+            /*let manifest = Path::new("android")
+                .join("app")
+                .join("src")
+                .join("main")
+                .join("AndroidManifest.xml");*/
             builder.add_manifest(&xapk::Xml::from_path(&manifest)?)?;
             builder.build()?;
             xapk::sign::sign(&out, signer)?;
