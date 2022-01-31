@@ -153,16 +153,16 @@ fn cmd_build_and_sign(build: BuildOptions, sign: SignOptions) -> Result<PathBuf>
                 .join(dex)
                 .join("classes.dex");
             builder.add_file(&classes, "classes.dex", ZipFileOptions::Compressed)?;
-            let manifest = intermediates
+            /*let manifest = intermediates
                 .join("merged_manifest")
                 .join(opt)
                 .join("out")
-                .join("AndroidManifest.xml");
-            /*let manifest = Path::new("android")
+                .join("AndroidManifest.xml");*/
+            let manifest = Path::new("android")
                 .join("app")
                 .join("src")
                 .join("main")
-                .join("AndroidManifest.xml");*/
+                .join("AndroidManifest.xml");
             builder.add_manifest(&xapk::Xml::from_path(&manifest)?)?;
             builder.build()?;
             xapk::sign::sign(&out, signer)?;
