@@ -9,9 +9,11 @@ clap = { version = "3.0.13", features = ["derive"] }
 rasn = "0.5.0"
 rasn-cms = "0.5.0"
 rasn-pkix = "0.5.0"
+regex = "1.5.4"
 serde = { version = "1.0.136", features = ["derive"] }
 serde_yaml = "0.8.23"
 toml = "0.5.8"
+which = "4.2.4"
 xapk = { version = "0.1.0", path = "../apk" }
 xappimage = { version = "0.1.0", path = "../appimage" }
 xcommon = { version = "0.1.0", path = "../xcommon" }

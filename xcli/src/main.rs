@@ -2,7 +2,6 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::fs::File;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use xcli::{Config, Format, Mode};
 use xcommon::{Signer, ZipFileOptions};
 
@@ -37,6 +36,7 @@ enum Commands {
         #[clap(flatten)]
         run: RunOptions,
     },
+    Devices,
 }
 
 #[derive(Parser, Debug)]
@@ -87,8 +87,10 @@ fn main() -> Result<()> {
             cmd_verify(&file)?;
         }
         Commands::Run { build, sign, run } => {
-            let path = cmd_build_and_sign(build, sign)?;
-            cmd_run(&path, run)?;
+            cmd_run(build, sign, run)?;
+        }
+        Commands::Devices => {
+            cmd_devices()?;
         }
     }
     Ok(())
@@ -98,7 +100,7 @@ fn cmd_build_and_sign(build: BuildOptions, sign: SignOptions) -> Result<PathBuf>
     let format = if let Some(triple) = build.target.as_deref() {
         Format::from_target(triple)?
     } else {
-        Format::from_target(host_triple()?)?
+        Format::from_target(xcli::host_triple()?)?
     };
     let signer = sign.signer()?;
     let (config, mode) = if Path::new("Cargo.toml").exists() {
@@ -116,7 +118,7 @@ fn cmd_build_and_sign(build: BuildOptions, sign: SignOptions) -> Result<PathBuf>
     std::fs::create_dir_all(&out_dir)?;
     match (mode, format) {
         (Mode::Flutter, Format::Appimage) => {
-            flutter_build("linux", build.debug)?;
+            xcli::flutter_build("linux", build.debug)?;
             let out = out_dir.join(format!("{}-x86_64.AppImage", &config.name));
             let build_dir = Path::new("build").join("linux").join("x64").join(opt);
             let builder = xappimage::AppImageBuilder::new(&build_dir, &out, config.name.clone())?;
@@ -130,7 +132,7 @@ fn cmd_build_and_sign(build: BuildOptions, sign: SignOptions) -> Result<PathBuf>
             Ok(out)
         }
         (Mode::Flutter, Format::Apk) => {
-            flutter_build("apk", build.debug)?;
+            xcli::flutter_build("apk", build.debug)?;
             let out = out_dir.join(format!("{}-aarch64.apk", &config.name));
             let mut apk = File::create(&out)?;
             let mut builder = xapk::ApkBuilder::new(&mut apk);
@@ -154,10 +156,10 @@ fn cmd_build_and_sign(build: BuildOptions, sign: SignOptions) -> Result<PathBuf>
                 .join("classes.dex");
             builder.add_file(&classes, "classes.dex", ZipFileOptions::Compressed)?;
             /*let manifest = intermediates
-                .join("merged_manifest")
-                .join(opt)
-                .join("out")
-                .join("AndroidManifest.xml");*/
+            .join("merged_manifest")
+            .join(opt)
+            .join("out")
+            .join("AndroidManifest.xml");*/
             let manifest = Path::new("android")
                 .join("app")
                 .join("src")
@@ -187,7 +189,7 @@ fn cmd_verify(file: &Path) -> Result<()> {
             let signed_data = xmsix::p7x::read_p7x(file)?;
             for signer in &signed_data.signer_infos {
                 if let rasn_cms::SignerIdentifier::IssuerAndSerialNumber(isn) = &signer.sid {
-                    println!("issuer: {}", display_cert_name(&isn.issuer)?);
+                    println!("issuer: {}", xcli::display_cert_name(&isn.issuer)?);
                 }
             }
             return Ok(());
@@ -197,68 +199,29 @@ fn cmd_verify(file: &Path) -> Result<()> {
     for cert in certs {
         println!(
             "subject: {}",
-            display_cert_name(&cert.tbs_certificate.subject)?
+            xcli::display_cert_name(&cert.tbs_certificate.subject)?
         );
         println!(
             "issuer: {}",
-            display_cert_name(&cert.tbs_certificate.issuer)?
+            xcli::display_cert_name(&cert.tbs_certificate.issuer)?
         );
     }
     Ok(())
 }
 
-fn cmd_run(file: &Path, opts: RunOptions) -> Result<()> {
-    todo!();
-}
-
-fn host_triple() -> Result<&'static str> {
-    Ok(if cfg!(target_os = "linux") {
-        "x86_64-unknown-linux-gnu"
-    } else if cfg!(target_os = "macos") {
-        "x86_64-apple-darwin"
-    } else if cfg!(target_os = "windows") {
-        "x86_64-pc-windows-msvc"
-    } else {
-        anyhow::bail!("unsupported host");
-    })
-}
-
-fn flutter_build(target: &str, debug: bool) -> Result<()> {
-    let mut cmd = Command::new("flutter");
-    cmd.arg("build").arg(target);
-    if debug {
-        cmd.arg("--debug");
-    }
-    let status = cmd.status()?;
-    if !status.success() {
-        anyhow::bail!("failed to run flutter");
-    }
+fn cmd_run(build: BuildOptions, sign: SignOptions, opts: RunOptions) -> Result<()> {
+    //let path = cmd_build_and_sign(build, sign)?;
+    let adb = xcli::adb::Adb::which()?;
+    //adb.install(&opts.device, file)?;
+    adb.flutter_attach(&opts.device, "com.example.helloworld", ".MainActivity")?;
     Ok(())
 }
 
-fn display_cert_name(name: &rasn_pkix::Name) -> Result<String> {
-    use rasn::prelude::Oid;
-    let rasn_pkix::Name::RdnSequence(seq) = name;
-    let mut attrs = vec![];
-    for set in seq {
-        for attr in set {
-            let name = match &attr.r#type {
-                ty if Oid::JOINT_ISO_ITU_T_DS_ATTRIBUTE_TYPE_COMMON_NAME == *ty => "CN",
-                ty if Oid::JOINT_ISO_ITU_T_DS_ATTRIBUTE_TYPE_COUNTRY_NAME == *ty => "C",
-                ty if Oid::JOINT_ISO_ITU_T_DS_ATTRIBUTE_TYPE_LOCALITY_NAME == *ty => "L",
-                ty if Oid::JOINT_ISO_ITU_T_DS_ATTRIBUTE_TYPE_STATE_OR_PROVINCE_NAME == *ty => "ST",
-                ty if Oid::JOINT_ISO_ITU_T_DS_ATTRIBUTE_TYPE_ORGANISATION_NAME == *ty => "O",
-                ty if Oid::JOINT_ISO_ITU_T_DS_ATTRIBUTE_TYPE_ORGANISATIONAL_UNIT_NAME == *ty => {
-                    "OU"
-                }
-                oid => unimplemented!("{:?}", oid),
-            };
-            attrs.push(format!(
-                "{}={}",
-                name,
-                std::str::from_utf8(&attr.value.as_bytes()[2..])?
-            ));
+fn cmd_devices() -> Result<()> {
+    if let Ok(adb) = xcli::adb::Adb::which() {
+        for device in adb.devices()? {
+            println!("{}", device);
         }
     }
-    Ok(attrs.join(" "))
+    Ok(())
 }
