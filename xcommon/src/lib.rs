@@ -1,7 +1,7 @@
 use anyhow::Result;
 use image::imageops::FilterType;
 use image::io::Reader as ImageReader;
-use image::{ImageFormat, RgbaImage};
+use image::{DynamicImage, ImageFormat, GenericImageView};
 use rasn_pkix::Certificate;
 use rsa::pkcs8::FromPrivateKey;
 use rsa::{Hash, PaddingScheme, RsaPrivateKey, RsaPublicKey};
@@ -10,12 +10,12 @@ use std::path::Path;
 use zip::CompressionMethod;
 
 pub struct Scaler {
-    img: RgbaImage,
+    img: DynamicImage,
 }
 
 impl Scaler {
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let img = ImageReader::open(path)?.decode()?.to_rgba8();
+        let img = ImageReader::open(path)?.decode()?;
         let (width, height) = img.dimensions();
         if width != height {
             anyhow::bail!("expected width == height");
@@ -24,6 +24,32 @@ impl Scaler {
             anyhow::bail!("expected icon of at least 512x512 px");
         }
         Ok(Self { img })
+    }
+
+    pub fn optimize(&mut self) {
+        let mut is_grayscale = true;
+        let mut is_opaque = true;
+        let (width, height) = self.img.dimensions();
+        for x in 0..width {
+            for y in 0..height {
+                let pixel = self.img.get_pixel(x, y);
+                if pixel[0] != pixel[1] || pixel[1] != pixel[2] {
+                    is_grayscale = false;
+                }
+                if pixel[3] != 255 {
+                    is_opaque = false;
+                }
+                if !is_grayscale && !is_opaque {
+                    break;
+                }
+            }
+        }
+        match (is_grayscale, is_opaque) {
+            (true, true) => self.img = DynamicImage::ImageLuma8(self.img.to_luma8()),
+            (true, false) => self.img = DynamicImage::ImageLumaA8(self.img.to_luma_alpha8()),
+            (false, true) => self.img = DynamicImage::ImageRgb8(self.img.to_rgb8()),
+            (false, false) => {}
+        }
     }
 
     pub fn write<P: AsRef<Path>>(&self, path: P, size: u32) -> Result<()> {
