@@ -1,8 +1,5 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize, Serializer};
-use std::fs::File;
-use std::io::BufReader;
-use std::path::Path;
 
 /// Android [manifest element](https://developer.android.com/guide/topics/manifest/manifest-element), containing an [`Application`] element.
 #[derive(Clone, Debug, Deserialize, Serialize)]

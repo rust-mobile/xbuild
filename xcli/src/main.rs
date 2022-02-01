@@ -1,5 +1,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use std::fs::File;
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use xcli::{Config, Format, Mode};
 use xcommon::Signer;
@@ -36,6 +38,7 @@ enum Commands {
         run: RunOptions,
     },
     Devices,
+    Dump { file: PathBuf },
 }
 
 #[derive(Parser, Debug)]
@@ -90,6 +93,11 @@ fn main() -> Result<()> {
         }
         Commands::Devices => {
             cmd_devices()?;
+        }
+        Commands::Dump { file } => {
+            let mut reader = BufReader::new(File::open(file)?);
+            let chunk = xapk::res::Chunk::parse(&mut reader)?;
+            println!("{:#?}", chunk);
         }
     }
     Ok(())

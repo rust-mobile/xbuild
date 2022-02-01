@@ -4,7 +4,6 @@ use crate::res::{
     ResTableTypeHeader, ResTableTypeSpecHeader, ResValue, ScreenType,
 };
 use anyhow::Result;
-use std::collections::{BTreeMap, HashMap};
 
 mod attributes;
 mod xml;
@@ -47,14 +46,15 @@ pub fn compile_mipmap<'a>(package_name: &str, name: &'a str) -> Result<Mipmap<'a
                 ResTablePackageHeader {
                     id: 127,
                     name: package_name.to_string(),
-                    type_strings: 288,   // TODO
-                    last_public_type: 2, // TODO
-                    key_strings: 340,    // TODO
-                    last_public_key: 1,  // TODO
+                    type_strings: 0,
+                    last_public_type: 1,
+                    key_strings: 0,
+                    last_public_key: 1,
                     type_id_offset: 0,
                 },
                 vec![
                     Chunk::StringPool(vec!["mipmap".to_string()], vec![]),
+                    Chunk::StringPool(vec!["icon".to_string()], vec![]),
                     Chunk::TableTypeSpec(
                         ResTableTypeSpecHeader {
                             id: 1,
@@ -89,7 +89,7 @@ fn mipmap_table_type(type_id: u8, density: u16, string_id: u32) -> Chunk {
             entry_count: 1,
             entries_start: 88,
             config: ResTableConfig {
-                size: 32,
+                size: 28,
                 imsi: 0,
                 locale: 0,
                 screen_type: ScreenType {
@@ -140,33 +140,20 @@ impl<'a> Mipmap<'a> {
     }
 }
 
-#[derive(Default)]
-pub struct Strings {
-    strings: HashMap<String, i32>,
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
 
-impl Strings {
-    pub fn id(&mut self, s: &str) -> i32 {
-        if let Some(id) = self.strings.get(s).copied() {
-            id
-        } else {
-            let id = self.strings.len() as i32;
-            self.strings.insert(s.to_string(), id);
-            id
-        }
-    }
-
-    pub fn contains(&self, s: &str) -> bool {
-        self.strings.contains_key(s)
-    }
-
-    pub fn finalize(self) -> Vec<String> {
-        self.strings
-            .into_iter()
-            .map(|(k, v)| (v, k))
-            .collect::<BTreeMap<_, _>>()
-            .into_iter()
-            .map(|(_, v)| v)
-            .collect::<Vec<_>>()
+    #[test]
+    fn test_compile_mipmap() -> Result<()> {
+        let mipmap = compile_mipmap("com.example.helloworld", "icon")?;
+        let mut buf = vec![];
+        let mut cursor = Cursor::new(&mut buf);
+        mipmap.chunk().write(&mut cursor)?;
+        let mut cursor = Cursor::new(&buf);
+        let chunk = Chunk::parse(&mut cursor)?;
+        assert_eq!(*mipmap.chunk(), chunk);
+        Ok(())
     }
 }

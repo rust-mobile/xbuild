@@ -1,29 +1,31 @@
-use crate::compiler::Strings;
 use crate::res::{ResValue, ResXmlAttribute};
 use anyhow::Result;
-use roxmltree::{Attribute, Node};
+use roxmltree::Attribute;
+use std::collections::{BTreeMap, BTreeSet};
 
 static ATTRIBUTES: &[AAttribute<'static>] = &[
+    AAttribute::new("label", Some(16842753), DataType::String),
+    AAttribute::new("icon", Some(16842754), DataType::Reference),
+    AAttribute::new("name", Some(16842755), DataType::String),
+    AAttribute::new("hasCode", Some(16842764), DataType::IntBoolean),
+    AAttribute::new("debuggable", Some(16842767), DataType::IntBoolean),
+    AAttribute::new("exported", Some(16842768), DataType::IntBoolean),
+    AAttribute::new("launchMode", Some(16842781), DataType::IntDec),
+    AAttribute::new("configChanges", Some(16842783), DataType::IntHex),
+    AAttribute::new("value", Some(16842788), DataType::IntDec),
+    AAttribute::new("minSdkVersion", Some(16843276), DataType::IntDec),
+    AAttribute::new("versionCode", Some(16843291), DataType::IntDec),
+    AAttribute::new("versionName", Some(16843292), DataType::String),
+    AAttribute::new("windowSoftInputMode", Some(16843307), DataType::IntHex),
+    AAttribute::new("targetSdkVersion", Some(16843376), DataType::IntDec),
+    AAttribute::new("hardwareAccelerated", Some(16843475), DataType::IntBoolean),
     AAttribute::new("compileSdkVersion", Some(16844146), DataType::IntDec),
     AAttribute::new(
         "compileSdkVersionCodename",
         Some(16844147),
         DataType::String,
     ),
-    AAttribute::new("minSdkVersion", Some(16843276), DataType::IntDec),
-    AAttribute::new("targetSdkVersion", Some(16843376), DataType::IntDec),
-    AAttribute::new("name", Some(16842755), DataType::String),
-    AAttribute::new("icon", Some(16842754), DataType::Reference),
-    AAttribute::new("label", Some(16842753), DataType::String),
-    AAttribute::new("hasCode", Some(16842764), DataType::IntBoolean),
-    AAttribute::new("debuggable", Some(16842767), DataType::IntBoolean),
     AAttribute::new("appComponentFactory", Some(16844154), DataType::String),
-    AAttribute::new("exported", Some(16842768), DataType::IntBoolean),
-    AAttribute::new("launchMode", Some(16842781), DataType::IntDec),
-    AAttribute::new("configChanges", Some(16842783), DataType::IntHex),
-    AAttribute::new("windowSoftInputMode", Some(16843307), DataType::IntHex),
-    AAttribute::new("hardwareAccelerated", Some(16843475), DataType::IntBoolean),
-    AAttribute::new("value", Some(16842788), DataType::IntDec),
     AAttribute::new("package", None, DataType::String),
     AAttribute::new("platformBuildVersionCode", None, DataType::IntDec),
     AAttribute::new("platformBuildVersionName", None, DataType::IntDec),
@@ -60,7 +62,7 @@ impl AAttribute<'static> {
     }
 }
 
-pub fn compile_attr(attr: &Attribute, strings: &mut Strings) -> Result<ResXmlAttribute> {
+pub fn compile_attr(attr: &Attribute, strings: &Strings) -> Result<ResXmlAttribute> {
     let info = ATTRIBUTES
         .iter()
         .find(|a| a.name == attr.name())
@@ -98,21 +100,57 @@ pub fn compile_attr(attr: &Attribute, strings: &mut Strings) -> Result<ResXmlAtt
     })
 }
 
-pub fn create_resource_map(node: Node, strings: &mut Strings, map: &mut Vec<u32>) -> Result<()> {
-    for attr in node.attributes() {
-        if !strings.contains(attr.name()) {
-            if let Some(info) = ATTRIBUTES.iter().find(|a| a.name == attr.name()) {
-                if let Some(res_id) = info.res_id {
-                    strings.id(attr.name());
-                    map.push(res_id);
-                }
+#[derive(Default)]
+pub struct StringPoolBuilder<'a> {
+    attributes: BTreeMap<u32, &'a str>,
+    strings: BTreeSet<&'a str>,
+}
+
+impl<'a> StringPoolBuilder<'a> {
+    pub fn add_attribute(&mut self, attr: &'a Attribute<'a>) -> Result<()> {
+        if let Some(info) = ATTRIBUTES.iter().find(|a| a.name == attr.name()) {
+            if let Some(res_id) = info.res_id {
+                self.attributes.insert(res_id, attr.name());
             } else {
-                anyhow::bail!("unsupported attribute {}", attr.name());
+                self.strings.insert(attr.name());
             }
+            if info.ty == DataType::String {
+                self.strings.insert(attr.value());
+            }
+        } else {
+            anyhow::bail!("unsupported attribute {}", attr.name());
         }
+        Ok(())
     }
-    for node in node.children() {
-        create_resource_map(node, strings, map)?;
+
+    pub fn add_string(&mut self, s: &'a str) {
+        self.strings.insert(s);
     }
-    Ok(())
+
+    pub fn build(self) -> Strings {
+        let mut strings = Vec::with_capacity(self.attributes.len() + self.strings.len());
+        let mut map = Vec::with_capacity(self.attributes.len());
+        for (id, name) in self.attributes {
+            strings.push(name.to_string());
+            map.push(id);
+        }
+        for string in self.strings {
+            strings.push(string.to_string());
+        }
+        Strings { strings, map }
+    }
+}
+
+pub struct Strings {
+    pub strings: Vec<String>,
+    pub map: Vec<u32>,
+}
+
+impl Strings {
+    pub fn id(&self, s2: &str) -> i32 {
+        self.strings
+            .iter()
+            .position(|s| s == s2)
+            .expect("all strings added to the string pool") as i32
+    }
 }

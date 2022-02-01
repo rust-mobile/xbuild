@@ -2,7 +2,7 @@ use anyhow::Result;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Seek, SeekFrom, Write};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u16)]
 pub enum ChunkType {
     //Null = 0x0000,
@@ -43,7 +43,7 @@ impl ChunkType {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct ResChunkHeader {
     /// Type identifier for this chunk. The meaning of this value depends
     /// on the containing chunk.
@@ -79,7 +79,7 @@ impl ResChunkHeader {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct ResStringPoolHeader {
     pub string_count: u32,
     pub style_count: u32,
@@ -121,7 +121,7 @@ impl ResStringPoolHeader {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ResTableHeader {
     pub package_count: u32,
 }
@@ -138,7 +138,7 @@ impl ResTableHeader {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ResXmlNodeHeader {
     pub line_number: u32,
     pub comment: i32,
@@ -146,11 +146,11 @@ pub struct ResXmlNodeHeader {
 
 impl ResXmlNodeHeader {
     pub fn read(r: &mut impl Read) -> Result<Self> {
-        let line_number = r.read_u32::<LittleEndian>()?;
-        let comment = r.read_i32::<LittleEndian>()?;
+        let _line_number = r.read_u32::<LittleEndian>()?;
+        let _comment = r.read_i32::<LittleEndian>()?;
         Ok(Self {
-            line_number,
-            comment,
+            line_number: 1,
+            comment: -1,
         })
     }
 
@@ -170,7 +170,7 @@ impl Default for ResXmlNodeHeader {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ResXmlNamespace {
     pub prefix: i32,
     pub uri: i32,
@@ -190,7 +190,7 @@ impl ResXmlNamespace {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ResXmlStartElement {
     /// String of the full namespace of this element.
     pub namespace: i32,
@@ -264,7 +264,7 @@ impl ResXmlStartElement {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ResXmlAttribute {
     pub namespace: i32,
     pub name: i32,
@@ -295,7 +295,7 @@ impl ResXmlAttribute {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ResXmlEndElement {
     pub namespace: i32,
     pub name: i32,
@@ -345,7 +345,7 @@ impl std::fmt::Display for ResTableRef {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ResTablePackageHeader {
     /// If this is a base package, its ID. Package IDs start
     /// at 1 (corresponding to the value of the package bits in a
@@ -419,7 +419,7 @@ impl ResTablePackageHeader {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ResTableTypeSpecHeader {
     /// The type identifier this chunk is holding. Type IDs start
     /// at 1 (corresponding to the value of the type bits in a
@@ -456,7 +456,7 @@ impl ResTableTypeSpecHeader {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ResTableTypeHeader {
     /// The type identifier this chunk is holding. Type IDs start
     /// at 1 (corresponding to the value of the type bits in a
@@ -503,7 +503,7 @@ impl ResTableTypeHeader {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ResTableConfig {
     pub size: u32,
     pub imsi: u32,
@@ -552,7 +552,7 @@ impl ResTableConfig {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ScreenType {
     pub orientation: u8,
     pub touchscreen: u8,
@@ -579,7 +579,7 @@ impl ScreenType {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ResKey {
     pub size: u16,
     pub flags: u16,
@@ -602,7 +602,7 @@ impl ResKey {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ResValue {
     pub size: u16,
     pub res0: u8,
@@ -633,7 +633,7 @@ impl ResValue {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ResSpan {
     pub name: i32,
     pub first_char: u32,
@@ -663,7 +663,7 @@ impl ResSpan {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Chunk {
     Null,
     StringPool(Vec<String>, Vec<Vec<ResSpan>>),
@@ -988,13 +988,30 @@ impl Chunk {
                 chunk.end_chunk(w)?;
             }
             Chunk::TablePackage(package_header, chunks) => {
+                let package_start = w.seek(SeekFrom::Current(0))?;
                 let mut chunk = ChunkWriter::start_chunk(ChunkType::TablePackage, w)?;
+                let mut package_header = package_header.clone();
+                let header_start = w.seek(SeekFrom::Current(0))?;
                 package_header.write(w)?;
                 chunk.end_header(w)?;
-                for chunk in chunks {
+
+                let type_strings_start = w.seek(SeekFrom::Current(0))?;
+                package_header.type_strings = (type_strings_start - package_start) as u32;
+                chunks[0].write(w)?;
+
+                let key_strings_start = w.seek(SeekFrom::Current(0))?;
+                package_header.key_strings = (key_strings_start - package_start) as u32;
+                chunks[1].write(w)?;
+
+                for chunk in &chunks[2..] {
                     chunk.write(w)?;
                 }
                 chunk.end_chunk(w)?;
+
+                let end = w.seek(SeekFrom::Current(0))?;
+                w.seek(SeekFrom::Start(header_start))?;
+                package_header.write(w)?;
+                w.seek(SeekFrom::Start(end))?;
             }
             Chunk::TableType(type_header, index, entries) => {
                 let mut chunk = ChunkWriter::start_chunk(ChunkType::TableType, w)?;
