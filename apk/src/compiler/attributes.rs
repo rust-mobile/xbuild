@@ -15,6 +15,7 @@ static ATTRIBUTES: &[AAttribute<'static>] = &[
     AAttribute::new("name", Some(16842755), DataType::String),
     AAttribute::new("icon", Some(16842754), DataType::Reference),
     AAttribute::new("label", Some(16842753), DataType::String),
+    AAttribute::new("hasCode", Some(16842764), DataType::IntBoolean),
     AAttribute::new("debuggable", Some(16842767), DataType::IntBoolean),
     AAttribute::new("appComponentFactory", Some(16844154), DataType::String),
     AAttribute::new("exported", Some(16842768), DataType::IntBoolean),

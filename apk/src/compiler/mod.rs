@@ -35,7 +35,7 @@ const DPI_SIZE: [u32; 5] = [48, 72, 96, 144, 192];
 fn variants(name: &str) -> impl Iterator<Item = (String, u32)> + '_ {
     DPI_SIZE
         .into_iter()
-        .map(move |size| (format!("res/{0}/{0}.png", name), size))
+        .map(move |size| (format!("res/{0}/{0}{1}.png", name, size), size))
 }
 
 pub fn compile_mipmap<'a>(package_name: &str, name: &'a str) -> Result<Mipmap<'a>> {

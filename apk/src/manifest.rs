@@ -1,5 +1,8 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize, Serializer};
+use std::fs::File;
+use std::io::BufReader;
+use std::path::Path;
 
 /// Android [manifest element](https://developer.android.com/guide/topics/manifest/manifest-element), containing an [`Application`] element.
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -14,6 +17,14 @@ pub struct AndroidManifest {
     pub version_code: Option<u32>,
     #[serde(rename(serialize = "android:versionName"))]
     pub version_name: Option<String>,
+    #[serde(rename(serialize = "android:compileSdkVersion"))]
+    pub compile_sdk_version: Option<u32>,
+    #[serde(rename(serialize = "android:compileSdkVersionCodename"))]
+    pub compile_sdk_version_codename: Option<u32>,
+    #[serde(rename(serialize = "platformBuildVersionCode"))]
+    pub platform_build_version_code: Option<u32>,
+    #[serde(rename(serialize = "platformBuildVersionName"))]
+    pub platform_build_version_name: Option<u32>,
 
     #[serde(rename(serialize = "uses-sdk"))]
     #[serde(default)]
@@ -41,7 +52,17 @@ impl Default for AndroidManifest {
             uses_feature: Default::default(),
             uses_permission: Default::default(),
             application: Default::default(),
+            compile_sdk_version: Default::default(),
+            compile_sdk_version_codename: Default::default(),
+            platform_build_version_code: Default::default(),
+            platform_build_version_name: Default::default(),
         }
+    }
+}
+
+impl std::fmt::Display for AndroidManifest {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", quick_xml::se::to_string(self).unwrap())
     }
 }
 
@@ -53,8 +74,7 @@ pub struct Application {
     #[serde(rename(serialize = "android:theme"))]
     pub theme: Option<String>,
     #[serde(rename(serialize = "android:hasCode"))]
-    #[serde(default)]
-    pub has_code: bool,
+    pub has_code: Option<bool>,
     #[serde(rename(serialize = "android:icon"))]
     pub icon: Option<String>,
     #[serde(rename(serialize = "android:label"))]

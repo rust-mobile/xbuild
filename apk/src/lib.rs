@@ -9,28 +9,11 @@ mod compiler;
 pub mod manifest;
 pub mod res;
 mod sign;
+mod target;
 
 pub use crate::manifest::AndroidManifest;
+pub use crate::target::Target;
 pub use xcommon::{Certificate, Signer};
-
-pub enum Abi {
-    ArmV7a,
-    ArmV8a,
-    X86,
-    X86_64,
-}
-
-impl std::fmt::Display for Abi {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let abi = match self {
-            Self::ArmV7a => "armeabi-v7a",
-            Self::ArmV8a => "arm64-v8a",
-            Self::X86 => "x86",
-            Self::X86_64 => "x86_64",
-        };
-        write!(f, "{}", abi)
-    }
-}
 
 pub struct Apk {
     path: PathBuf,
@@ -76,20 +59,22 @@ impl Apk {
         Ok(())
     }
 
-    pub fn add_dex(&mut self, dex: &[u8]) -> Result<()> {
-        self.start_file("classes.dex", ZipFileOptions::Compressed)?;
-        self.zip.write_all(&dex)?;
+    pub fn add_dex(&mut self, dex: &Path) -> Result<()> {
+        self.add_file(dex, "classes.dex", ZipFileOptions::Compressed)?;
         Ok(())
     }
 
-    pub fn add_lib(&mut self, abi: Abi, path: &Path) -> Result<()> {
+    pub fn add_lib(&mut self, target: Target, path: &Path) -> Result<()> {
         let name = path
             .file_name()
             .ok_or_else(|| anyhow::anyhow!("invalid path"))?
             .to_str()
             .ok_or_else(|| anyhow::anyhow!("invalid path"))?;
         let mut f = File::open(path)?;
-        self.start_file(&format!("lib/{}/{}", abi, name), ZipFileOptions::Compressed)?;
+        self.start_file(
+            &format!("lib/{}/{}", target.android_abi(), name),
+            ZipFileOptions::Compressed,
+        )?;
         std::io::copy(&mut f, &mut self.zip)?;
         Ok(())
     }

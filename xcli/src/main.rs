@@ -1,9 +1,8 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use std::fs::File;
 use std::path::{Path, PathBuf};
 use xcli::{Config, Format, Mode};
-use xcommon::{Signer, ZipFileOptions};
+use xcommon::Signer;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -97,13 +96,14 @@ fn main() -> Result<()> {
 }
 
 fn cmd_build_and_sign(build: BuildOptions, sign: SignOptions) -> Result<PathBuf> {
-    let format = if let Some(triple) = build.target.as_deref() {
-        Format::from_target(triple)?
+    let triple = if let Some(triple) = build.target.as_deref() {
+        triple
     } else {
-        Format::from_target(xcli::host_triple()?)?
+        xcli::host_triple()?
     };
+    let format = Format::from_target(triple)?;
     let signer = sign.signer()?;
-    let (config, mode) = if Path::new("Cargo.toml").exists() {
+    let (mut config, mode) = if Path::new("Cargo.toml").exists() {
         (Config::parse("Cargo.toml")?, Mode::Cargo)
     } else if Path::new("pubspec.yaml").exists() {
         (Config::parse("pubspec.yaml")?, Mode::Flutter)
@@ -132,18 +132,26 @@ fn cmd_build_and_sign(build: BuildOptions, sign: SignOptions) -> Result<PathBuf>
             Ok(out)
         }
         (Mode::Flutter, Format::Apk) => {
+            let target = xapk::Target::from_rust_triple(triple)?;
+            let manifest = config.apk.manifest.take().unwrap_or_default();
             xcli::flutter_build("apk", build.debug)?;
             let out = out_dir.join(format!("{}-aarch64.apk", &config.name));
-            let mut apk = File::create(&out)?;
-            let mut builder = xapk::ApkBuilder::new(&mut apk);
+            let mut apk = xapk::Apk::new(out.clone())?;
+            apk.add_res(manifest, config.icon(Format::Apk))?;
+
             let intermediates = Path::new("build").join("app").join("intermediates");
             let assets = intermediates.join("merged_assets").join(opt).join("out");
-            builder.add_directory(&assets, Some(Path::new("assets")))?;
-            let libs = intermediates
+            apk.add_assets(&assets)?;
+
+            let lib = intermediates
                 .join("merged_native_libs")
                 .join(opt)
-                .join("out");
-            builder.add_directory(&libs, None)?;
+                .join("out")
+                .join("lib")
+                .join(target.android_abi())
+                .join("libflutter.so");
+            apk.add_lib(target, &lib)?;
+
             let dex = if build.debug {
                 "mergeDexDebug"
             } else {
@@ -154,20 +162,9 @@ fn cmd_build_and_sign(build: BuildOptions, sign: SignOptions) -> Result<PathBuf>
                 .join(opt)
                 .join(dex)
                 .join("classes.dex");
-            builder.add_file(&classes, "classes.dex", ZipFileOptions::Compressed)?;
-            /*let manifest = intermediates
-            .join("merged_manifest")
-            .join(opt)
-            .join("out")
-            .join("AndroidManifest.xml");*/
-            let manifest = Path::new("android")
-                .join("app")
-                .join("src")
-                .join("main")
-                .join("AndroidManifest.xml");
-            builder.add_manifest(&xapk::Xml::from_path(&manifest)?)?;
-            builder.build()?;
-            xapk::sign::sign(&out, signer)?;
+            apk.add_dex(&classes)?;
+
+            apk.finish(signer)?;
             Ok(out)
         }
         f => unimplemented!("{:?}", f),
@@ -176,7 +173,7 @@ fn cmd_build_and_sign(build: BuildOptions, sign: SignOptions) -> Result<PathBuf>
 
 fn cmd_sign(opts: SignOptions, file: &Path) -> Result<()> {
     match Format::from_path(file)? {
-        Format::Apk => xapk::sign::sign(file, opts.signer()?)?,
+        Format::Apk => xapk::Apk::sign(file, opts.signer()?)?,
         f => unimplemented!("{:?}", f),
     }
     Ok(())
@@ -184,7 +181,7 @@ fn cmd_sign(opts: SignOptions, file: &Path) -> Result<()> {
 
 fn cmd_verify(file: &Path) -> Result<()> {
     let certs = match Format::from_path(file)? {
-        Format::Apk => xapk::sign::verify(file)?,
+        Format::Apk => xapk::Apk::verify(file)?,
         Format::Msix => {
             let signed_data = xmsix::p7x::read_p7x(file)?;
             for signer in &signed_data.signer_infos {
@@ -210,9 +207,9 @@ fn cmd_verify(file: &Path) -> Result<()> {
 }
 
 fn cmd_run(build: BuildOptions, sign: SignOptions, opts: RunOptions) -> Result<()> {
-    //let path = cmd_build_and_sign(build, sign)?;
+    let path = cmd_build_and_sign(build, sign)?;
     let adb = xcli::adb::Adb::which()?;
-    //adb.install(&opts.device, file)?;
+    adb.install(&opts.device, &path)?;
     adb.flutter_attach(&opts.device, "com.example.helloworld", ".MainActivity")?;
     Ok(())
 }
