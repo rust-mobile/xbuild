@@ -1,17 +1,18 @@
+use crate::res::Chunk;
 use anyhow::Result;
 use std::fs::File;
-use std::io::{Seek, Write};
-use std::path::Path;
+use std::io::{BufWriter, Cursor, Write};
+use std::path::{Path, PathBuf};
 use xcommon::ZipFileOptions;
 use zip::write::{FileOptions, ZipWriter};
 
+mod compiler;
 pub mod manifest;
-pub mod manifestc;
-pub mod mipmap;
-pub mod res;
-pub mod sign;
+mod res;
+mod sign;
 
-pub use manifestc::Xml;
+pub use crate::manifest::AndroidManifest;
+pub use xcommon::{Certificate, Signer};
 
 pub enum Abi {
     ArmV7a,
@@ -32,31 +33,47 @@ impl std::fmt::Display for Abi {
     }
 }
 
-pub struct ApkBuilder<W: Write + Seek> {
-    zip: ZipWriter<W>,
+pub struct Resources {
+    manifest: Chunk,
+    resources: Option<Chunk>,
 }
 
-impl<W: Write + Seek> ApkBuilder<W> {
-    pub fn new(w: W) -> Self {
-        Self {
-            zip: ZipWriter::new(w),
-        }
+impl Resources {
+    pub fn new(manifest: &AndroidManifest, icon: Option<&Path>) -> Result<Self> {
+        crate::compiler::compile(manifest, icon)
+    }
+}
+
+pub struct Apk {
+    path: PathBuf,
+    zip: ZipWriter<BufWriter<File>>,
+}
+
+impl Apk {
+    pub fn new(path: PathBuf) -> Result<Self> {
+        let zip = ZipWriter::new(BufWriter::new(File::create(&path)?));
+        Ok(Self { path, zip })
     }
 
-    pub fn add_manifest(&mut self, manifest: &Xml) -> Result<()> {
-        let bxml = manifest.compile()?;
+    pub fn add_res(&mut self, res: &Resources) -> Result<()> {
         self.start_file("AndroidManifest.xml", ZipFileOptions::Compressed)?;
-        self.zip.write_all(&bxml)?;
+        let mut buf = vec![];
+        let mut cursor = Cursor::new(&mut buf);
+        res.manifest.write(&mut cursor)?;
+        self.zip.write_all(&buf)?;
+        if let Some(res) = &res.resources {
+            self.start_file("resources.arsc", ZipFileOptions::Aligned(4))?;
+            buf.clear();
+            let mut cursor = Cursor::new(&mut buf);
+            res.write(&mut cursor)?;
+            self.zip.write_all(&buf)?;
+        }
         Ok(())
     }
 
     pub fn add_dex(&mut self, dex: &[u8]) -> Result<()> {
         self.start_file("classes.dex", ZipFileOptions::Compressed)?;
         self.zip.write_all(&dex)?;
-        Ok(())
-    }
-
-    pub fn add_icon(&mut self, icon: &Path) -> Result<()> {
         Ok(())
     }
 
@@ -100,17 +117,22 @@ impl<W: Write + Seek> ApkBuilder<W> {
         Ok(())
     }
 
-    pub fn build(mut self) -> Result<()> {
+    pub fn finish(mut self, signer: Option<Signer>) -> Result<()> {
         self.zip.finish()?;
+        crate::sign::sign(&self.path, signer)?;
         Ok(())
+    }
+
+    pub fn sign(path: &Path, signer: Option<Signer>) -> Result<()> {
+        crate::sign::sign(&path, signer)
+    }
+
+    pub fn verify(path: &Path) -> Result<Vec<Certificate>> {
+        crate::sign::verify(path)
     }
 }
 
-fn add_recursive<W: Write + Seek>(
-    builder: &mut ApkBuilder<W>,
-    source: &Path,
-    dest: &Path,
-) -> Result<()> {
+fn add_recursive(builder: &mut Apk, source: &Path, dest: &Path) -> Result<()> {
     for entry in std::fs::read_dir(source)? {
         let entry = entry?;
         let file_name = entry.file_name();
