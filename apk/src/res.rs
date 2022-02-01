@@ -315,6 +315,36 @@ impl ResXmlEndElement {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ResTableRef(u32);
+
+impl ResTableRef {
+    pub fn new(package: u8, ty: u8, entry: u16) -> Self {
+        let package = (package as u32) << 24;
+        let ty = (ty as u32) << 16;
+        let entry = entry as u32;
+        Self(package | ty | entry)
+    }
+}
+
+impl From<u32> for ResTableRef {
+    fn from(r: u32) -> Self {
+        Self(r)
+    }
+}
+
+impl From<ResTableRef> for u32 {
+    fn from(r: ResTableRef) -> u32 {
+        r.0
+    }
+}
+
+impl std::fmt::Display for ResTableRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct ResTablePackageHeader {
     /// If this is a base package, its ID. Package IDs start
@@ -989,49 +1019,6 @@ impl Chunk {
                 chunk.end_chunk(w)?;
             }
         }
-        Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::io::Cursor;
-
-    #[test]
-    fn test_bxml_parse_manifest() -> Result<()> {
-        const BXML: &[u8] = include_bytes!("../../assets/AndroidManifest.bxml");
-        let mut r = Cursor::new(BXML);
-        let chunk = Chunk::parse(&mut r)?;
-        let pos = r.seek(SeekFrom::Current(0))?;
-        assert_eq!(pos, BXML.len() as u64);
-        println!("{:#?}", chunk);
-        assert!(false);
-        Ok(())
-    }
-
-    #[test]
-    fn test_bxml_gen_manifest() -> Result<()> {
-        const XML: &str = include_str!("../../assets/AndroidManifest.xml");
-        let bxml = Xml::new(XML.to_string()).compile()?;
-        let mut cursor = Cursor::new(bxml.as_slice());
-        let chunk = Chunk::parse(&mut cursor).unwrap();
-        let pos = cursor.seek(SeekFrom::Current(0))?;
-        assert_eq!(pos, bxml.len() as u64);
-        println!("{:#?}", chunk);
-        assert!(false);
-        Ok(())
-    }
-
-    #[test]
-    fn test_bxml_parse_arsc() -> Result<()> {
-        const BXML: &[u8] = include_bytes!("../../assets/resources.arsc");
-        let mut r = Cursor::new(BXML);
-        let chunk = Chunk::parse(&mut r)?;
-        let pos = r.seek(SeekFrom::Current(0))?;
-        assert_eq!(pos, BXML.len() as u64);
-        println!("{:#?}", chunk);
-        assert!(false);
         Ok(())
     }
 }

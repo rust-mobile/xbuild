@@ -13,6 +13,7 @@ static ATTRIBUTES: &[AAttribute<'static>] = &[
     AAttribute::new("minSdkVersion", Some(16843276), DataType::IntDec),
     AAttribute::new("targetSdkVersion", Some(16843376), DataType::IntDec),
     AAttribute::new("name", Some(16842755), DataType::String),
+    AAttribute::new("icon", Some(16842754), DataType::Reference),
     AAttribute::new("label", Some(16842753), DataType::String),
     AAttribute::new("debuggable", Some(16842767), DataType::IntBoolean),
     AAttribute::new("appComponentFactory", Some(16844154), DataType::String),
@@ -37,7 +38,7 @@ struct AAttribute<'a> {
 #[repr(u8)]
 enum DataType {
     //Null = 0x00,
-    //Reference = 0x01,
+    Reference = 0x01,
     //Attribute = 0x02,
     String = 0x03,
     //Float = 0x04,
@@ -63,15 +64,10 @@ pub fn compile_attr(attr: &Attribute, strings: &mut Strings) -> Result<ResXmlAtt
         .iter()
         .find(|a| a.name == attr.name())
         .expect("creating resource map failed");
-    // TODO: temporary hack
-    let value = match attr.name() {
-        "configChanges" => "0x40003fb4",
-        "windowSoftInputMode" => "0x10",
-        "launchMode" => "1",
-        _ => attr.value(),
-    };
+    let value = attr.value();
     let data = match info.ty {
         DataType::String => strings.id(value) as u32,
+        DataType::Reference => value.parse()?,
         DataType::IntDec => value.parse()?,
         DataType::IntHex => {
             anyhow::ensure!(&value[..2] == "0x");

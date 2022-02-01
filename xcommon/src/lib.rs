@@ -1,13 +1,15 @@
 use anyhow::Result;
 use image::imageops::FilterType;
 use image::io::Reader as ImageReader;
-use image::{DynamicImage, ImageFormat, GenericImageView};
-use rasn_pkix::Certificate;
+use image::{DynamicImage, GenericImageView, ImageOutputFormat};
 use rsa::pkcs8::FromPrivateKey;
 use rsa::{Hash, PaddingScheme, RsaPrivateKey, RsaPublicKey};
 use sha2::{Digest, Sha256};
+use std::io::{Seek, Write};
 use std::path::Path;
 use zip::CompressionMethod;
+
+pub use rasn_pkix::Certificate;
 
 pub struct Scaler {
     img: DynamicImage,
@@ -52,10 +54,10 @@ impl Scaler {
         }
     }
 
-    pub fn write<P: AsRef<Path>>(&self, path: P, size: u32) -> Result<()> {
-        let path = path.as_ref();
-        image::imageops::resize(&self.img, size, size, FilterType::Triangle)
-            .save_with_format(path, ImageFormat::Png)?;
+    pub fn write<W: Write + Seek>(&self, w: &mut W, size: u32) -> Result<()> {
+        self.img
+            .resize(size, size, FilterType::Nearest)
+            .write_to(w, ImageOutputFormat::Png)?;
         Ok(())
     }
 }

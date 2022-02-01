@@ -84,7 +84,10 @@ impl Adb {
             .arg(id)
             .status()?;
         if !status.success() {
-            anyhow::bail!("adb shell am force-stop exited with code {:?}", status.code());
+            anyhow::bail!(
+                "adb shell am force-stop exited with code {:?}",
+                status.code()
+            );
         }
         Ok(())
     }
@@ -104,7 +107,13 @@ impl Adb {
         }
         let mut lines = std::str::from_utf8(&output.stdout)?.lines();
         lines.next();
-        Ok(lines.next().unwrap().split_whitespace().nth(1).unwrap().to_string())
+        Ok(lines
+            .next()
+            .unwrap()
+            .split_whitespace()
+            .nth(1)
+            .unwrap()
+            .to_string())
     }
 
     pub fn logcat<F: LogcatFilter>(&self, filter: F) -> Result<Logcat<F>> {

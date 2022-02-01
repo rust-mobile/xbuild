@@ -60,6 +60,8 @@ pub struct Application {
     #[serde(rename(serialize = "android:label"))]
     #[serde(default)]
     pub label: String,
+    #[serde(rename(serialize = "android:appComponentFactory"))]
+    pub app_component_factory: Option<String>,
 
     #[serde(rename(serialize = "meta-data"))]
     #[serde(default)]
@@ -83,6 +85,12 @@ pub struct Activity {
     pub name: String,
     #[serde(rename(serialize = "android:screenOrientation"))]
     pub orientation: Option<String>,
+    #[serde(rename(serialize = "android:windowSoftInputMode"))]
+    pub window_soft_input_mode: Option<String>,
+    #[serde(rename(serialize = "android:exported"))]
+    pub exported: Option<bool>,
+    #[serde(rename(serialize = "android:hardwareAccelerated"))]
+    pub hardware_accelerated: Option<bool>,
 
     #[serde(rename(serialize = "meta-data"))]
     #[serde(default)]
@@ -104,6 +112,9 @@ impl Default for Activity {
             orientation: None,
             meta_data: Default::default(),
             intent_filter: Default::default(),
+            window_soft_input_mode: Default::default(),
+            exported: Default::default(),
+            hardware_accelerated: Default::default(),
         }
     }
 }

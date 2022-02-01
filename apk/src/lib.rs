@@ -1,14 +1,13 @@
-use crate::res::Chunk;
 use anyhow::Result;
 use std::fs::File;
 use std::io::{BufWriter, Cursor, Write};
 use std::path::{Path, PathBuf};
-use xcommon::ZipFileOptions;
+use xcommon::{Scaler, ZipFileOptions};
 use zip::write::{FileOptions, ZipWriter};
 
 mod compiler;
 pub mod manifest;
-mod res;
+pub mod res;
 mod sign;
 
 pub use crate::manifest::AndroidManifest;
@@ -33,17 +32,6 @@ impl std::fmt::Display for Abi {
     }
 }
 
-pub struct Resources {
-    manifest: Chunk,
-    resources: Option<Chunk>,
-}
-
-impl Resources {
-    pub fn new(manifest: &AndroidManifest, icon: Option<&Path>) -> Result<Self> {
-        crate::compiler::compile(manifest, icon)
-    }
-}
-
 pub struct Apk {
     path: PathBuf,
     zip: ZipWriter<BufWriter<File>>,
@@ -55,19 +43,36 @@ impl Apk {
         Ok(Self { path, zip })
     }
 
-    pub fn add_res(&mut self, res: &Resources) -> Result<()> {
-        self.start_file("AndroidManifest.xml", ZipFileOptions::Compressed)?;
+    pub fn add_res(&mut self, manifest: AndroidManifest, icon: Option<&Path>) -> Result<()> {
         let mut buf = vec![];
-        let mut cursor = Cursor::new(&mut buf);
-        res.manifest.write(&mut cursor)?;
-        self.zip.write_all(&buf)?;
-        if let Some(res) = &res.resources {
+        let icon_ref = if let Some(path) = icon {
+            let mut scaler = Scaler::open(path)?;
+            scaler.optimize();
+            let mipmap = crate::compiler::compile_mipmap(&manifest.package, "icon")?;
+
             self.start_file("resources.arsc", ZipFileOptions::Aligned(4))?;
-            buf.clear();
             let mut cursor = Cursor::new(&mut buf);
-            res.write(&mut cursor)?;
+            mipmap.chunk().write(&mut cursor)?;
             self.zip.write_all(&buf)?;
-        }
+
+            for (name, size) in mipmap.variants() {
+                buf.clear();
+                let mut cursor = Cursor::new(&mut buf);
+                scaler.write(&mut cursor, size)?;
+                self.start_file(&name, ZipFileOptions::Aligned(4))?;
+                self.zip.write_all(&buf)?;
+            }
+
+            Some(mipmap.attr_ref())
+        } else {
+            None
+        };
+        let manifest = crate::compiler::compile_manifest(manifest, icon_ref)?;
+        self.start_file("AndroidManifest.xml", ZipFileOptions::Compressed)?;
+        buf.clear();
+        let mut cursor = Cursor::new(&mut buf);
+        manifest.write(&mut cursor)?;
+        self.zip.write_all(&buf)?;
         Ok(())
     }
 
@@ -147,4 +152,48 @@ fn add_recursive(builder: &mut Apk, source: &Path, dest: &Path) -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::res::Chunk;
+    use std::io::{Cursor, Seek, SeekFrom};
+
+    #[test]
+    fn test_bxml_parse_manifest() -> Result<()> {
+        const BXML: &[u8] = include_bytes!("../../assets/AndroidManifest.bxml");
+        let mut r = Cursor::new(BXML);
+        let chunk = Chunk::parse(&mut r)?;
+        let pos = r.seek(SeekFrom::Current(0))?;
+        assert_eq!(pos, BXML.len() as u64);
+        println!("{:#?}", chunk);
+        assert!(false);
+        Ok(())
+    }
+
+    /*#[test]
+    fn test_bxml_gen_manifest() -> Result<()> {
+        const XML: &str = include_str!("../../assets/AndroidManifest.xml");
+        let bxml = Xml::new(XML.to_string()).compile()?;
+        let mut cursor = Cursor::new(bxml.as_slice());
+        let chunk = Chunk::parse(&mut cursor).unwrap();
+        let pos = cursor.seek(SeekFrom::Current(0))?;
+        assert_eq!(pos, bxml.len() as u64);
+        println!("{:#?}", chunk);
+        assert!(false);
+        Ok(())
+    }*/
+
+    #[test]
+    fn test_bxml_parse_arsc() -> Result<()> {
+        const BXML: &[u8] = include_bytes!("../../assets/resources.arsc");
+        let mut r = Cursor::new(BXML);
+        let chunk = Chunk::parse(&mut r)?;
+        let pos = r.seek(SeekFrom::Current(0))?;
+        assert_eq!(pos, BXML.len() as u64);
+        println!("{:#?}", chunk);
+        assert!(false);
+        Ok(())
+    }
 }
