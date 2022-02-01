@@ -1,257 +1,6 @@
-use crate::manifest::AndroidManifest;
 use anyhow::Result;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use roxmltree::{Attribute, Document, Node, NodeType};
-use std::collections::{BTreeMap, HashMap};
-use std::io::{Cursor, Read, Seek, SeekFrom, Write};
-use std::path::Path;
-
-static ATTRIBUTES: &[AAttribute<'static>] = &[
-    AAttribute::new("compileSdkVersion", Some(16844146), DataType::IntDec),
-    AAttribute::new("compileSdkVersionCodename", Some(16844147), DataType::String),
-    AAttribute::new("minSdkVersion", Some(16843276), DataType::IntDec),
-    AAttribute::new("targetSdkVersion", Some(16843376), DataType::IntDec),
-    AAttribute::new("name", Some(16842755), DataType::String),
-    AAttribute::new("label", Some(16842753), DataType::String),
-    AAttribute::new("debuggable", Some(16842767), DataType::IntBoolean),
-    AAttribute::new("appComponentFactory", Some(16844154), DataType::String),
-    AAttribute::new("exported", Some(16842768), DataType::IntBoolean),
-    AAttribute::new("launchMode", Some(16842781), DataType::IntDec),
-    AAttribute::new("configChanges", Some(16842783), DataType::IntHex),
-    AAttribute::new("windowSoftInputMode", Some(16843307), DataType::IntHex),
-    AAttribute::new("hardwareAccelerated", Some(16843475), DataType::IntBoolean),
-    AAttribute::new("value", Some(16842788), DataType::IntDec),
-    AAttribute::new("package", None, DataType::String),
-    AAttribute::new("platformBuildVersionCode", None, DataType::IntDec),
-    AAttribute::new("platformBuildVersionName", None, DataType::IntDec),
-];
-
-struct AAttribute<'a> {
-    name: &'a str,
-    res_id: Option<u32>,
-    ty: DataType,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[repr(u8)]
-enum DataType {
-    //Null = 0x00,
-    //Reference = 0x01,
-    //Attribute = 0x02,
-    String = 0x03,
-    //Float = 0x04,
-    //Dimension = 0x05,
-    //Fraction = 0x06,
-    IntDec = 0x10,
-    IntHex = 0x11,
-    IntBoolean = 0x12,
-    //IntColorArgb8 = 0x1c,
-    //IntColorRgb8 = 0x1d,
-    //IntColorArgb4 = 0x1e,
-    //IntColorRgb4 = 0x1f,
-}
-
-impl AAttribute<'static> {
-    const fn new(name: &'static str, res_id: Option<u32>, ty: DataType) -> Self {
-        Self { name, res_id, ty }
-    }
-}
-
-pub struct Xml(String);
-
-impl Xml {
-    pub fn new(xml: String) -> Self {
-        Self(xml)
-    }
-
-    pub fn from_path(path: &Path) -> Result<Self> {
-        Ok(Self(std::fs::read_to_string(path)?))
-    }
-
-    pub fn from_manifest(manifest: &AndroidManifest) -> Result<Self> {
-        let mut xml = r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>"#
-            .as_bytes()
-            .to_vec();
-        quick_xml::se::to_writer(&mut xml, manifest)?;
-        Ok(Self(String::from_utf8(xml)?))
-    }
-
-    pub fn compile(&self) -> Result<Vec<u8>> {
-        fn create_resource_map(node: Node, strings: &mut Strings, map: &mut Vec<u32>) -> Result<()> {
-            for attr in node.attributes() {
-                if !strings.contains(attr.name()) {
-                    if let Some(info) = ATTRIBUTES.iter().find(|a| a.name == attr.name()) {
-                        if let Some(res_id) = info.res_id {
-                            strings.id(attr.name());
-                            map.push(res_id);
-                        }
-                    } else {
-                        anyhow::bail!("unsupported attribute {}", attr.name());
-                    }
-                }
-            }
-            for node in node.children() {
-                create_resource_map(node, strings, map)?;
-            }
-            Ok(())
-        }
-        fn compile_attr<'a>(attr: &'a Attribute, strings: &mut Strings) -> Result<ResXmlAttribute> {
-            let info = ATTRIBUTES.iter().find(|a| a.name == attr.name())
-                .expect("creating resource map failed");
-            // TODO: temporary hack
-            let value = match attr.name() {
-                "configChanges" => "0x40003fb4",
-                "windowSoftInputMode" => "0x10",
-                "launchMode" => "1",
-                _ => attr.value(),
-            };
-            let data = match info.ty {
-                DataType::String => strings.id(value) as u32,
-                DataType::IntDec => value.parse()?,
-                DataType::IntHex => {
-                    anyhow::ensure!(&value[..2] == "0x");
-                    u32::from_str_radix(&value[2..], 16)?
-                }
-                DataType::IntBoolean => match value {
-                    "true" => 0xffff_ffff,
-                    "false" => 0x0000_0000,
-                    _ => anyhow::bail!("expected boolean"),
-                }
-            };
-            let raw_value = if info.ty == DataType::String {
-                strings.id(value)
-            } else {
-                -1
-            };
-            Ok(ResXmlAttribute {
-                namespace: attr.namespace().map(|ns| strings.id(ns)).unwrap_or(-1),
-                name: strings.id(attr.name()),
-                raw_value,
-                typed_value: ResValue {
-                    size: 8,
-                    res0: 0,
-                    data_type: info.ty as u8,
-                    data,
-                },
-            })
-        }
-
-        fn compile_node(node: Node, strings: &mut Strings, chunks: &mut Vec<Chunk>) -> Result<()> {
-            if node.node_type() != NodeType::Element {
-                for node in node.children() {
-                    compile_node(node, strings, chunks)?;
-                }
-                return Ok(());
-            }
-
-            let mut id_index = 0;
-            let mut class_index = 0;
-            let mut style_index = 0;
-            let mut attrs = vec![];
-            for (i, attr) in node.attributes().iter().enumerate() {
-                match attr.name() {
-                    "id" => id_index = i as u16 + 1,
-                    "class" => class_index = i as u16 + 1,
-                    "style" => style_index = i as u16 + 1,
-                    _ => {}
-                }
-                attrs.push(compile_attr(attr, strings)?);
-            }
-            let namespace = node
-                .tag_name()
-                .namespace()
-                .map(|ns| strings.id(ns))
-                .unwrap_or(-1);
-            let name = strings.id(node.tag_name().name());
-            chunks.push(Chunk::XmlStartElement(
-                ResXmlNodeHeader::default(),
-                ResXmlStartElement {
-                    namespace,
-                    name,
-                    attribute_start: 0x0014,
-                    attribute_size: 0x0014,
-                    attribute_count: attrs.len() as _,
-                    id_index,
-                    class_index,
-                    style_index,
-                },
-                attrs,
-            ));
-            for node in node.children() {
-                compile_node(node, strings, chunks)?;
-            }
-            chunks.push(Chunk::XmlEndElement(
-                ResXmlNodeHeader::default(),
-                ResXmlEndElement { namespace, name },
-            ));
-            Ok(())
-        }
-
-        let doc = Document::parse(&self.0)?;
-        let mut strings = Strings::default();
-        let mut chunks = vec![Chunk::Null];
-        let root = doc.root_element();
-        let mut map = vec![];
-        create_resource_map(root, &mut strings, &mut map)?;
-        chunks.push(Chunk::XmlResourceMap(map));
-        for ns in root.namespaces() {
-            chunks.push(Chunk::XmlStartNamespace(
-                ResXmlNodeHeader::default(),
-                ResXmlNamespace {
-                    prefix: ns.name().map(|ns| strings.id(ns)).unwrap_or(-1),
-                    uri: strings.id(ns.uri()),
-                },
-            ));
-        }
-        compile_node(root, &mut strings, &mut chunks)?;
-        for ns in root.namespaces() {
-            chunks.push(Chunk::XmlEndNamespace(
-                ResXmlNodeHeader::default(),
-                ResXmlNamespace {
-                    prefix: ns.name().map(|ns| strings.id(ns)).unwrap_or(-1),
-                    uri: strings.id(ns.uri()),
-                },
-            ));
-        }
-        let strings = strings.finalize();
-        chunks[0] = Chunk::StringPool(strings, vec![]);
-        let mut buf = vec![];
-        let mut w = Cursor::new(&mut buf);
-        Chunk::Xml(chunks).write(&mut w)?;
-        Ok(buf)
-    }
-}
-
-#[derive(Default)]
-struct Strings {
-    strings: HashMap<String, i32>,
-}
-
-impl Strings {
-    pub fn id(&mut self, s: &str) -> i32 {
-        if let Some(id) = self.strings.get(s).copied() {
-            id
-        } else {
-            let id = self.strings.len() as i32;
-            self.strings.insert(s.to_string(), id);
-            id
-        }
-    }
-
-    pub fn contains(&self, s: &str) -> bool {
-        self.strings.contains_key(s)
-    }
-
-    pub fn finalize(self) -> Vec<String> {
-        self.strings
-            .into_iter()
-            .map(|(k, v)| (v, k))
-            .collect::<BTreeMap<_, _>>()
-            .into_iter()
-            .map(|(_, v)| v)
-            .collect::<Vec<_>>()
-    }
-}
+use std::io::{Read, Seek, SeekFrom, Write};
 
 #[derive(Clone, Copy, Debug)]
 #[repr(u16)]
@@ -298,16 +47,16 @@ impl ChunkType {
 pub struct ResChunkHeader {
     /// Type identifier for this chunk. The meaning of this value depends
     /// on the containing chunk.
-    ty: u16,
+    pub ty: u16,
     /// Size of the chunk header (in bytes). Adding this value to the address
     /// of the chunk allows you to find its associated data (if any).
-    header_size: u16,
+    pub header_size: u16,
     /// Total size of this chunk (in bytes). This is the header_size plus the
     /// size of any data associated with the chunk. Adding this value to the
     /// chunk allows you to completely skip its contents (including any child
     /// chunks). If this value is the same as header_size, there is no data
     /// associated with the chunk.
-    size: u32,
+    pub size: u32,
 }
 
 impl ResChunkHeader {
@@ -332,11 +81,11 @@ impl ResChunkHeader {
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct ResStringPoolHeader {
-    string_count: u32,
-    style_count: u32,
-    flags: u32,
-    strings_start: u32,
-    styles_start: u32,
+    pub string_count: u32,
+    pub style_count: u32,
+    pub flags: u32,
+    pub strings_start: u32,
+    pub styles_start: u32,
 }
 
 impl ResStringPoolHeader {
@@ -374,7 +123,7 @@ impl ResStringPoolHeader {
 
 #[derive(Clone, Copy, Debug)]
 pub struct ResTableHeader {
-    package_count: u32,
+    pub package_count: u32,
 }
 
 impl ResTableHeader {
@@ -391,8 +140,8 @@ impl ResTableHeader {
 
 #[derive(Clone, Copy, Debug)]
 pub struct ResXmlNodeHeader {
-    line_number: u32,
-    comment: i32,
+    pub line_number: u32,
+    pub comment: i32,
 }
 
 impl ResXmlNodeHeader {
@@ -423,8 +172,8 @@ impl Default for ResXmlNodeHeader {
 
 #[derive(Clone, Copy, Debug)]
 pub struct ResXmlNamespace {
-    prefix: i32,
-    uri: i32,
+    pub prefix: i32,
+    pub uri: i32,
 }
 
 impl ResXmlNamespace {
@@ -444,25 +193,25 @@ impl ResXmlNamespace {
 #[derive(Clone, Copy, Debug)]
 pub struct ResXmlStartElement {
     /// String of the full namespace of this element.
-    namespace: i32,
+    pub namespace: i32,
     /// String name of this node if it is an ELEMENT; the raw
     /// character data if this is a CDATA node.
-    name: i32,
+    pub name: i32,
     /// Byte offset from the start of this structure to where
     /// the attributes start.
-    attribute_start: u16,
+    pub attribute_start: u16,
     /// Size of the attribute structures that follow.
-    attribute_size: u16,
+    pub attribute_size: u16,
     /// Number of attributes associated with an ELEMENT. These are
     /// available as an array of ResXmlAttribute structures
     /// immediately following this node.
-    attribute_count: u16,
+    pub attribute_count: u16,
     /// Index (1-based) of the "id" attribute. 0 if none.
-    id_index: u16,
+    pub id_index: u16,
     /// Index (1-based) of the "class" attribute. 0 if none.
-    class_index: u16,
+    pub class_index: u16,
     /// Index (1-based) of the "style" attribute. 0 if none.
-    style_index: u16,
+    pub style_index: u16,
 }
 
 impl Default for ResXmlStartElement {
@@ -517,10 +266,10 @@ impl ResXmlStartElement {
 
 #[derive(Clone, Copy, Debug)]
 pub struct ResXmlAttribute {
-    namespace: i32,
-    name: i32,
-    raw_value: i32,
-    typed_value: ResValue,
+    pub namespace: i32,
+    pub name: i32,
+    pub raw_value: i32,
+    pub typed_value: ResValue,
 }
 
 impl ResXmlAttribute {
@@ -548,8 +297,8 @@ impl ResXmlAttribute {
 
 #[derive(Clone, Copy, Debug)]
 pub struct ResXmlEndElement {
-    namespace: i32,
-    name: i32,
+    pub namespace: i32,
+    pub name: i32,
 }
 
 impl ResXmlEndElement {
@@ -566,36 +315,46 @@ impl ResXmlEndElement {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct ResTablePackageHeader {
     /// If this is a base package, its ID. Package IDs start
     /// at 1 (corresponding to the value of the package bits in a
     /// resource identifier). 0 means this is not a base package.
-    id: u32,
+    pub id: u32,
     /// Actual name of this package, \0-terminated.
-    name: [u16; 128],
+    pub name: String,
     /// Offset to a ResStringPoolHeader defining the resource
     /// type symbol table. If zero, this package is inheriting
     /// from another base package (overriding specific values in it).
-    type_strings: u32,
+    pub type_strings: u32,
     /// Last index into type_strings that is for public use by others.
-    last_public_type: u32,
+    pub last_public_type: u32,
     /// Offset to a ResStringPoolHeader defining the resource key
     /// symbol table. If zero, this package is inheriting from another
     /// base package (overriding specific values in it).
-    key_strings: u32,
+    pub key_strings: u32,
     /// Last index into key_strings that is for public use by others.
-    last_public_key: u32,
-    type_id_offset: u32,
+    pub last_public_key: u32,
+    pub type_id_offset: u32,
 }
 
 impl ResTablePackageHeader {
     pub fn read<R: Read + Seek>(r: &mut R) -> Result<Self> {
         let id = r.read_u32::<LittleEndian>()?;
         let mut name = [0; 128];
-        for c in name.iter_mut() {
-            *c = r.read_u16::<LittleEndian>()?;
+        let mut name_len = 0xff;
+        for i in 0..128 {
+            let c = r.read_u16::<LittleEndian>()?;
+            if name_len < 128 {
+                continue;
+            }
+            if c == 0 {
+                name_len = i;
+            } else {
+                name[i] = c;
+            }
         }
+        let name = String::from_utf16(&name[..name_len])?;
         let type_strings = r.read_u32::<LittleEndian>()?;
         let last_public_type = r.read_u32::<LittleEndian>()?;
         let key_strings = r.read_u32::<LittleEndian>()?;
@@ -614,7 +373,11 @@ impl ResTablePackageHeader {
 
     pub fn write(&self, w: &mut impl Write) -> Result<()> {
         w.write_u32::<LittleEndian>(self.id)?;
-        for c in self.name {
+        let mut name = [0; 128];
+        for (i, c) in self.name.encode_utf16().enumerate() {
+            name[i] = c;
+        }
+        for c in name {
             w.write_u16::<LittleEndian>(c)?;
         }
         w.write_u32::<LittleEndian>(self.type_strings)?;
@@ -631,13 +394,13 @@ pub struct ResTableTypeSpecHeader {
     /// The type identifier this chunk is holding. Type IDs start
     /// at 1 (corresponding to the value of the type bits in a
     /// resource identifier). 0 is invalid.
-    id: u8,
+    pub id: u8,
     /// Must be 0.
-    res0: u8,
+    pub res0: u8,
     /// Must be 0.
-    res1: u16,
+    pub res1: u16,
     /// Number of u32 entry configuration masks that follow.
-    entry_count: u32,
+    pub entry_count: u32,
 }
 
 impl ResTableTypeSpecHeader {
@@ -663,22 +426,22 @@ impl ResTableTypeSpecHeader {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct ResTableTypeHeader {
     /// The type identifier this chunk is holding. Type IDs start
     /// at 1 (corresponding to the value of the type bits in a
     /// resource identifier). 0 is invalid.
-    id: u8,
+    pub id: u8,
     /// Must be 0.
-    res0: u8,
+    pub res0: u8,
     /// Must be 0.
-    res1: u16,
+    pub res1: u16,
     /// Number of u32 entry indices that follow.
-    entry_count: u32,
+    pub entry_count: u32,
     /// Offset from header where ResTableEntry data starts.
-    entries_start: u32,
-    // Configuration this collection of entries is designed for.
-    // config: ResTableConfig,
+    pub entries_start: u32,
+    /// Configuration this collection of entries is designed for.
+    pub config: ResTableConfig,
 }
 
 impl ResTableTypeHeader {
@@ -688,12 +451,14 @@ impl ResTableTypeHeader {
         let res1 = r.read_u16::<LittleEndian>()?;
         let entry_count = r.read_u32::<LittleEndian>()?;
         let entries_start = r.read_u32::<LittleEndian>()?;
+        let config = ResTableConfig::read(r)?;
         Ok(Self {
             id,
             res0,
             res1,
             entry_count,
             entries_start,
+            config,
         })
     }
 
@@ -703,16 +468,116 @@ impl ResTableTypeHeader {
         w.write_u16::<LittleEndian>(self.res1)?;
         w.write_u32::<LittleEndian>(self.entry_count)?;
         w.write_u32::<LittleEndian>(self.entries_start)?;
+        self.config.write(w)?;
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ResTableConfig {
+    pub size: u32,
+    pub imsi: u32,
+    pub locale: u32,
+    pub screen_type: ScreenType,
+    pub input: u32,
+    pub screen_size: u32,
+    pub version: u32,
+    pub unknown: Vec<u8>,
+}
+
+impl ResTableConfig {
+    pub fn read(r: &mut impl Read) -> Result<Self> {
+        let size = r.read_u32::<LittleEndian>()?;
+        let imsi = r.read_u32::<LittleEndian>()?;
+        let locale = r.read_u32::<LittleEndian>()?;
+        let screen_type = ScreenType::read(r)?;
+        let input = r.read_u32::<LittleEndian>()?;
+        let screen_size = r.read_u32::<LittleEndian>()?;
+        let version = r.read_u32::<LittleEndian>()?;
+        let unknown_len = size as usize - 28;
+        let mut unknown = vec![0; unknown_len];
+        r.read_exact(&mut unknown)?;
+        Ok(Self {
+            size,
+            imsi,
+            locale,
+            screen_type,
+            input,
+            screen_size,
+            version,
+            unknown,
+        })
+    }
+
+    pub fn write(&self, w: &mut impl Write) -> Result<()> {
+        w.write_u32::<LittleEndian>(self.size)?;
+        w.write_u32::<LittleEndian>(self.imsi)?;
+        w.write_u32::<LittleEndian>(self.locale)?;
+        self.screen_type.write(w)?;
+        w.write_u32::<LittleEndian>(self.input)?;
+        w.write_u32::<LittleEndian>(self.screen_size)?;
+        w.write_u32::<LittleEndian>(self.version)?;
+        w.write_all(&self.unknown)?;
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct ScreenType {
+    pub orientation: u8,
+    pub touchscreen: u8,
+    pub density: u16,
+}
+
+impl ScreenType {
+    pub fn read(r: &mut impl Read) -> Result<Self> {
+        let orientation = r.read_u8()?;
+        let touchscreen = r.read_u8()?;
+        let density = r.read_u16::<LittleEndian>()?;
+        Ok(Self {
+            orientation,
+            touchscreen,
+            density,
+        })
+    }
+
+    pub fn write(&self, w: &mut impl Write) -> Result<()> {
+        w.write_u8(self.orientation)?;
+        w.write_u8(self.touchscreen)?;
+        w.write_u16::<LittleEndian>(self.density)?;
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct ResKey {
+    pub size: u16,
+    pub flags: u16,
+    pub key: u32,
+}
+
+impl ResKey {
+    pub fn read(r: &mut impl Read) -> Result<Self> {
+        let size = r.read_u16::<LittleEndian>()?;
+        let flags = r.read_u16::<LittleEndian>()?;
+        let key = r.read_u32::<LittleEndian>()?;
+        Ok(Self { size, flags, key })
+    }
+
+    pub fn write(&self, w: &mut impl Write) -> Result<()> {
+        w.write_u16::<LittleEndian>(self.size)?;
+        w.write_u16::<LittleEndian>(self.flags)?;
+        w.write_u32::<LittleEndian>(self.key)?;
         Ok(())
     }
 }
 
 #[derive(Clone, Copy, Debug)]
 pub struct ResValue {
-    size: u16,
-    res0: u8,
-    data_type: u8,
-    data: u32,
+    pub size: u16,
+    pub res0: u8,
+    pub data_type: u8,
+    pub data: u32,
 }
 
 impl ResValue {
@@ -740,9 +605,9 @@ impl ResValue {
 
 #[derive(Clone, Copy, Debug)]
 pub struct ResSpan {
-    name: i32,
-    first_char: u32,
-    last_char: u32,
+    pub name: i32,
+    pub first_char: u32,
+    pub last_char: u32,
 }
 
 impl ResSpan {
@@ -780,7 +645,7 @@ pub enum Chunk {
     XmlEndElement(ResXmlNodeHeader, ResXmlEndElement),
     XmlResourceMap(Vec<u32>),
     TablePackage(ResTablePackageHeader, Vec<Chunk>),
-    TableType(ResTableTypeHeader, Vec<u8>),
+    TableType(ResTableTypeHeader, Vec<u32>, Vec<(ResKey, ResValue)>),
     TableTypeSpec(ResTableTypeSpecHeader, Vec<u32>),
 }
 
@@ -925,9 +790,17 @@ impl Chunk {
             }
             Some(ChunkType::TableType) => {
                 let type_header = ResTableTypeHeader::read(r)?;
-                let mut ty = vec![0; header.size as usize - 20]; //header.header_size as usize];
-                r.read_exact(&mut ty)?;
-                Ok(Chunk::TableType(type_header, ty))
+                let mut index = Vec::with_capacity(type_header.entry_count as usize);
+                for _ in 0..type_header.entry_count {
+                    index.push(r.read_u32::<LittleEndian>()?);
+                }
+                let mut entries = Vec::with_capacity(type_header.entry_count as usize);
+                for _ in 0..type_header.entry_count {
+                    let key = ResKey::read(r)?;
+                    let value = ResValue::read(r)?;
+                    entries.push((key, value));
+                }
+                Ok(Chunk::TableType(type_header, index, entries))
             }
             Some(ChunkType::TableTypeSpec) => {
                 let type_spec_header = ResTableTypeSpecHeader::read(r)?;
@@ -1093,11 +966,17 @@ impl Chunk {
                 }
                 chunk.end_chunk(w)?;
             }
-            Chunk::TableType(type_header, ty) => {
+            Chunk::TableType(type_header, index, entries) => {
                 let mut chunk = ChunkWriter::start_chunk(ChunkType::TableType, w)?;
                 type_header.write(w)?;
                 chunk.end_header(w)?;
-                w.write_all(&ty)?;
+                for offset in index {
+                    w.write_u32::<LittleEndian>(*offset)?;
+                }
+                for (key, value) in entries {
+                    key.write(w)?;
+                    value.write(w)?;
+                }
                 chunk.end_chunk(w)?;
             }
             Chunk::TableTypeSpec(type_spec_header, type_spec) => {
@@ -1148,9 +1027,11 @@ mod tests {
     fn test_bxml_parse_arsc() -> Result<()> {
         const BXML: &[u8] = include_bytes!("../../assets/resources.arsc");
         let mut r = Cursor::new(BXML);
-        let _chunk = Chunk::parse(&mut r)?;
+        let chunk = Chunk::parse(&mut r)?;
         let pos = r.seek(SeekFrom::Current(0))?;
         assert_eq!(pos, BXML.len() as u64);
+        println!("{:#?}", chunk);
+        assert!(false);
         Ok(())
     }
 }
