@@ -1,8 +1,18 @@
 use crate::res::{ResValue, ResXmlAttribute};
 use anyhow::Result;
+use cafebabe::attributes::AttributeData;
+use cafebabe::constant_pool::LiteralConstant;
 use roxmltree::Attribute;
 use std::collections::{BTreeMap, BTreeSet};
+use std::fs::File;
+use std::io::{BufReader, Read};
+use std::path::Path;
+use zip::ZipArchive;
 
+// While the R values for all attributes except `compileSdkVersion` and
+// `compileSdkVersionCodename` can be found quite easily by parsing the
+// `android.jar`, it's not clear why the mentioned attributes need special
+// casing or how to determine the data type.
 static ATTRIBUTES: &[AAttribute<'static>] = &[
     AAttribute::new("label", Some(16842753), DataType::String),
     AAttribute::new("icon", Some(16842754), DataType::Reference),
@@ -153,4 +163,22 @@ impl Strings {
             .position(|s| s == s2)
             .expect("all strings added to the string pool") as i32
     }
+}
+
+pub fn r_value(jar: &Path, class_name: &str, field_name: &str) -> Result<i32> {
+    let mut zip = ZipArchive::new(BufReader::new(File::open(jar)?))?;
+    let mut f = zip.by_name(&format!("android/R${}.class", class_name))?;
+    let mut buf = vec![];
+    f.read_to_end(&mut buf)?;
+    let class = cafebabe::parse_class(&buf)
+        .map_err(|err| anyhow::anyhow!("{}", err))?;
+    let field = class.fields.iter().find(|field| field.name == field_name)
+        .ok_or_else(|| anyhow::anyhow!("failed to locate field {}", field_name))?;
+    let attr = field.attributes.iter().find(|attr| attr.name == "ConstantValue")
+        .ok_or_else(|| anyhow::anyhow!("field is not a constant {}", field_name))?;
+    let i = match attr.data {
+        AttributeData::ConstantValue(LiteralConstant::Integer(i)) => i,
+        _ => anyhow::bail!("unexpected type {:?}", attr.data),
+    };
+    Ok(i)
 }

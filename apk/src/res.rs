@@ -19,6 +19,7 @@ pub enum ChunkType {
     TablePackage = 0x0200,
     TableType = 0x0201,
     TableTypeSpec = 0x0202,
+    Unknown = 0x0206,
 }
 
 impl ChunkType {
@@ -38,6 +39,7 @@ impl ChunkType {
             ty if ty == ChunkType::TablePackage as u16 => ChunkType::TablePackage,
             ty if ty == ChunkType::TableType as u16 => ChunkType::TableType,
             ty if ty == ChunkType::TableTypeSpec as u16 => ChunkType::TableTypeSpec,
+            ty if ty == ChunkType::Unknown as u16 => ChunkType::Unknown,
             _ => return None,
         })
     }
@@ -677,6 +679,7 @@ pub enum Chunk {
     TablePackage(ResTablePackageHeader, Vec<Chunk>),
     TableType(ResTableTypeHeader, Vec<u32>, Vec<(ResKey, ResValue)>),
     TableTypeSpec(ResTableTypeSpecHeader, Vec<u32>),
+    Unknown,
 }
 
 impl Chunk {
@@ -686,6 +689,7 @@ impl Chunk {
         let end_pos = start_pos + header.size as u64;
         match ChunkType::from_u16(header.ty) {
             Some(ChunkType::StringPool) => {
+                tracing::trace!("string pool");
                 let string_pool_header = ResStringPoolHeader::read(r)?;
                 let count =
                     string_pool_header.string_count as i64 + string_pool_header.style_count as i64;
@@ -757,9 +761,12 @@ impl Chunk {
                     }
                     styles.push(spans);
                 }
+                // FIXME: skip some unparsable parts
+                r.seek(SeekFrom::Start(end_pos))?;
                 Ok(Chunk::StringPool(strings, styles))
             }
             Some(ChunkType::Table) => {
+                tracing::trace!("table");
                 let table_header = ResTableHeader::read(r)?;
                 let mut chunks = vec![];
                 while r.seek(SeekFrom::Current(0))? < end_pos {
@@ -768,6 +775,7 @@ impl Chunk {
                 Ok(Chunk::Table(table_header, chunks))
             }
             Some(ChunkType::Xml) => {
+                tracing::trace!("xml");
                 let mut chunks = vec![];
                 while r.seek(SeekFrom::Current(0))? < end_pos {
                     chunks.push(Chunk::parse(r)?);
@@ -775,16 +783,19 @@ impl Chunk {
                 Ok(Chunk::Xml(chunks))
             }
             Some(ChunkType::XmlStartNamespace) => {
+                tracing::trace!("xml start namespace");
                 let node_header = ResXmlNodeHeader::read(r)?;
                 let namespace = ResXmlNamespace::read(r)?;
                 Ok(Chunk::XmlStartNamespace(node_header, namespace))
             }
             Some(ChunkType::XmlEndNamespace) => {
+                tracing::trace!("xml end namespace");
                 let node_header = ResXmlNodeHeader::read(r)?;
                 let namespace = ResXmlNamespace::read(r)?;
                 Ok(Chunk::XmlEndNamespace(node_header, namespace))
             }
             Some(ChunkType::XmlStartElement) => {
+                tracing::trace!("xml start element");
                 let node_header = ResXmlNodeHeader::read(r)?;
                 let start_element = ResXmlStartElement::read(r)?;
                 let mut attributes = Vec::with_capacity(start_element.attribute_count as usize);
@@ -798,11 +809,13 @@ impl Chunk {
                 ))
             }
             Some(ChunkType::XmlEndElement) => {
+                tracing::trace!("xml end element");
                 let node_header = ResXmlNodeHeader::read(r)?;
                 let end_element = ResXmlEndElement::read(r)?;
                 Ok(Chunk::XmlEndElement(node_header, end_element))
             }
             Some(ChunkType::XmlResourceMap) => {
+                tracing::trace!("xml resource map");
                 let mut resource_map =
                     Vec::with_capacity((header.size as usize - header.header_size as usize) / 4);
                 for _ in 0..resource_map.capacity() {
@@ -811,6 +824,7 @@ impl Chunk {
                 Ok(Chunk::XmlResourceMap(resource_map))
             }
             Some(ChunkType::TablePackage) => {
+                tracing::trace!("table package");
                 let package_header = ResTablePackageHeader::read(r)?;
                 let mut chunks = vec![];
                 while r.seek(SeekFrom::Current(0))? < end_pos {
@@ -819,6 +833,7 @@ impl Chunk {
                 Ok(Chunk::TablePackage(package_header, chunks))
             }
             Some(ChunkType::TableType) => {
+                tracing::trace!("table type");
                 let type_header = ResTableTypeHeader::read(r)?;
                 let mut index = Vec::with_capacity(type_header.entry_count as usize);
                 for _ in 0..type_header.entry_count {
@@ -833,12 +848,19 @@ impl Chunk {
                 Ok(Chunk::TableType(type_header, index, entries))
             }
             Some(ChunkType::TableTypeSpec) => {
+                tracing::trace!("table type spec");
                 let type_spec_header = ResTableTypeSpecHeader::read(r)?;
                 let mut type_spec = vec![0; type_spec_header.entry_count as usize];
                 for c in type_spec.iter_mut() {
                     *c = r.read_u32::<LittleEndian>()?;
                 }
                 Ok(Chunk::TableTypeSpec(type_spec_header, type_spec))
+            }
+            Some(ChunkType::Unknown) => {
+                tracing::trace!("unknown");
+                // FIXME: skip some unparsable parts
+                r.seek(SeekFrom::Start(end_pos))?;
+                Ok(Chunk::Unknown)
             }
             None => {
                 anyhow::bail!("unrecognized chunk {:?}", header);
@@ -1035,6 +1057,47 @@ impl Chunk {
                 }
                 chunk.end_chunk(w)?;
             }
+            Chunk::Unknown => {}
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::File;
+    use std::io::{BufReader, Cursor};
+    use std::path::Path;
+    use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
+    use zip::ZipArchive;
+
+    #[test]
+    fn test_parse_android_resources() -> Result<()> {
+        tracing_log::LogTracer::init().ok();
+        let env = std::env::var(EnvFilter::DEFAULT_ENV)
+            .unwrap_or_else(|_| "info".to_owned());
+        let subscriber = tracing_subscriber::FmtSubscriber::builder()
+                .with_span_events(FmtSpan::ACTIVE | FmtSpan::CLOSE)
+                .with_env_filter(EnvFilter::new(env))
+                .with_writer(std::io::stderr)
+                .finish();
+        tracing::subscriber::set_global_default(subscriber).ok();
+        let home = std::env::var("ANDROID_HOME")?;
+        let platforms = Path::new(&home).join("platforms");
+        for entry in std::fs::read_dir(platforms)? {
+            let platform = entry?;
+            let android = platform.path().join("android.jar");
+            if !android.exists() {
+                continue;
+            }
+            let mut zip = ZipArchive::new(BufReader::new(File::open(&android)?))?;
+            let mut f = zip.by_name("resources.arsc")?;
+            let mut buf = vec![];
+            f.read_to_end(&mut buf)?;
+            let mut cursor = Cursor::new(&buf);
+            println!("parsing {}", android.display());
+            Chunk::parse(&mut cursor)?;
         }
         Ok(())
     }
