@@ -170,11 +170,16 @@ pub fn r_value(jar: &Path, class_name: &str, field_name: &str) -> Result<i32> {
     let mut f = zip.by_name(&format!("android/R${}.class", class_name))?;
     let mut buf = vec![];
     f.read_to_end(&mut buf)?;
-    let class = cafebabe::parse_class(&buf)
-        .map_err(|err| anyhow::anyhow!("{}", err))?;
-    let field = class.fields.iter().find(|field| field.name == field_name)
+    let class = cafebabe::parse_class(&buf).map_err(|err| anyhow::anyhow!("{}", err))?;
+    let field = class
+        .fields
+        .iter()
+        .find(|field| field.name == field_name)
         .ok_or_else(|| anyhow::anyhow!("failed to locate field {}", field_name))?;
-    let attr = field.attributes.iter().find(|attr| attr.name == "ConstantValue")
+    let attr = field
+        .attributes
+        .iter()
+        .find(|attr| attr.name == "ConstantValue")
         .ok_or_else(|| anyhow::anyhow!("field is not a constant {}", field_name))?;
     let i = match attr.data {
         AttributeData::ConstantValue(LiteralConstant::Integer(i)) => i,

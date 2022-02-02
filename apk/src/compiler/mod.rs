@@ -1,7 +1,7 @@
 use crate::manifest::AndroidManifest;
 use crate::res::{
-    Chunk, ResKey, ResTableConfig, ResTableHeader, ResTablePackageHeader, ResTableRef,
-    ResTableTypeHeader, ResTableTypeSpecHeader, ResValue, ScreenType,
+    Chunk, ResTableConfig, ResTableEntry, ResTableHeader, ResTablePackageHeader, ResTableRef,
+    ResTableTypeHeader, ResTableTypeSpecHeader, ResTableValue, ResValue, ScreenType,
 };
 use anyhow::Result;
 
@@ -104,19 +104,17 @@ fn mipmap_table_type(type_id: u8, density: u16, string_id: u32) -> Chunk {
             },
         },
         vec![0],
-        vec![(
-            ResKey {
-                size: 8,
-                flags: 0,
-                key: 0,
-            },
-            ResValue {
+        vec![ResTableEntry {
+            size: 8,
+            flags: 0,
+            key: 0,
+            value: ResTableValue::Simple(ResValue {
                 size: 8,
                 res0: 0,
                 data_type: 3,
                 data: string_id,
-            },
-        )],
+            }),
+        }],
     )
 }
 

@@ -5,7 +5,7 @@ use std::io::{Read, Seek, SeekFrom, Write};
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u16)]
 pub enum ChunkType {
-    //Null = 0x0000,
+    Null = 0x0000,
     StringPool = 0x0001,
     Table = 0x0002,
     Xml = 0x0003,
@@ -25,7 +25,7 @@ pub enum ChunkType {
 impl ChunkType {
     pub fn from_u16(ty: u16) -> Option<Self> {
         Some(match ty {
-            //ty if ty == ChunkType::Null as u16 => ChunkType::Null,
+            ty if ty == ChunkType::Null as u16 => ChunkType::Null,
             ty if ty == ChunkType::StringPool as u16 => ChunkType::StringPool,
             ty if ty == ChunkType::Table as u16 => ChunkType::Table,
             ty if ty == ChunkType::Xml as u16 => ChunkType::Xml,
@@ -581,25 +581,82 @@ impl ScreenType {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct ResKey {
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ResTableEntry {
     pub size: u16,
     pub flags: u16,
     pub key: u32,
+    pub value: ResTableValue,
 }
 
-impl ResKey {
+impl ResTableEntry {
+    pub fn is_complex(&self) -> bool {
+        self.flags & 0x1 > 0
+    }
+
+    pub fn is_public(&self) -> bool {
+        self.flags & 0x2 > 0
+    }
+
     pub fn read(r: &mut impl Read) -> Result<Self> {
         let size = r.read_u16::<LittleEndian>()?;
         let flags = r.read_u16::<LittleEndian>()?;
         let key = r.read_u32::<LittleEndian>()?;
-        Ok(Self { size, flags, key })
+        let is_complex = flags & 0x1 > 0;
+        if is_complex {
+            debug_assert_eq!(size, 16);
+        } else {
+            debug_assert_eq!(size, 8);
+        }
+        let value = ResTableValue::read(r, flags & 0x1 > 0)?;
+        Ok(Self {
+            size,
+            flags,
+            key,
+            value,
+        })
     }
 
     pub fn write(&self, w: &mut impl Write) -> Result<()> {
         w.write_u16::<LittleEndian>(self.size)?;
         w.write_u16::<LittleEndian>(self.flags)?;
         w.write_u32::<LittleEndian>(self.key)?;
+        self.value.write(w)?;
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ResTableValue {
+    Simple(ResValue),
+    Complex(ResTableMapEntry, Vec<ResTableMap>),
+}
+
+impl ResTableValue {
+    pub fn read(r: &mut impl Read, is_complex: bool) -> Result<Self> {
+        let res = if is_complex {
+            let entry = ResTableMapEntry::read(r)?;
+            let mut map = Vec::with_capacity(entry.count as usize);
+            for _ in 0..entry.count {
+                map.push(ResTableMap::read(r)?);
+            }
+            Self::Complex(entry, map)
+        } else {
+            Self::Simple(ResValue::read(r)?)
+        };
+        Ok(res)
+    }
+
+    pub fn write(&self, w: &mut impl Write) -> Result<()> {
+        match self {
+            Self::Simple(value) => value.write(w)?,
+            Self::Complex(entry, map) => {
+                entry.write(w)?;
+                for entry in map {
+                    entry.write(w)?;
+                }
+            }
+        }
         Ok(())
     }
 }
@@ -615,6 +672,7 @@ pub struct ResValue {
 impl ResValue {
     pub fn read(r: &mut impl Read) -> Result<Self> {
         let size = r.read_u16::<LittleEndian>()?;
+        debug_assert_eq!(size, 8);
         let res0 = r.read_u8()?;
         let data_type = r.read_u8()?;
         let data = r.read_u32::<LittleEndian>()?;
@@ -631,6 +689,46 @@ impl ResValue {
         w.write_u8(self.res0)?;
         w.write_u8(self.data_type)?;
         w.write_u32::<LittleEndian>(self.data)?;
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ResTableMapEntry {
+    pub parent: u32,
+    pub count: u32,
+}
+
+impl ResTableMapEntry {
+    pub fn read(r: &mut impl Read) -> Result<Self> {
+        let parent = r.read_u32::<LittleEndian>()?;
+        let count = r.read_u32::<LittleEndian>()?;
+        Ok(Self { parent, count })
+    }
+
+    pub fn write(&self, w: &mut impl Write) -> Result<()> {
+        w.write_u32::<LittleEndian>(self.parent)?;
+        w.write_u32::<LittleEndian>(self.count)?;
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ResTableMap {
+    pub name: u32,
+    pub value: ResValue,
+}
+
+impl ResTableMap {
+    pub fn read(r: &mut impl Read) -> Result<Self> {
+        let name = r.read_u32::<LittleEndian>()?;
+        let value = ResValue::read(r)?;
+        Ok(Self { name, value })
+    }
+
+    pub fn write(&self, w: &mut impl Write) -> Result<()> {
+        w.write_u32::<LittleEndian>(self.name)?;
+        self.value.write(w)?;
         Ok(())
     }
 }
@@ -677,7 +775,7 @@ pub enum Chunk {
     XmlEndElement(ResXmlNodeHeader, ResXmlEndElement),
     XmlResourceMap(Vec<u32>),
     TablePackage(ResTablePackageHeader, Vec<Chunk>),
-    TableType(ResTableTypeHeader, Vec<u32>, Vec<(ResKey, ResValue)>),
+    TableType(ResTableTypeHeader, Vec<u32>, Vec<ResTableEntry>),
     TableTypeSpec(ResTableTypeSpecHeader, Vec<u32>),
     Unknown,
 }
@@ -688,6 +786,10 @@ impl Chunk {
         let header = ResChunkHeader::read(r)?;
         let end_pos = start_pos + header.size as u64;
         match ChunkType::from_u16(header.ty) {
+            Some(ChunkType::Null) => {
+                tracing::trace!("null");
+                Ok(Chunk::Null)
+            }
             Some(ChunkType::StringPool) => {
                 tracing::trace!("string pool");
                 let string_pool_header = ResStringPoolHeader::read(r)?;
@@ -836,14 +938,18 @@ impl Chunk {
                 tracing::trace!("table type");
                 let type_header = ResTableTypeHeader::read(r)?;
                 let mut index = Vec::with_capacity(type_header.entry_count as usize);
+                let mut no_entries = 0;
                 for _ in 0..type_header.entry_count {
-                    index.push(r.read_u32::<LittleEndian>()?);
+                    let entry = r.read_u32::<LittleEndian>()?;
+                    if entry == 0xffff_ffff {
+                        no_entries += 1;
+                    }
+                    index.push(entry);
                 }
                 let mut entries = Vec::with_capacity(type_header.entry_count as usize);
-                for _ in 0..type_header.entry_count {
-                    let key = ResKey::read(r)?;
-                    let value = ResValue::read(r)?;
-                    entries.push((key, value));
+                for _ in 0..(type_header.entry_count - no_entries) {
+                    let entry = ResTableEntry::read(r)?;
+                    entries.push(entry);
                 }
                 Ok(Chunk::TableType(type_header, index, entries))
             }
@@ -1042,9 +1148,8 @@ impl Chunk {
                 for offset in index {
                     w.write_u32::<LittleEndian>(*offset)?;
                 }
-                for (key, value) in entries {
-                    key.write(w)?;
-                    value.write(w)?;
+                for entry in entries {
+                    entry.write(w)?;
                 }
                 chunk.end_chunk(w)?;
             }
@@ -1075,13 +1180,12 @@ mod tests {
     #[test]
     fn test_parse_android_resources() -> Result<()> {
         tracing_log::LogTracer::init().ok();
-        let env = std::env::var(EnvFilter::DEFAULT_ENV)
-            .unwrap_or_else(|_| "info".to_owned());
+        let env = std::env::var(EnvFilter::DEFAULT_ENV).unwrap_or_else(|_| "info".to_owned());
         let subscriber = tracing_subscriber::FmtSubscriber::builder()
-                .with_span_events(FmtSpan::ACTIVE | FmtSpan::CLOSE)
-                .with_env_filter(EnvFilter::new(env))
-                .with_writer(std::io::stderr)
-                .finish();
+            .with_span_events(FmtSpan::ACTIVE | FmtSpan::CLOSE)
+            .with_env_filter(EnvFilter::new(env))
+            .with_writer(std::io::stderr)
+            .finish();
         tracing::subscriber::set_global_default(subscriber).ok();
         let home = std::env::var("ANDROID_HOME")?;
         let platforms = Path::new(&home).join("platforms");
@@ -1096,7 +1200,7 @@ mod tests {
             let mut buf = vec![];
             f.read_to_end(&mut buf)?;
             let mut cursor = Cursor::new(&buf);
-            println!("parsing {}", android.display());
+            tracing::info!("parsing {}", android.display());
             Chunk::parse(&mut cursor)?;
         }
         Ok(())
