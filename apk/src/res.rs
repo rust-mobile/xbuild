@@ -1177,6 +1177,25 @@ mod tests {
     use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
     use zip::ZipArchive;
 
+    fn open_android_jar_resource_table() -> Result<Vec<u8>> {
+        let home = std::env::var("ANDROID_HOME")?;
+        let platforms = Path::new(&home).join("platforms");
+        let mut jar = None;
+        for entry in std::fs::read_dir(platforms)? {
+            let android = entry?.path().join("android.jar");
+            if android.exists() {
+                jar = Some(android);
+                break;
+            }
+        }
+        let android = jar.unwrap();
+        let mut zip = ZipArchive::new(BufReader::new(File::open(&android)?))?;
+        let mut f = zip.by_name("resources.arsc")?;
+        let mut buf = vec![];
+        f.read_to_end(&mut buf)?;
+        Ok(buf)
+    }
+
     #[test]
     fn test_parse_android_resources() -> Result<()> {
         tracing_log::LogTracer::init().ok();
@@ -1203,6 +1222,117 @@ mod tests {
             tracing::info!("parsing {}", android.display());
             Chunk::parse(&mut cursor)?;
         }
+        Ok(())
+    }
+
+    #[test]
+    fn test_lookup_config_changes() -> Result<()> {
+        let buf = open_android_jar_resource_table()?;
+        let mut cursor = Cursor::new(&buf);
+        let chunks = if let Chunk::Table(_header, chunks) = Chunk::parse(&mut cursor)? {
+            chunks
+        } else {
+            panic!();
+        };
+        let chunks = if let Chunk::TablePackage(header, chunks) = &chunks[1] {
+            assert_eq!(header.id, 1);
+            assert_eq!(header.name, "android");
+            chunks
+        } else {
+            panic!();
+        };
+        let type_strings = if let Chunk::StringPool(strings, _) = &chunks[0] {
+            strings
+        } else {
+            panic!();
+        };
+        let key_strings = if let Chunk::StringPool(strings, _) = &chunks[1] {
+            strings
+        } else {
+            panic!();
+        };
+        //println!("{:?}", type_strings);
+        let attr = type_strings.iter().position(|s| s.as_str() == "attr").unwrap();
+        let id = type_strings.iter().position(|s| s.as_str() == "id").unwrap();
+        let mut attr_entries = None;
+        let mut id_entries = None;
+        for chunk in &chunks[2..] {
+            match chunk {
+                Chunk::TableType(header, _offsets, entries) => {
+                    match header.id as usize {
+                        x if x == attr + 1 => attr_entries = Some(entries),
+                        x if x == id + 1 => id_entries = Some(entries),
+                        _ => continue,
+                    }
+                }
+                _ => continue,
+            }
+        }
+        let attr_entries = attr_entries.unwrap();
+        let id_entries = id_entries.unwrap();
+
+        let key = key_strings.iter().position(|s| s.as_str() == "configChanges").unwrap();
+
+        let entry = &attr_entries[key];
+        match &entry.value {
+            ResTableValue::Simple(value) => {
+                println!("0x{:x} {:?}", value.data, value.data_type);
+            }
+            ResTableValue::Complex(_, values) => {
+                for entry in &values[1..] {
+                    let id = entry.name as usize & 0xffff;
+                    let key = id_entries[id].key as usize;
+                    println!("{} 0x{:x} {:?}", key_strings[key], entry.value.data, entry.value.data_type);
+                }
+            }
+        }
+        assert!(false);
+        Ok(())
+    }
+
+    #[test]
+    fn test_lookup_ref() -> Result<()> {
+        let buf = open_android_jar_resource_table()?;
+        let mut cursor = Cursor::new(&buf);
+        let chunks = if let Chunk::Table(_header, chunks) = Chunk::parse(&mut cursor)? {
+            chunks
+        } else {
+            panic!();
+        };
+        let chunks = if let Chunk::TablePackage(header, chunks) = &chunks[1] {
+            assert_eq!(header.id, 1);
+            assert_eq!(header.name, "android");
+            chunks
+        } else {
+            panic!();
+        };
+        let type_strings = if let Chunk::StringPool(strings, _) = &chunks[0] {
+            strings
+        } else {
+            panic!();
+        };
+        let key_strings = if let Chunk::StringPool(strings, _) = &chunks[1] {
+            strings
+        } else {
+            panic!();
+        };
+        //println!("{:?}", type_strings);
+        let style = type_strings.iter().position(|s| s.as_str() == "style").unwrap();
+        let key = key_strings.iter().position(|s| s.as_str() == "Theme.Light.NoTitleBar").unwrap();
+        for chunk in &chunks[2..] {
+            match chunk {
+                Chunk::TableType(header, _offsets, entries) => {
+                    if header.id as usize != style + 1 {
+                        continue;
+                    }
+                    let pos = entries.iter().position(|entry| entry.key as usize == key).unwrap();
+                    let r = (0x01 << 24) | ((style + 1) << 16) | pos;
+                    println!("0x{:x}", r);
+                }
+                _ => continue,
+            }
+        }
+        assert!(false);
         Ok(())
     }
 }
