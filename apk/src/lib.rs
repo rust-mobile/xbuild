@@ -1,3 +1,4 @@
+use crate::compiler::Table;
 use anyhow::Result;
 use std::fs::File;
 use std::io::{BufWriter, Cursor, Write};
@@ -26,9 +27,16 @@ impl Apk {
         Ok(Self { path, zip })
     }
 
-    pub fn add_res(&mut self, manifest: AndroidManifest, icon: Option<&Path>) -> Result<()> {
+    pub fn add_res(
+        &mut self,
+        mut manifest: AndroidManifest,
+        icon: Option<&Path>,
+        android: &Path,
+    ) -> Result<()> {
         let mut buf = vec![];
-        let icon_ref = if let Some(path) = icon {
+        let mut table = Table::default();
+        table.import_apk(android)?;
+        if let Some(path) = icon {
             let mut scaler = Scaler::open(path)?;
             scaler.optimize();
             let mipmap = crate::compiler::compile_mipmap(&manifest.package, "icon")?;
@@ -46,11 +54,10 @@ impl Apk {
                 self.zip.write_all(&buf)?;
             }
 
-            Some(mipmap.attr_ref())
-        } else {
-            None
-        };
-        let manifest = crate::compiler::compile_manifest(manifest, icon_ref)?;
+            table.import_chunk(mipmap.chunk());
+            manifest.application.icon = Some("@mipmap/icon".into());
+        }
+        let manifest = crate::compiler::compile_manifest(manifest, &table)?;
         self.start_file("AndroidManifest.xml", ZipFileOptions::Compressed)?;
         buf.clear();
         let mut cursor = Cursor::new(&mut buf);
@@ -140,10 +147,46 @@ fn add_recursive(builder: &mut Apk, source: &Path, dest: &Path) -> Result<()> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::res::Chunk;
     use std::io::{Cursor, Seek, SeekFrom};
+    use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
+
+    pub fn init_logger() -> Result<()> {
+        tracing_log::LogTracer::init().ok();
+        let env = std::env::var(EnvFilter::DEFAULT_ENV).unwrap_or_else(|_| "info".to_owned());
+        let subscriber = tracing_subscriber::FmtSubscriber::builder()
+            .with_span_events(FmtSpan::ACTIVE | FmtSpan::CLOSE)
+            .with_env_filter(EnvFilter::new(env))
+            .with_writer(std::io::stderr)
+            .finish();
+        tracing::subscriber::set_global_default(subscriber).ok();
+        Ok(())
+    }
+
+    pub fn find_android_jar() -> Result<PathBuf> {
+        let home = std::env::var("ANDROID_HOME")?;
+        let platforms = Path::new(&home).join("platforms");
+        let mut jar = None;
+        for entry in std::fs::read_dir(platforms)? {
+            let android = entry?.path().join("android.jar");
+            if android.exists() {
+                jar = Some(android);
+                break;
+            }
+        }
+        Ok(jar.unwrap())
+    }
+
+    pub fn android_jar(platform: u16) -> Result<PathBuf> {
+        let home = std::env::var("ANDROID_HOME")?;
+        let android = Path::new(&home)
+            .join("platforms")
+            .join(format!("android-{}", platform))
+            .join("android.jar");
+        Ok(android)
+    }
 
     #[test]
     fn test_bxml_parse_manifest() -> Result<()> {

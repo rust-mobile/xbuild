@@ -327,6 +327,18 @@ impl ResTableRef {
         let entry = entry as u32;
         Self(package | ty | entry)
     }
+
+    pub fn package(self) -> u8 {
+        (self.0 >> 24) as u8
+    }
+
+    pub fn ty(self) -> u8 {
+        (self.0 >> 16) as u8
+    }
+
+    pub fn entry(self) -> u16 {
+        self.0 as u16
+    }
 }
 
 impl From<u32> for ResTableRef {
@@ -694,6 +706,82 @@ impl ResValue {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u8)]
+pub enum ResValueType {
+    Null = 0x00,
+    Reference = 0x01,
+    Attribute = 0x02,
+    String = 0x03,
+    Float = 0x04,
+    Dimension = 0x05,
+    Fraction = 0x06,
+    IntDec = 0x10,
+    IntHex = 0x11,
+    IntBoolean = 0x12,
+    IntColorArgb8 = 0x1c,
+    IntColorRgb8 = 0x1d,
+    IntColorArgb4 = 0x1e,
+    IntColorRgb4 = 0x1f,
+}
+
+impl ResValueType {
+    pub fn from_u8(ty: u8) -> Option<Self> {
+        Some(match ty {
+            x if x == Self::Null as u8 => Self::Null,
+            x if x == Self::Reference as u8 => Self::Reference,
+            x if x == Self::Attribute as u8 => Self::Attribute,
+            x if x == Self::String as u8 => Self::String,
+            x if x == Self::Float as u8 => Self::Float,
+            x if x == Self::Dimension as u8 => Self::Dimension,
+            x if x == Self::Fraction as u8 => Self::Fraction,
+            x if x == Self::IntDec as u8 => Self::IntDec,
+            x if x == Self::IntHex as u8 => Self::IntHex,
+            x if x == Self::IntBoolean as u8 => Self::IntBoolean,
+            x if x == Self::IntColorArgb8 as u8 => Self::IntColorArgb8,
+            x if x == Self::IntColorRgb8 as u8 => Self::IntColorRgb8,
+            x if x == Self::IntColorArgb4 as u8 => Self::IntColorArgb4,
+            x if x == Self::IntColorRgb4 as u8 => Self::IntColorRgb4,
+            _ => return None,
+        })
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u32)]
+pub enum ResAttributeType {
+    Any = 0x0000_ffff,
+    Reference = 1 << 0,
+    String = 1 << 1,
+    Integer = 1 << 2,
+    Boolean = 1 << 3,
+    Color = 1 << 4,
+    Float = 1 << 5,
+    Dimension = 1 << 6,
+    Fraction = 1 << 7,
+    Enum = 1 << 16,
+    Flags = 1 << 17,
+}
+
+impl ResAttributeType {
+    pub fn from_u32(ty: u32) -> Option<Self> {
+        Some(match ty {
+            x if x == Self::Any as u32 => Self::Any,
+            x if x == Self::Reference as u32 => Self::Reference,
+            x if x == Self::String as u32 => Self::String,
+            x if x == Self::Integer as u32 => Self::Integer,
+            x if x == Self::Boolean as u32 => Self::Boolean,
+            x if x == Self::Color as u32 => Self::Color,
+            x if x == Self::Float as u32 => Self::Float,
+            x if x == Self::Dimension as u32 => Self::Dimension,
+            x if x == Self::Fraction as u32 => Self::Fraction,
+            x if x == Self::Enum as u32 => Self::Enum,
+            x if x == Self::Flags as u32 => Self::Flags,
+            _ => return None,
+        })
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ResTableMapEntry {
     pub parent: u32,
     pub count: u32,
@@ -775,7 +863,7 @@ pub enum Chunk {
     XmlEndElement(ResXmlNodeHeader, ResXmlEndElement),
     XmlResourceMap(Vec<u32>),
     TablePackage(ResTablePackageHeader, Vec<Chunk>),
-    TableType(ResTableTypeHeader, Vec<u32>, Vec<ResTableEntry>),
+    TableType(ResTableTypeHeader, Vec<u32>, Vec<Option<ResTableEntry>>),
     TableTypeSpec(ResTableTypeSpecHeader, Vec<u32>),
     Unknown,
 }
@@ -938,18 +1026,18 @@ impl Chunk {
                 tracing::trace!("table type");
                 let type_header = ResTableTypeHeader::read(r)?;
                 let mut index = Vec::with_capacity(type_header.entry_count as usize);
-                let mut no_entries = 0;
                 for _ in 0..type_header.entry_count {
                     let entry = r.read_u32::<LittleEndian>()?;
-                    if entry == 0xffff_ffff {
-                        no_entries += 1;
-                    }
                     index.push(entry);
                 }
                 let mut entries = Vec::with_capacity(type_header.entry_count as usize);
-                for _ in 0..(type_header.entry_count - no_entries) {
-                    let entry = ResTableEntry::read(r)?;
-                    entries.push(entry);
+                for offset in &index {
+                    if *offset == 0xffff_ffff {
+                        entries.push(None);
+                    } else {
+                        let entry = ResTableEntry::read(r)?;
+                        entries.push(Some(entry));
+                    }
                 }
                 Ok(Chunk::TableType(type_header, index, entries))
             }
@@ -1149,7 +1237,9 @@ impl Chunk {
                     w.write_u32::<LittleEndian>(*offset)?;
                 }
                 for entry in entries {
-                    entry.write(w)?;
+                    if let Some(entry) = entry {
+                        entry.write(w)?;
+                    }
                 }
                 chunk.end_chunk(w)?;
             }
@@ -1174,21 +1264,10 @@ mod tests {
     use std::fs::File;
     use std::io::{BufReader, Cursor};
     use std::path::Path;
-    use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
     use zip::ZipArchive;
 
     fn open_android_jar_resource_table() -> Result<Vec<u8>> {
-        let home = std::env::var("ANDROID_HOME")?;
-        let platforms = Path::new(&home).join("platforms");
-        let mut jar = None;
-        for entry in std::fs::read_dir(platforms)? {
-            let android = entry?.path().join("android.jar");
-            if android.exists() {
-                jar = Some(android);
-                break;
-            }
-        }
-        let android = jar.unwrap();
+        let android = crate::tests::find_android_jar()?;
         let mut zip = ZipArchive::new(BufReader::new(File::open(&android)?))?;
         let mut f = zip.by_name("resources.arsc")?;
         let mut buf = vec![];
@@ -1198,14 +1277,7 @@ mod tests {
 
     #[test]
     fn test_parse_android_resources() -> Result<()> {
-        tracing_log::LogTracer::init().ok();
-        let env = std::env::var(EnvFilter::DEFAULT_ENV).unwrap_or_else(|_| "info".to_owned());
-        let subscriber = tracing_subscriber::FmtSubscriber::builder()
-            .with_span_events(FmtSpan::ACTIVE | FmtSpan::CLOSE)
-            .with_env_filter(EnvFilter::new(env))
-            .with_writer(std::io::stderr)
-            .finish();
-        tracing::subscriber::set_global_default(subscriber).ok();
+        crate::tests::init_logger()?;
         let home = std::env::var("ANDROID_HOME")?;
         let platforms = Path::new(&home).join("platforms");
         for entry in std::fs::read_dir(platforms)? {
@@ -1252,28 +1324,35 @@ mod tests {
             panic!();
         };
         //println!("{:?}", type_strings);
-        let attr = type_strings.iter().position(|s| s.as_str() == "attr").unwrap();
-        let id = type_strings.iter().position(|s| s.as_str() == "id").unwrap();
+        let attr = type_strings
+            .iter()
+            .position(|s| s.as_str() == "attr")
+            .unwrap();
+        let id = type_strings
+            .iter()
+            .position(|s| s.as_str() == "id")
+            .unwrap();
         let mut attr_entries = None;
         let mut id_entries = None;
         for chunk in &chunks[2..] {
             match chunk {
-                Chunk::TableType(header, _offsets, entries) => {
-                    match header.id as usize {
-                        x if x == attr + 1 => attr_entries = Some(entries),
-                        x if x == id + 1 => id_entries = Some(entries),
-                        _ => continue,
-                    }
-                }
+                Chunk::TableType(header, _offsets, entries) => match header.id as usize {
+                    x if x == attr + 1 => attr_entries = Some(entries),
+                    x if x == id + 1 => id_entries = Some(entries),
+                    _ => continue,
+                },
                 _ => continue,
             }
         }
         let attr_entries = attr_entries.unwrap();
         let id_entries = id_entries.unwrap();
 
-        let key = key_strings.iter().position(|s| s.as_str() == "configChanges").unwrap();
+        let key = key_strings
+            .iter()
+            .position(|s| s.as_str() == "configChanges")
+            .unwrap();
 
-        let entry = &attr_entries[key];
+        let entry = attr_entries[key].as_ref().unwrap();
         match &entry.value {
             ResTableValue::Simple(value) => {
                 println!("0x{:x} {:?}", value.data, value.data_type);
@@ -1281,8 +1360,11 @@ mod tests {
             ResTableValue::Complex(_, values) => {
                 for entry in &values[1..] {
                     let id = entry.name as usize & 0xffff;
-                    let key = id_entries[id].key as usize;
-                    println!("{} 0x{:x} {:?}", key_strings[key], entry.value.data, entry.value.data_type);
+                    let key = id_entries[id].as_ref().unwrap().key as usize;
+                    println!(
+                        "{} 0x{:x} {:?}",
+                        key_strings[key], entry.value.data, entry.value.data_type
+                    );
                 }
             }
         }
@@ -1317,15 +1399,24 @@ mod tests {
             panic!();
         };
         //println!("{:?}", type_strings);
-        let style = type_strings.iter().position(|s| s.as_str() == "style").unwrap();
-        let key = key_strings.iter().position(|s| s.as_str() == "Theme.Light.NoTitleBar").unwrap();
+        let style = type_strings
+            .iter()
+            .position(|s| s.as_str() == "style")
+            .unwrap();
+        let key = key_strings
+            .iter()
+            .position(|s| s.as_str() == "Theme.Light.NoTitleBar")
+            .unwrap();
         for chunk in &chunks[2..] {
             match chunk {
                 Chunk::TableType(header, _offsets, entries) => {
                     if header.id as usize != style + 1 {
                         continue;
                     }
-                    let pos = entries.iter().position(|entry| entry.key as usize == key).unwrap();
+                    let pos = entries
+                        .iter()
+                        .position(|entry| entry.as_ref().unwrap().key as usize == key)
+                        .unwrap();
                     let r = (0x01 << 24) | ((style + 1) << 16) | pos;
                     println!("0x{:x}", r);
                 }

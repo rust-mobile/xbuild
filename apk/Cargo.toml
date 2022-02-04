@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.53"
 byteorder = "1.4.3"
-cafebabe = "0.5.0"
 quick-xml = { version = "0.22.0", features = ["serialize"] }
 rasn = "0.5.0"
 rasn-pkix = "0.5.0"

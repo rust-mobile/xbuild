@@ -38,7 +38,9 @@ enum Commands {
         run: RunOptions,
     },
     Devices,
-    Dump { file: PathBuf },
+    Dump {
+        file: PathBuf,
+    },
 }
 
 #[derive(Parser, Debug)]
@@ -142,10 +144,15 @@ fn cmd_build_and_sign(build: BuildOptions, sign: SignOptions) -> Result<PathBuf>
         (Mode::Flutter, Format::Apk) => {
             let target = xapk::Target::from_rust_triple(triple)?;
             let manifest = config.apk.manifest.take().unwrap_or_default();
+            let sdk_version = manifest.sdk.target_sdk_version.unwrap_or(31);
+            let android_jar = Path::new(&std::env::var("ANDROID_HOME")?)
+                .join("platforms")
+                .join(format!("android-{}", sdk_version))
+                .join("android.jar");
             xcli::flutter_build("apk", build.debug)?;
             let out = out_dir.join(format!("{}-aarch64.apk", &config.name));
             let mut apk = xapk::Apk::new(out.clone())?;
-            apk.add_res(manifest, config.icon(Format::Apk))?;
+            apk.add_res(manifest, config.icon(Format::Apk), &android_jar)?;
 
             let intermediates = Path::new("build").join("app").join("intermediates");
             let assets = intermediates.join("merged_assets").join(opt).join("out");

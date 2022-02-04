@@ -1,32 +1,19 @@
 use crate::manifest::AndroidManifest;
 use crate::res::{
-    Chunk, ResTableConfig, ResTableEntry, ResTableHeader, ResTablePackageHeader, ResTableRef,
+    Chunk, ResTableConfig, ResTableEntry, ResTableHeader, ResTablePackageHeader,
     ResTableTypeHeader, ResTableTypeSpecHeader, ResTableValue, ResValue, ScreenType,
 };
 use anyhow::Result;
 
 mod attributes;
+mod table;
 mod xml;
 
-pub fn compile_manifest(
-    mut manifest: AndroidManifest,
-    icon_ref: Option<ResTableRef>,
-) -> Result<Chunk> {
-    manifest.application.icon = icon_ref.map(|r| r.to_string());
-    // TODO: correctly encode attributes
-    let mut activity = &mut manifest.application.activity;
-    activity.config_changes = activity
-        .config_changes
-        .as_ref()
-        .map(|_| "0x40003fb4".to_string());
-    activity.launch_mode = activity.launch_mode.as_ref().map(|_| "1".to_string());
-    activity.window_soft_input_mode = activity
-        .window_soft_input_mode
-        .as_ref()
-        .map(|_| "0x10".to_string());
+pub use table::Table;
 
+pub fn compile_manifest(manifest: AndroidManifest, table: &Table) -> Result<Chunk> {
     let xml = quick_xml::se::to_string(&manifest)?;
-    xml::compile_xml(&xml)
+    xml::compile_xml(&xml, &table)
 }
 
 const DPI_SIZE: [u32; 5] = [48, 72, 96, 144, 192];
@@ -73,11 +60,7 @@ pub fn compile_mipmap<'a>(package_name: &str, name: &'a str) -> Result<Mipmap<'a
             ),
         ],
     );
-    Ok(Mipmap {
-        name,
-        chunk,
-        attr_ref: ResTableRef::new(127, 1, 0),
-    })
+    Ok(Mipmap { name, chunk })
 }
 
 fn mipmap_table_type(type_id: u8, density: u16, string_id: u32) -> Chunk {
@@ -104,7 +87,7 @@ fn mipmap_table_type(type_id: u8, density: u16, string_id: u32) -> Chunk {
             },
         },
         vec![0],
-        vec![ResTableEntry {
+        vec![Some(ResTableEntry {
             size: 8,
             flags: 0,
             key: 0,
@@ -114,23 +97,18 @@ fn mipmap_table_type(type_id: u8, density: u16, string_id: u32) -> Chunk {
                 data_type: 3,
                 data: string_id,
             }),
-        }],
+        })],
     )
 }
 
 pub struct Mipmap<'a> {
     name: &'a str,
     chunk: Chunk,
-    attr_ref: ResTableRef,
 }
 
 impl<'a> Mipmap<'a> {
     pub fn chunk(&self) -> &Chunk {
         &self.chunk
-    }
-
-    pub fn attr_ref(&self) -> ResTableRef {
-        self.attr_ref
     }
 
     pub fn variants(&self) -> impl Iterator<Item = (String, u32)> + 'a {
@@ -141,6 +119,7 @@ impl<'a> Mipmap<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::compiler::table::Ref;
     use std::io::Cursor;
 
     #[test]
@@ -155,5 +134,30 @@ mod tests {
         //println!("{:#?}", chunk);
         //assert_eq!(*mipmap.chunk(), chunk);
         Ok(())
+    }
+
+    #[test]
+    fn test_lookup_attr() -> Result<()> {
+        let android = crate::tests::android_jar(31)?;
+        let mut table = Table::default();
+        table.import_apk(&android)?;
+        let entry = table.entry_by_ref(Ref::attr("compileSdkVersionCodename"))?;
+        assert_eq!(u32::from(entry.id()), 0x01010573);
+        Ok(())
+    }
+
+    #[test]
+    fn test_compile_manifest() -> Result<()> {
+        let android = crate::tests::find_android_jar()?;
+        let mut table = Table::default();
+        table.import_apk(&android)?;
+        let mut manifest = AndroidManifest::default();
+        manifest.application.label = "helloworld".into();
+        manifest.application.theme = Some("@android:style/Theme.Light.NoTitleBar".into());
+        manifest.application.debuggable = Some(true);
+        manifest.application.activity.config_changes = Some("orientation|keyboardHidden".into());
+        manifest.application.activity.launch_mode = Some("singleTop".into());
+        let chunk = compile_manifest(manifest, &table)?;
+        panic!("{:?}", chunk);
     }
 }
