@@ -4,7 +4,7 @@ use std::process::Command;
 
 pub mod config;
 pub mod devices;
-//pub mod sdk;
+pub mod sdk;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Opt {

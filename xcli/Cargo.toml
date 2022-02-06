@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.53"
 clap = { version = "3.0.13", features = ["derive"] }
+dunce = "1.0.2"
 rasn = "0.5.0"
 rasn-cms = "0.5.0"
 rasn-pkix = "0.5.0"

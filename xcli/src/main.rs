@@ -151,6 +151,7 @@ fn build(args: &BuildArgs, run: bool) -> Result<()> {
     let path = match format {
         Format::Appimage => {
             let out = out_dir.join(format!("{}-x86_64.AppImage", &config.name));
+            // TODO:
             let build_dir = Path::new("build")
                 .join("linux")
                 .join("x64")
@@ -167,22 +168,27 @@ fn build(args: &BuildArgs, run: bool) -> Result<()> {
         }
         Format::Apk => {
             use xapk::{Target, VersionCode};
+
+            let sdk = xcli::sdk::android::Sdk::from_env()?;
             let target = Target::from_rust_triple(target)?;
+
             let manifest = &mut config.apk.manifest;
             let version = manifest
                 .version_name
                 .get_or_insert_with(|| config.version.clone());
             let version_code = VersionCode::from_semver(version)?.to_code(1);
             manifest.version_code.get_or_insert(version_code);
-            let sdk_version = manifest.sdk.target_sdk_version.get_or_insert(31);
-            let android_jar = Path::new(&std::env::var("ANDROID_HOME")?)
-                .join("platforms")
-                .join(format!("android-{}", sdk_version))
-                .join("android.jar");
+            let target_sdk = *manifest
+                .sdk
+                .target_sdk_version
+                .get_or_insert_with(|| sdk.default_target_platform());
+
+            let android_jar = sdk.android_jar(target_sdk)?;
             let out = out_dir.join(format!("{}-aarch64.apk", &config.name));
             let mut apk = xapk::Apk::new(out.clone())?;
             apk.add_res(manifest.clone(), config.icon(Format::Apk), &android_jar)?;
 
+            // TODO: build assets
             let intermediates = Path::new("build").join("app").join("intermediates");
             let assets = intermediates
                 .join("merged_assets")
@@ -190,6 +196,7 @@ fn build(args: &BuildArgs, run: bool) -> Result<()> {
                 .join("out");
             apk.add_assets(&assets)?;
 
+            // TODO: fetch native libs
             let lib = intermediates
                 .join("merged_native_libs")
                 .join(opt.to_string())
@@ -199,6 +206,7 @@ fn build(args: &BuildArgs, run: bool) -> Result<()> {
                 .join("libflutter.so");
             apk.add_lib(target, &lib)?;
 
+            // TODO: build classes.dex
             let dex = if opt == Opt::Debug {
                 "mergeDexDebug"
             } else {
