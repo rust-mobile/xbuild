@@ -118,7 +118,7 @@ pub struct GenericConfig {
 pub struct ApkConfig {
     #[serde(flatten)]
     generic: GenericConfig,
-    pub manifest: Option<xapk::AndroidManifest>,
+    pub manifest: xapk::AndroidManifest,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]

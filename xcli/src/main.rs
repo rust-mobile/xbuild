@@ -1,66 +1,54 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use std::fs::File;
-use std::io::BufReader;
 use std::path::{Path, PathBuf};
-use xcli::{Config, Format, Mode};
+use std::process::Command;
+use xcli::config::Config;
+use xcli::devices::Device;
+use xcli::{Format, Opt};
 use xcommon::Signer;
 
-#[derive(Parser, Debug)]
+#[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
     #[clap(subcommand)]
     command: Commands,
 }
 
-#[derive(Subcommand, Debug)]
-enum Commands {
-    Build {
-        #[clap(flatten)]
-        build: BuildOptions,
-        #[clap(flatten)]
-        sign: SignOptions,
-    },
-    Sign {
-        #[clap(flatten)]
-        sign: SignOptions,
-        file: PathBuf,
-    },
-    Verify {
-        file: PathBuf,
-    },
-    Run {
-        #[clap(flatten)]
-        build: BuildOptions,
-        #[clap(flatten)]
-        sign: SignOptions,
-        #[clap(flatten)]
-        run: RunOptions,
-    },
-    Devices,
-    Dump {
-        file: PathBuf,
-    },
+fn main() -> Result<()> {
+    let args = Args::parse();
+    args.command.run()
 }
 
-#[derive(Parser, Debug)]
-struct BuildOptions {
+#[derive(Parser)]
+struct BuildArgs {
     #[clap(long)]
-    debug: bool,
+    release: bool,
     #[clap(long)]
-    target: Option<String>,
-}
-
-#[derive(Parser, Debug)]
-struct SignOptions {
+    device: Option<Device>,
     #[clap(long)]
     key: Option<PathBuf>,
     #[clap(long)]
     cert: Option<PathBuf>,
 }
 
-impl SignOptions {
-    fn signer(&self) -> Result<Option<Signer>> {
+impl BuildArgs {
+    pub fn device(&self) -> Device {
+        if let Some(device) = &self.device {
+            device.clone()
+        } else {
+            Device::host()
+        }
+    }
+
+    pub fn opt(&self) -> Opt {
+        if self.release {
+            Opt::Release
+        } else {
+            Opt::Debug
+        }
+    }
+
+    pub fn signer(&self) -> Result<Option<Signer>> {
         if let (Some(key), Some(cert)) = (self.key.as_ref(), self.cert.as_ref()) {
             let key = std::fs::read_to_string(key)?;
             let cert = std::fs::read_to_string(cert)?;
@@ -71,66 +59,102 @@ impl SignOptions {
     }
 }
 
-#[derive(Parser, Debug)]
-struct RunOptions {
-    #[clap(short, long)]
-    device: String,
+#[derive(Subcommand)]
+enum Commands {
+    Devices,
+    Build {
+        #[clap(flatten)]
+        args: BuildArgs,
+    },
+    Run {
+        #[clap(flatten)]
+        args: BuildArgs,
+    },
 }
 
-fn main() -> Result<()> {
-    let args = Args::parse();
-    match args.command {
-        Commands::Build { build, sign } => {
-            let path = cmd_build_and_sign(build, sign)?;
-            println!("built {}", path.display());
+impl Commands {
+    pub fn run(&self) -> Result<()> {
+        match self {
+            Self::Devices => {
+                for device in Device::list()? {
+                    println!(
+                        "{:20}{:20}{:30}{}",
+                        device.to_string(),
+                        device.name()?,
+                        device.target()?,
+                        device.platform()?
+                    );
+                }
+            }
+            Self::Build { args } => build(args, false)?,
+            Self::Run { args } => build(args, true)?,
         }
-        Commands::Sign { sign, file } => {
-            cmd_sign(sign, &file)?;
+        Ok(())
+    }
+}
+
+fn build(args: &BuildArgs, run: bool) -> Result<()> {
+    let opt = args.opt();
+    let signer = args.signer()?;
+    let device = args.device();
+    let target = device.target()?;
+    let format = Format::from_target(&target)?;
+    let has_rust_code = Path::new("Cargo.toml").exists();
+    let has_dart_code = Path::new("pubspec.yaml").exists();
+    let mut config = if has_dart_code {
+        Config::parse("pubspec.yaml")?
+    } else {
+        Config::parse("Cargo.toml")?
+    };
+    if has_rust_code {
+        let mut cmd = Command::new("cargo");
+        cmd.arg("build");
+        if opt == Opt::Release {
+            cmd.arg("--release");
         }
-        Commands::Verify { file } => {
-            cmd_verify(&file)?;
+        if !device.is_host() {
+            cmd.arg("--target");
+            cmd.arg(target);
         }
-        Commands::Run { build, sign, run } => {
-            cmd_run(build, sign, run)?;
-        }
-        Commands::Devices => {
-            cmd_devices()?;
-        }
-        Commands::Dump { file } => {
-            let mut reader = BufReader::new(File::open(file)?);
-            let chunk = xapk::res::Chunk::parse(&mut reader)?;
-            println!("{:#?}", chunk);
+        // configure tools and linkers for sdk
+        if !cmd.status()?.success() {
+            anyhow::bail!("cargo build failed");
         }
     }
-    Ok(())
-}
+    if has_dart_code {
+        // download flutter engine
+        // build assets + dart
+        let mut cmd = Command::new("flutter");
+        cmd.arg("build");
+        let ftarget = match target {
+            "x86_64-unknown-linux-gnu" => "linux",
+            "aarch64-linux-android" => "apk",
+            _ => anyhow::bail!("unsupported target"),
+        };
+        cmd.arg(ftarget);
+        if opt == Opt::Debug {
+            cmd.arg("--debug");
+        }
+        if !cmd.status()?.success() {
+            anyhow::bail!("flutter build failed");
+        }
+    }
 
-fn cmd_build_and_sign(build: BuildOptions, sign: SignOptions) -> Result<PathBuf> {
-    let triple = if let Some(triple) = build.target.as_deref() {
-        triple
+    let build_dir = if has_dart_code {
+        Path::new("build")
     } else {
-        xcli::host_triple()?
+        Path::new("target")
     };
-    let format = Format::from_target(triple)?;
-    let signer = sign.signer()?;
-    let (mut config, mode) = if Path::new("Cargo.toml").exists() {
-        (Config::parse("Cargo.toml")?, Mode::Cargo)
-    } else if Path::new("pubspec.yaml").exists() {
-        (Config::parse("pubspec.yaml")?, Mode::Flutter)
-    } else {
-        anyhow::bail!("config file not found");
-    };
-    let opt = if build.debug { "debug" } else { "release" };
-    let out_dir = match mode {
-        Mode::Cargo => Path::new("target").join(opt),
-        Mode::Flutter => Path::new("build").join(opt),
-    };
+    let out_dir = build_dir.join(opt.to_string());
     std::fs::create_dir_all(&out_dir)?;
-    match (mode, format) {
-        (Mode::Flutter, Format::Appimage) => {
-            xcli::flutter_build("linux", build.debug)?;
+
+    let path = match format {
+        Format::Appimage => {
             let out = out_dir.join(format!("{}-x86_64.AppImage", &config.name));
-            let build_dir = Path::new("build").join("linux").join("x64").join(opt);
+            let build_dir = Path::new("build")
+                .join("linux")
+                .join("x64")
+                .join(opt.to_string());
             let builder = xappimage::AppImageBuilder::new(&build_dir, &out, config.name.clone())?;
             builder.add_directory(&build_dir.join("bundle"), None)?;
             builder.add_apprun()?;
@@ -139,101 +163,61 @@ fn cmd_build_and_sign(build: BuildOptions, sign: SignOptions) -> Result<PathBuf>
                 builder.add_icon(icon)?;
             }
             builder.sign(signer)?;
-            Ok(out)
+            out
         }
-        (Mode::Flutter, Format::Apk) => {
-            let target = xapk::Target::from_rust_triple(triple)?;
-            let manifest = config.apk.manifest.take().unwrap_or_default();
-            let sdk_version = manifest.sdk.target_sdk_version.unwrap_or(31);
+        Format::Apk => {
+            use xapk::{Target, VersionCode};
+            let target = Target::from_rust_triple(target)?;
+            let manifest = &mut config.apk.manifest;
+            let version = manifest
+                .version_name
+                .get_or_insert_with(|| config.version.clone());
+            let version_code = VersionCode::from_semver(version)?.to_code(1);
+            manifest.version_code.get_or_insert(version_code);
+            let sdk_version = manifest.sdk.target_sdk_version.get_or_insert(31);
             let android_jar = Path::new(&std::env::var("ANDROID_HOME")?)
                 .join("platforms")
                 .join(format!("android-{}", sdk_version))
                 .join("android.jar");
-            xcli::flutter_build("apk", build.debug)?;
             let out = out_dir.join(format!("{}-aarch64.apk", &config.name));
             let mut apk = xapk::Apk::new(out.clone())?;
-            apk.add_res(manifest, config.icon(Format::Apk), &android_jar)?;
+            apk.add_res(manifest.clone(), config.icon(Format::Apk), &android_jar)?;
 
             let intermediates = Path::new("build").join("app").join("intermediates");
-            let assets = intermediates.join("merged_assets").join(opt).join("out");
+            let assets = intermediates
+                .join("merged_assets")
+                .join(opt.to_string())
+                .join("out");
             apk.add_assets(&assets)?;
 
             let lib = intermediates
                 .join("merged_native_libs")
-                .join(opt)
+                .join(opt.to_string())
                 .join("out")
                 .join("lib")
                 .join(target.android_abi())
                 .join("libflutter.so");
             apk.add_lib(target, &lib)?;
 
-            let dex = if build.debug {
+            let dex = if opt == Opt::Debug {
                 "mergeDexDebug"
             } else {
                 "minifyReleaseWithR8"
             };
             let classes = intermediates
                 .join("dex")
-                .join(opt)
+                .join(opt.to_string())
                 .join(dex)
                 .join("classes.dex");
             apk.add_dex(&classes)?;
 
             apk.finish(signer)?;
-            Ok(out)
+            out
         }
-        f => unimplemented!("{:?}", f),
-    }
-}
-
-fn cmd_sign(opts: SignOptions, file: &Path) -> Result<()> {
-    match Format::from_path(file)? {
-        Format::Apk => xapk::Apk::sign(file, opts.signer()?)?,
-        f => unimplemented!("{:?}", f),
-    }
-    Ok(())
-}
-
-fn cmd_verify(file: &Path) -> Result<()> {
-    let certs = match Format::from_path(file)? {
-        Format::Apk => xapk::Apk::verify(file)?,
-        Format::Msix => {
-            let signed_data = xmsix::p7x::read_p7x(file)?;
-            for signer in &signed_data.signer_infos {
-                if let rasn_cms::SignerIdentifier::IssuerAndSerialNumber(isn) = &signer.sid {
-                    println!("issuer: {}", xcli::display_cert_name(&isn.issuer)?);
-                }
-            }
-            return Ok(());
-        }
-        f => unimplemented!("{:?}", f),
+        _ => unimplemented!("{:?}", format),
     };
-    for cert in certs {
-        println!(
-            "subject: {}",
-            xcli::display_cert_name(&cert.tbs_certificate.subject)?
-        );
-        println!(
-            "issuer: {}",
-            xcli::display_cert_name(&cert.tbs_certificate.issuer)?
-        );
-    }
-    Ok(())
-}
-
-fn cmd_run(build: BuildOptions, sign: SignOptions, opts: RunOptions) -> Result<()> {
-    let path = cmd_build_and_sign(build, sign)?;
-    let adb = xcli::adb::Adb::which()?;
-    adb.install(&opts.device, &path)?;
-    adb.flutter_attach(&opts.device, "com.example.helloworld", ".MainActivity")?;
-    Ok(())
-}
-
-fn cmd_devices() -> Result<()> {
-    if let Ok(adb) = xcli::adb::Adb::which() {
-        for device in adb.devices()? {
-            println!("{}", device);
-        }
+    if run {
+        device.run(&path, &config, has_dart_code)?;
     }
     Ok(())
 }

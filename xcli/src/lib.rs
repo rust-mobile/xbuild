@@ -2,10 +2,24 @@ use anyhow::Result;
 use std::path::Path;
 use std::process::Command;
 
-pub mod adb;
 pub mod config;
+pub mod devices;
+//pub mod sdk;
 
-pub use crate::config::Config;
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Opt {
+    Debug,
+    Release,
+}
+
+impl std::fmt::Display for Opt {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Debug => write!(f, "debug"),
+            Self::Release => write!(f, "release"),
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug)]
 pub enum Format {
@@ -43,24 +57,6 @@ impl Format {
             target => anyhow::bail!("unsupported target {}", target),
         })
     }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum Mode {
-    Cargo,
-    Flutter,
-}
-
-pub fn host_triple() -> Result<&'static str> {
-    Ok(if cfg!(target_os = "linux") {
-        "x86_64-unknown-linux-gnu"
-    } else if cfg!(target_os = "macos") {
-        "x86_64-apple-darwin"
-    } else if cfg!(target_os = "windows") {
-        "x86_64-pc-windows-msvc"
-    } else {
-        anyhow::bail!("unsupported host");
-    })
 }
 
 pub fn flutter_build(target: &str, debug: bool) -> Result<()> {
@@ -101,22 +97,4 @@ pub fn display_cert_name(name: &rasn_pkix::Name) -> Result<String> {
         }
     }
     Ok(attrs.join(" "))
-}
-
-#[derive(Clone, Debug)]
-pub struct Device {
-    name: String,
-    id: String,
-    target: String,
-    platform: String,
-}
-
-impl std::fmt::Display for Device {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        writeln!(
-            f,
-            "{}\t{}\t{}\t{}",
-            self.name, self.id, self.target, self.platform
-        )
-    }
 }

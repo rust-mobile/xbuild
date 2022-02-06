@@ -11,9 +11,11 @@ pub mod manifest;
 pub mod res;
 mod sign;
 mod target;
+mod version;
 
 pub use crate::manifest::AndroidManifest;
 pub use crate::target::Target;
+pub use crate::version::VersionCode;
 pub use xcommon::{Certificate, Signer};
 
 pub struct Apk {
