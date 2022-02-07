@@ -200,16 +200,16 @@ fn build(args: &BuildArgs, run: bool) -> Result<()> {
             apk.add_assets(&assets)?;
 
             if has_dart_code {
-                let flutter = xcli::sdk::flutter::Flutter::from_env()?;
+                /*let flutter = xcli::sdk::flutter::Flutter::from_env()?;
                 let jar = flutter.flutter_jar(target, opt)?;
                 let mut zip = ZipArchive::new(BufReader::new(File::open(&jar)?))?;
                 let f = zip.by_name(&format!("lib/{}/libflutter.so", target.android_abi()))?;
                 apk.raw_copy_file(f)?;
 
                 let classes = jar.parent().unwrap().join("classes.dex");
-                apk.add_dex(&classes)?;
+                apk.add_dex(&classes)?;*/
 
-                /*// TODO: fetch native libs
+                // TODO: fetch native libs
                 let lib = intermediates
                     .join("merged_native_libs")
                     .join(opt.to_string())
@@ -229,7 +229,7 @@ fn build(args: &BuildArgs, run: bool) -> Result<()> {
                     .join(opt.to_string())
                     .join(dex)
                     .join("classes.dex");
-                apk.add_dex(&classes)?;*/
+                apk.add_dex(&classes)?;
             }
 
             apk.finish(signer)?;

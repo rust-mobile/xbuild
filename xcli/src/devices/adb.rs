@@ -178,12 +178,7 @@ impl Adb {
         flutter_attach: bool,
     ) -> Result<()> {
         let package = &config.apk.manifest.package;
-        let activity = &config
-            .apk
-            .manifest
-            .application
-            .activity
-            .name;
+        let activity = &config.apk.manifest.application.activity.name;
         self.stop(device, package)?;
         self.install(device, path)?;
         let last_timestamp = self.logcat_last_timestamp(device)?;
@@ -198,7 +193,7 @@ impl Adb {
                             break url.trim().to_string();
                         }
                     }
-                    println!("{}", line.trim());
+                    println!("{}", line);
                 }
             };
             let port = url
@@ -289,7 +284,15 @@ impl Iterator for Logcat {
             match self.reader.read_line(&mut self.line) {
                 Ok(0) => return None,
                 Ok(_) => {
-                    return Some(self.line[20..].to_string());
+                    let line = self.line.trim();
+                    if let Some((date, line)) = line.split_once(' ') {
+                        if let Some((time, line)) = line.split_once(' ') {
+                            if date.len() == 5 && time.len() == 12 {
+                                return Some(line.to_string());
+                            }
+                        }
+                    }
+                    return Some(self.line.clone());
                 }
                 Err(_) => {}
             }
