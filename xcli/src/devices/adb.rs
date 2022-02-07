@@ -67,7 +67,7 @@ impl Adb {
             .arg("-a")
             .arg("android.intent.action.RUN")
             .arg("-n")
-            .arg(format!("{}/.{}", package, activity))
+            .arg(format!("{}/{}", package, activity))
             .status()?;
         if !status.success() {
             anyhow::bail!("adb shell am start exited with code {:?}", status.code());
@@ -117,19 +117,27 @@ impl Adb {
     }
 
     fn pidof(&self, device: &str, id: &str) -> Result<u32> {
-        std::thread::sleep(std::time::Duration::from_secs(1));
-        let output = Command::new(&self.0)
-            .arg("-s")
-            .arg(device)
-            .arg("shell")
-            .arg("-x")
-            .arg("pidof")
-            .arg(id)
-            .output()?;
-        if !output.status.success() {
-            anyhow::bail!("failed to get pid");
+        loop {
+            let output = Command::new(&self.0)
+                .arg("-s")
+                .arg(device)
+                .arg("shell")
+                .arg("-x")
+                .arg("pidof")
+                .arg(id)
+                .output()?;
+            if !output.status.success() {
+                anyhow::bail!("failed to get pid");
+            }
+            let pid = std::str::from_utf8(&output.stdout)?.trim();
+            // may return multiple space separated pids if the old process hasn't exited yet.
+            if pid.is_empty() || pid.split_once(' ').is_some() {
+                std::thread::sleep(std::time::Duration::from_millis(100));
+                continue;
+            }
+            println!("pid of {} is {}", id, pid);
+            return Ok(pid.parse()?);
         }
-        Ok(String::from_utf8(output.stdout)?.trim().parse()?)
     }
 
     fn logcat(&self, device: &str, pid: u32, last_timestamp: &str) -> Result<Logcat> {
@@ -170,15 +178,12 @@ impl Adb {
         flutter_attach: bool,
     ) -> Result<()> {
         let package = &config.apk.manifest.package;
-        let activity = config
+        let activity = &config
             .apk
             .manifest
             .application
             .activity
-            .name
-            .rsplit_once('.')
-            .ok_or_else(|| anyhow::anyhow!("invalid activity name"))?
-            .1;
+            .name;
         self.stop(device, package)?;
         self.install(device, path)?;
         let last_timestamp = self.logcat_last_timestamp(device)?;

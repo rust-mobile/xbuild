@@ -1,7 +1,10 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use std::fs::File;
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use xapk::zip::read::ZipArchive;
 use xcli::config::Config;
 use xcli::devices::Device;
 use xcli::{Format, Opt};
@@ -196,28 +199,38 @@ fn build(args: &BuildArgs, run: bool) -> Result<()> {
                 .join("out");
             apk.add_assets(&assets)?;
 
-            // TODO: fetch native libs
-            let lib = intermediates
-                .join("merged_native_libs")
-                .join(opt.to_string())
-                .join("out")
-                .join("lib")
-                .join(target.android_abi())
-                .join("libflutter.so");
-            apk.add_lib(target, &lib)?;
+            if has_dart_code {
+                let flutter = xcli::sdk::flutter::Flutter::from_env()?;
+                let jar = flutter.flutter_jar(target, opt)?;
+                let mut zip = ZipArchive::new(BufReader::new(File::open(&jar)?))?;
+                let f = zip.by_name(&format!("lib/{}/libflutter.so", target.android_abi()))?;
+                apk.raw_copy_file(f)?;
 
-            // TODO: build classes.dex
-            let dex = if opt == Opt::Debug {
-                "mergeDexDebug"
-            } else {
-                "minifyReleaseWithR8"
-            };
-            let classes = intermediates
-                .join("dex")
-                .join(opt.to_string())
-                .join(dex)
-                .join("classes.dex");
-            apk.add_dex(&classes)?;
+                let classes = jar.parent().unwrap().join("classes.dex");
+                apk.add_dex(&classes)?;
+
+                /*// TODO: fetch native libs
+                let lib = intermediates
+                    .join("merged_native_libs")
+                    .join(opt.to_string())
+                    .join("out")
+                    .join("lib")
+                    .join(target.android_abi())
+                    .join("libflutter.so");
+                apk.add_lib(target, &lib)?;
+                // TODO: build classes.dex
+                let dex = if opt == Opt::Debug {
+                    "mergeDexDebug"
+                } else {
+                    "minifyReleaseWithR8"
+                };
+                let classes = intermediates
+                    .join("dex")
+                    .join(opt.to_string())
+                    .join(dex)
+                    .join("classes.dex");
+                apk.add_dex(&classes)?;*/
+            }
 
             apk.finish(signer)?;
             out

@@ -4,6 +4,7 @@ use std::fs::File;
 use std::io::{BufWriter, Cursor, Write};
 use std::path::{Path, PathBuf};
 use xcommon::{Scaler, ZipFileOptions};
+use zip::read::ZipFile;
 use zip::write::{FileOptions, ZipWriter};
 
 mod compiler;
@@ -17,6 +18,7 @@ pub use crate::manifest::AndroidManifest;
 pub use crate::target::Target;
 pub use crate::version::VersionCode;
 pub use xcommon::{Certificate, Signer};
+pub use zip;
 
 pub struct Apk {
     path: PathBuf,
@@ -70,6 +72,11 @@ impl Apk {
 
     pub fn add_dex(&mut self, dex: &Path) -> Result<()> {
         self.add_file(dex, "classes.dex", ZipFileOptions::Compressed)?;
+        Ok(())
+    }
+
+    pub fn raw_copy_file(&mut self, f: ZipFile) -> Result<()> {
+        self.zip.raw_copy_file(f)?;
         Ok(())
     }
 
