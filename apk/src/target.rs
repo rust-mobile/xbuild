@@ -76,14 +76,4 @@ impl Target {
             Self::X86_64 => "x86_64-linux-android",
         }
     }
-
-    /// Returns the flutter arch.
-    pub fn flutter_arch(self) -> &'static str {
-        match self {
-            Self::Arm64V8a => "arm64",
-            Self::ArmV7a => "arm",
-            Self::X86 => "x86",
-            Self::X86_64 => "x64",
-        }
-    }
 }

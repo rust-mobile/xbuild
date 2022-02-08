@@ -7,7 +7,7 @@ edition = "2021"
 anyhow = "1.0.53"
 byteorder = "1.4.3"
 mime_guess = "2.0.3"
-quick-xml = "0.22.0"
+quick-xml = { version = "0.23.0-alpha2", features = ["serialize"] }
 rasn = "0.5.0"
 rasn-cms = "0.5.0"
 rasn-pkix = "0.5.0"

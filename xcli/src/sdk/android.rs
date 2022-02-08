@@ -211,6 +211,10 @@ impl Ndk {
         self.build_tag
     }
 
+    pub fn platforms(&self) -> &[u32] {
+        &self.platforms
+    }
+
     pub fn toolchain_dir(&self) -> Result<PathBuf> {
         let host_os = std::env::var("HOST").ok();
         let host_contains = |s| host_os.as_ref().map(|h| h.contains(s)).unwrap_or(false);
@@ -353,7 +357,7 @@ mod tests {
     #[ignore]
     fn test_detect() {
         let ndk = Ndk::from_env().unwrap();
-        assert_eq!(ndk.build_tools_version(), "29.0.2");
+        assert_eq!(ndk.sdk().build_tools_version(), "29.0.2");
         assert_eq!(ndk.platforms(), &[29, 28]);
     }
 }

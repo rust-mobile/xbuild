@@ -2,6 +2,6 @@
 members = ["apk", "appimage", "msix", "xcli", "xcommon"]
 
 [patch.crates-io]
-rasn = { path = "../rasn" }
-rasn-cms = { path = "../rasn/standards/cms" }
-rasn-pkix = { path = "../rasn/standards/pkix" }
+rasn = { git = "https://github.com/XAMPPRocky/rasn" }
+rasn-cms = { git = "https://github.com/XAMPPRocky/rasn" }
+rasn-pkix = { git = "https://github.com/XAMPPRocky/rasn" }

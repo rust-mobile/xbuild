@@ -124,7 +124,7 @@ fn build(args: &BuildArgs, run: bool) -> Result<()> {
             anyhow::bail!("cargo build failed");
         }
     }
-    if has_dart_code {
+    /*if has_dart_code {
         // download flutter engine
         // build assets + dart
         let mut cmd = Command::new("flutter");
@@ -141,7 +141,7 @@ fn build(args: &BuildArgs, run: bool) -> Result<()> {
         if !cmd.status()?.success() {
             anyhow::bail!("flutter build failed");
         }
-    }
+    }*/
 
     let build_dir = if has_dart_code {
         Path::new("build")
@@ -170,7 +170,9 @@ fn build(args: &BuildArgs, run: bool) -> Result<()> {
             out
         }
         Format::Apk => {
-            use xapk::{Target, VersionCode};
+            use xapk::{Apk, Target, VersionCode};
+            use xcli::sdk::flutter::Flutter;
+            use xcli::sdk::maven::{Dependency, Maven};
 
             let sdk = xcli::sdk::android::Sdk::from_env()?;
             let target = Target::from_rust_triple(target)?;
@@ -188,7 +190,7 @@ fn build(args: &BuildArgs, run: bool) -> Result<()> {
 
             let android_jar = sdk.android_jar(target_sdk)?;
             let out = out_dir.join(format!("{}-aarch64.apk", &config.name));
-            let mut apk = xapk::Apk::new(out.clone())?;
+            let mut apk = Apk::new(out.clone())?;
             apk.add_res(manifest.clone(), config.icon(Format::Apk), &android_jar)?;
 
             // TODO: build assets
@@ -200,16 +202,32 @@ fn build(args: &BuildArgs, run: bool) -> Result<()> {
             apk.add_assets(&assets)?;
 
             if has_dart_code {
-                /*let flutter = xcli::sdk::flutter::Flutter::from_env()?;
-                let jar = flutter.flutter_jar(target, opt)?;
-                let mut zip = ZipArchive::new(BufReader::new(File::open(&jar)?))?;
+                let flutter = Flutter::from_env()?;
+                let engine_version = flutter.engine_version()?;
+                let dex = Path::new("build/classes.dex");
+                let mvn = Maven::new(Path::new("build/maven").into())?;
+
+                let flutter = Dependency::flutter_embedding(opt, &engine_version);
+                let deps = mvn.resolve(flutter)?;
+                let status = Command::new("d8")
+                    .args(deps)
+                    .arg("--lib")
+                    .arg(android_jar)
+                    .arg("--output")
+                    .arg(dex.parent().unwrap())
+                    .status()?;
+                if !status.success() {
+                    anyhow::bail!("d8 exited with nonzero exit code.");
+                }
+                apk.add_dex(dex)?;
+
+                let flutter = Dependency::flutter_engine(target, opt, &engine_version);
+                let flutter_jar = mvn.package(&flutter)?;
+                let mut zip = ZipArchive::new(BufReader::new(File::open(flutter_jar)?))?;
                 let f = zip.by_name(&format!("lib/{}/libflutter.so", target.android_abi()))?;
                 apk.raw_copy_file(f)?;
 
-                let classes = jar.parent().unwrap().join("classes.dex");
-                apk.add_dex(&classes)?;*/
-
-                // TODO: fetch native libs
+                /*// TODO: fetch native libs
                 let lib = intermediates
                     .join("merged_native_libs")
                     .join(opt.to_string())
@@ -229,7 +247,7 @@ fn build(args: &BuildArgs, run: bool) -> Result<()> {
                     .join(opt.to_string())
                     .join(dex)
                     .join("classes.dex");
-                apk.add_dex(&classes)?;
+                apk.add_dex(&classes)?;*/
             }
 
             apk.finish(signer)?;

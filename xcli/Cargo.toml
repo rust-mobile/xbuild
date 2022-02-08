@@ -7,9 +7,12 @@ edition = "2021"
 anyhow = "1.0.53"
 clap = { version = "3.0.13", features = ["derive"] }
 dunce = "1.0.2"
+pubgrub = "0.2.1"
+quick-xml = { version = "0.23.0-alpha2", features = ["serialize"] }
 rasn = "0.5.0"
 rasn-cms = "0.5.0"
 rasn-pkix = "0.5.0"
+reqwest = { version = "0.11.9", features = ["blocking"] }
 serde = { version = "1.0.136", features = ["derive"] }
 serde_yaml = "0.8.23"
 toml = "0.5.8"
