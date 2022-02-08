@@ -124,25 +124,12 @@ fn build(args: &BuildArgs, run: bool) -> Result<()> {
             anyhow::bail!("cargo build failed");
         }
     }
-    /*if has_dart_code {
-        // download flutter engine
-        // build assets + dart
-        let mut cmd = Command::new("flutter");
-        cmd.arg("build");
-        let ftarget = match target {
-            "x86_64-unknown-linux-gnu" => "linux",
-            "aarch64-linux-android" => "apk",
-            _ => anyhow::bail!("unsupported target"),
-        };
-        cmd.arg(ftarget);
-        if opt == Opt::Debug {
-            cmd.arg("--debug");
+    if has_dart_code {
+        let status = Command::new("flutter").arg("pub").arg("get").status()?;
+        if !status.success() {
+            anyhow::bail!("flutter pub get exited with status {:?}", status);
         }
-        if !cmd.status()?.success() {
-            anyhow::bail!("flutter build failed");
-        }
-    }*/
-
+    }
     let build_dir = if has_dart_code {
         Path::new("build")
     } else {
@@ -193,63 +180,69 @@ fn build(args: &BuildArgs, run: bool) -> Result<()> {
             let mut apk = Apk::new(out.clone())?;
             apk.add_res(manifest.clone(), config.icon(Format::Apk), &android_jar)?;
 
-            // TODO: build assets
-            let intermediates = Path::new("build").join("app").join("intermediates");
-            let assets = intermediates
-                .join("merged_assets")
-                .join(opt.to_string())
-                .join("out");
-            apk.add_assets(&assets)?;
-
             if has_dart_code {
+                let build_dir = out_dir.join("android");
                 let flutter = Flutter::from_env()?;
                 let engine_version = flutter.engine_version()?;
-                let dex = Path::new("build/classes.dex");
-                let mvn = Maven::new(Path::new("build/maven").into())?;
+                let mvn = Maven::new(build_dir.join("maven"))?;
+                let flutter_embedding = Dependency::flutter_embedding(opt, &engine_version);
+                let deps = mvn.resolve(flutter_embedding)?;
 
-                let flutter = Dependency::flutter_embedding(opt, &engine_version);
-                let deps = mvn.resolve(flutter)?;
+                // build GeneratedPluginRegistrant
+                let plugins = build_dir.join("GeneratedPluginRegistrant.java");
+                std::fs::write(
+                    &plugins,
+                    include_bytes!("../assets/GeneratedPluginRegistrant.java"),
+                )?;
+                let classpath = deps
+                    .iter()
+                    .chain(std::iter::once(&android_jar))
+                    .map(|d| d.display().to_string())
+                    .collect::<Vec<_>>()
+                    .join(":");
+                let java = build_dir.join("java");
+                let status = Command::new("javac")
+                    .arg("--class-path")
+                    .arg(classpath)
+                    .arg(plugins)
+                    .arg("-d")
+                    .arg(&java)
+                    .status()?;
+                if !status.success() {
+                    anyhow::bail!("javac exited with nonzero exit code.");
+                }
+
+                // build classes.dex
+                let plugins = java
+                    .join("io")
+                    .join("flutter")
+                    .join("plugins")
+                    .join("GeneratedPluginRegistrant.class");
                 let status = Command::new("d8")
                     .args(deps)
+                    .arg(plugins)
                     .arg("--lib")
                     .arg(android_jar)
                     .arg("--output")
-                    .arg(dex.parent().unwrap())
+                    .arg(&build_dir)
                     .status()?;
                 if !status.success() {
                     anyhow::bail!("d8 exited with nonzero exit code.");
                 }
-                apk.add_dex(dex)?;
+                apk.add_dex(&build_dir.join("classes.dex"))?;
 
-                let flutter = Dependency::flutter_engine(target, opt, &engine_version);
-                let flutter_jar = mvn.package(&flutter)?;
+                // add libflutter.so
+                let flutter_engine = Dependency::flutter_engine(target, opt, &engine_version);
+                let flutter_jar = mvn.package(&flutter_engine)?;
                 let mut zip = ZipArchive::new(BufReader::new(File::open(flutter_jar)?))?;
                 let f = zip.by_name(&format!("lib/{}/libflutter.so", target.android_abi()))?;
                 apk.raw_copy_file(f)?;
 
-                /*// TODO: fetch native libs
-                let lib = intermediates
-                    .join("merged_native_libs")
-                    .join(opt.to_string())
-                    .join("out")
-                    .join("lib")
-                    .join(target.android_abi())
-                    .join("libflutter.so");
-                apk.add_lib(target, &lib)?;
-                // TODO: build classes.dex
-                let dex = if opt == Opt::Debug {
-                    "mergeDexDebug"
-                } else {
-                    "minifyReleaseWithR8"
-                };
-                let classes = intermediates
-                    .join("dex")
-                    .join(opt.to_string())
-                    .join(dex)
-                    .join("classes.dex");
-                apk.add_dex(&classes)?;*/
+                // build assets
+                let assets = build_dir.join("assets");
+                flutter.assemble(&assets, opt, "android", &["debug_android_application"])?;
+                apk.add_assets(&assets.join("assets"))?;
             }
-
             apk.finish(signer)?;
             out
         }

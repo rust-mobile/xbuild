@@ -212,6 +212,8 @@ impl Adb {
             });
             Command::new("flutter")
                 .arg("attach")
+                .arg("--device-id")
+                .arg(device)
                 .arg("--debug-url")
                 .arg(url)
                 .arg("--host-vmservice-port")
