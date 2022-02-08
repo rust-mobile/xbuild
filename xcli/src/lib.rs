@@ -2,6 +2,7 @@ use anyhow::Result;
 use std::path::Path;
 use std::process::Command;
 
+pub mod cargo;
 pub mod config;
 pub mod devices;
 pub mod sdk;
