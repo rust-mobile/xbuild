@@ -5,8 +5,11 @@ use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use xapk::zip::read::ZipArchive;
+use xapk::{Apk, Target, VersionCode};
 use xcli::config::Config;
 use xcli::devices::Device;
+use xcli::sdk::flutter::{Arch, Flutter, Platform};
+use xcli::sdk::maven::{Dependency, Maven};
 use xcli::{Format, Opt};
 use xcommon::Signer;
 
@@ -124,12 +127,6 @@ fn build(args: &BuildArgs, run: bool) -> Result<()> {
             anyhow::bail!("cargo build failed");
         }
     }
-    if has_dart_code {
-        let status = Command::new("flutter").arg("pub").arg("get").status()?;
-        if !status.success() {
-            anyhow::bail!("flutter pub get exited with status {:?}", status);
-        }
-    }
     let build_dir = if has_dart_code {
         Path::new("build")
     } else {
@@ -138,16 +135,52 @@ fn build(args: &BuildArgs, run: bool) -> Result<()> {
     let out_dir = build_dir.join(opt.to_string());
     std::fs::create_dir_all(&out_dir)?;
 
+    let pubspec_modified = if has_dart_code {
+        let stamp = build_dir.join("pubspec.stamp");
+        let exists = stamp.exists();
+        let stamp_time = File::create(stamp)?.metadata()?.modified()?;
+        let pubspec_time = File::open("pubspec.yaml")?.metadata()?.modified()?;
+        !exists || pubspec_time > stamp_time
+    } else {
+        false
+    };
+    if pubspec_modified {
+        let status = Command::new("flutter").arg("pub").arg("get").status()?;
+        if !status.success() {
+            anyhow::bail!("flutter pub get exited with status {:?}", status);
+        }
+    }
     let path = match format {
         Format::Appimage => {
+            let build_dir = out_dir.join("linux");
+            let flutter = Flutter::from_env()?;
+            flutter.assemble(
+                &build_dir,
+                opt,
+                "linux-x64",
+                &["debug_bundle_linux-x64_assets"],
+            )?;
+            let engine_dir = flutter.engine_dir(Platform::Linux, Arch::X64, opt)?;
+            let flutter_assets = build_dir.join("assets").join("flutter_assets");
             let out = out_dir.join(format!("{}-x86_64.AppImage", &config.name));
-            // TODO:
-            let build_dir = Path::new("build")
-                .join("linux")
-                .join("x64")
-                .join(opt.to_string());
             let builder = xappimage::AppImageBuilder::new(&build_dir, &out, config.name.clone())?;
-            builder.add_directory(&build_dir.join("bundle"), None)?;
+            builder.add_directory(
+                &flutter_assets,
+                Some(&Path::new("data").join("flutter_assets")),
+            )?;
+            builder.add_file(
+                &engine_dir.join("icudtl.dat"),
+                &Path::new("data").join("icudtl.dat"),
+            )?;
+            builder.add_file(
+                &engine_dir.join("libflutter_linux_gtk.so"),
+                &Path::new("lib").join("libflutter_linux_gtk.so"),
+            )?;
+            // TODO: build real binary
+            builder.add_file(
+                &Path::new("linux").join(&config.name),
+                Path::new(&config.name),
+            )?;
             builder.add_apprun()?;
             builder.add_desktop()?;
             if let Some(icon) = config.icon(Format::Appimage) {
@@ -157,10 +190,6 @@ fn build(args: &BuildArgs, run: bool) -> Result<()> {
             out
         }
         Format::Apk => {
-            use xapk::{Apk, Target, VersionCode};
-            use xcli::sdk::flutter::Flutter;
-            use xcli::sdk::maven::{Dependency, Maven};
-
             let sdk = xcli::sdk::android::Sdk::from_env()?;
             let target = Target::from_rust_triple(target)?;
 

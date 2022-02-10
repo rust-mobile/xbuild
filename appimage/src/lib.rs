@@ -1,6 +1,6 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::fs::{File, Permissions};
-use std::io::{Read, Write};
+use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -53,16 +53,18 @@ impl AppImageBuilder {
             .map(|ext| ext.to_str())
             .unwrap_or_default()
             .ok_or_else(|| anyhow::anyhow!("unsupported extension"))?;
-        let mut f = File::open(path).context("failed to open icon file")?;
         let name = format!("{}.{}", self.name, ext);
-        self.add_file(&name, &mut f)?;
+        self.add_file(path, Path::new(&name))?;
         std::os::unix::fs::symlink(name, self.appdir.join(".DirIcon"))?;
         Ok(())
     }
 
-    pub fn add_file(&self, name: &str, input: &mut impl Read) -> Result<()> {
-        let mut f = File::create(self.appdir.join(name))?;
-        std::io::copy(input, &mut f)?;
+    pub fn add_file(&self, path: &Path, name: &Path) -> Result<()> {
+        let dest = self.appdir.join(name);
+        if let Some(parent) = dest.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::copy(path, dest)?;
         Ok(())
     }
 

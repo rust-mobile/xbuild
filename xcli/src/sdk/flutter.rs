@@ -3,6 +3,46 @@ use anyhow::Result;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Platform {
+    Android,
+    Darwin,
+    Linux,
+    Ios,
+    Windows,
+}
+
+impl std::fmt::Display for Platform {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Android => write!(f, "android"),
+            Self::Darwin => write!(f, "darwin"),
+            Self::Linux => write!(f, "linux"),
+            Self::Ios => write!(f, "ios"),
+            Self::Windows => write!(f, "windows"),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Arch {
+    Arm,
+    Arm64,
+    X64,
+    X86,
+}
+
+impl std::fmt::Display for Arch {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Arm => write!(f, "arm"),
+            Self::Arm64 => write!(f, "arm64"),
+            Self::X64 => write!(f, "x64"),
+            Self::X86 => write!(f, "x86"),
+        }
+    }
+}
+
 pub struct Flutter {
     path: PathBuf,
 }
@@ -30,6 +70,25 @@ impl Flutter {
         Ok(std::fs::read_to_string(&path)?.trim().into())
     }
 
+    pub fn engine_dir(&self, platform: Platform, arch: Arch, opt: Opt) -> Result<PathBuf> {
+        let name = if opt == Opt::Debug {
+            format!("{}-{}", platform, arch)
+        } else {
+            format!("{}-{}-{}", platform, arch, opt)
+        };
+        let path = self
+            .path
+            .join("bin")
+            .join("cache")
+            .join("artifacts")
+            .join("engine")
+            .join(name);
+        if !path.exists() {
+            anyhow::bail!("engine not found for {} {} {}", platform, arch, opt);
+        }
+        Ok(path)
+    }
+
     pub fn assemble(
         &self,
         build_dir: &Path,
@@ -40,6 +99,7 @@ impl Flutter {
         let status = Command::new("flutter")
             .arg("assemble")
             .arg("--no-version-check")
+            .arg("--suppress-analytics")
             .arg("--depfile")
             .arg(build_dir.join("flutter_build.d"))
             .arg("--output")
