@@ -89,7 +89,7 @@ impl Flutter {
         Ok(path)
     }
 
-    pub fn assemble(
+    /*pub fn assemble(
         &self,
         build_dir: &Path,
         opt: Opt,
@@ -108,6 +108,42 @@ impl Flutter {
             .arg(format!("-dBuildMode={}", opt))
             .arg("-dTrackWidgetCreation=true")
             .args(rules)
+            .status()?;
+        if !status.success() {
+            anyhow::bail!("flutter assemble exited with {:?}", status);
+        }
+        Ok(())
+    }*/
+
+    pub fn copy_flutter_bundle(
+        &self,
+        flutter_assets: &Path,
+        depfile: &Path,
+        opt: Opt,
+        platform: Platform,
+        arch: Arch,
+    ) -> Result<()> {
+        let target_platform = match (platform, arch) {
+            (Platform::Android, _) => "android",
+            (Platform::Linux, Arch::X64) => "linux-x64",
+            _ => anyhow::bail!(
+                "unsupported platform arch combination {} {}",
+                platform,
+                arch
+            ),
+        };
+        let status = Command::new("flutter")
+            .arg("assemble")
+            .arg("--no-version-check")
+            .arg("--suppress-analytics")
+            .arg("--depfile")
+            .arg(depfile)
+            .arg("--output")
+            .arg(flutter_assets)
+            .arg(format!("-dTargetPlatform={}", target_platform))
+            .arg(format!("-dBuildMode={}", opt))
+            .arg("-dTrackWidgetCreation=true")
+            .arg("copy_flutter_bundle")
             .status()?;
         if !status.success() {
             anyhow::bail!("flutter assemble exited with {:?}", status);

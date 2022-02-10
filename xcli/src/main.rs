@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use xapk::zip::read::ZipArchive;
 use xapk::{Apk, Target, VersionCode};
+use xappimage::AppImageBuilder;
 use xcli::config::Config;
 use xcli::devices::Device;
 use xcli::sdk::flutter::{Arch, Flutter, Platform};
@@ -114,6 +115,11 @@ fn build(args: &BuildArgs, run: bool) -> Result<()> {
     };
     if has_rust_code {
         let mut cmd = Command::new("cargo");
+        // TODO:
+        cmd.env(
+            "RUSTFLAGS",
+            "-Clink-arg=-L/home/dvc/cloudpeer/helloworld/build/debug/linux/helloworld.AppDir/lib",
+        );
         cmd.arg("build");
         if opt == Opt::Release {
             cmd.arg("--release");
@@ -152,41 +158,39 @@ fn build(args: &BuildArgs, run: bool) -> Result<()> {
     }
     let path = match format {
         Format::Appimage => {
-            let build_dir = out_dir.join("linux");
             let flutter = Flutter::from_env()?;
-            flutter.assemble(
-                &build_dir,
-                opt,
-                "linux-x64",
-                &["debug_bundle_linux-x64_assets"],
-            )?;
+            let build_dir = out_dir.join("linux");
             let engine_dir = flutter.engine_dir(Platform::Linux, Arch::X64, opt)?;
-            let flutter_assets = build_dir.join("assets").join("flutter_assets");
             let out = out_dir.join(format!("{}-x86_64.AppImage", &config.name));
-            let builder = xappimage::AppImageBuilder::new(&build_dir, &out, config.name.clone())?;
-            builder.add_directory(
-                &flutter_assets,
-                Some(&Path::new("data").join("flutter_assets")),
+
+            let appimage = AppImageBuilder::new(&build_dir, &out, config.name.clone())?;
+            flutter.copy_flutter_bundle(
+                &appimage.appdir().join("data").join("flutter_assets"),
+                &build_dir.join("flutter_build.d"),
+                opt,
+                Platform::Linux,
+                Arch::X64,
             )?;
-            builder.add_file(
+            appimage.add_file(
                 &engine_dir.join("icudtl.dat"),
                 &Path::new("data").join("icudtl.dat"),
             )?;
-            builder.add_file(
+            appimage.add_file(
                 &engine_dir.join("libflutter_linux_gtk.so"),
                 &Path::new("lib").join("libflutter_linux_gtk.so"),
             )?;
             // TODO: build real binary
-            builder.add_file(
-                &Path::new("linux").join(&config.name),
+            appimage.add_file(
+                //&Path::new("linux").join(&config.name),
+                &Path::new("target").join("debug").join("helloworld"),
                 Path::new(&config.name),
             )?;
-            builder.add_apprun()?;
-            builder.add_desktop()?;
+            appimage.add_apprun()?;
+            appimage.add_desktop()?;
             if let Some(icon) = config.icon(Format::Appimage) {
-                builder.add_icon(icon)?;
+                appimage.add_icon(icon)?;
             }
-            builder.sign(signer)?;
+            appimage.sign(signer)?;
             out
         }
         Format::Apk => {
@@ -269,8 +273,14 @@ fn build(args: &BuildArgs, run: bool) -> Result<()> {
 
                 // build assets
                 let assets = build_dir.join("assets");
-                flutter.assemble(&assets, opt, "android", &["debug_android_application"])?;
-                apk.add_assets(&assets.join("assets"))?;
+                flutter.copy_flutter_bundle(
+                    &assets.join("flutter_assets"),
+                    &build_dir.join("flutter_build.d"),
+                    opt,
+                    Platform::Android,
+                    Arch::Arm64,
+                )?;
+                apk.add_assets(&assets)?;
             }
             apk.finish(signer)?;
             out

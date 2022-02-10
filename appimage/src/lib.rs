@@ -26,12 +26,16 @@ impl AppImageBuilder {
         })
     }
 
+    pub fn appdir(&self) -> &Path {
+        &self.appdir
+    }
+
     pub fn add_apprun(&self) -> Result<()> {
         let apprun = self.appdir.join("AppRun");
         let mut f = File::create(&apprun)?;
         writeln!(f, "#!/bin/sh")?;
         writeln!(f, r#"cd "$(dirname "$0")""#)?;
-        writeln!(f, "exec ./{}", self.name)?;
+        writeln!(f, "LD_LIBRARY_PATH=./lib exec ./{}", self.name)?;
         std::fs::set_permissions(apprun, Permissions::from_mode(0o755))?;
         Ok(())
     }
