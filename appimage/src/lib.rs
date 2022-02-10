@@ -1,10 +1,12 @@
 use anyhow::Result;
 use std::fs::{File, Permissions};
-use std::io::Write;
+use std::io::{BufReader, BufWriter, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use xcommon::Signer;
+
+static RUNTIME: &[u8] = include_bytes!("../assets/appimage-runtime");
 
 pub struct AppImageBuilder {
     appdir: PathBuf,
@@ -80,13 +82,26 @@ impl AppImageBuilder {
     }
 
     pub fn sign(self, _signer: Option<Signer>) -> Result<()> {
-        let status = Command::new("appimagetool")
-            .arg(self.appdir)
-            .arg(self.out)
+        let squashfs = self
+            .appdir
+            .parent()
+            .unwrap()
+            .join(format!("{}.squashfs", self.name));
+        let status = Command::new("mksquashfs")
+            .arg(&self.appdir)
+            .arg(&squashfs)
+            .arg("-root-owned")
+            .arg("-noappend")
             .status()?;
         if !status.success() {
-            anyhow::bail!("failed to build appimage");
+            anyhow::bail!("mksquashfs failed with exit code {:?}", status);
         }
+        let mut squashfs = BufReader::new(File::open(squashfs)?);
+        let mut f = File::create(self.out)?;
+        f.set_permissions(Permissions::from_mode(0o755))?;
+        let mut out = BufWriter::new(&mut f);
+        out.write_all(RUNTIME)?;
+        std::io::copy(&mut squashfs, &mut out)?;
         // TODO: sign
         Ok(())
     }
