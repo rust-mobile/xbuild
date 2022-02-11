@@ -6,12 +6,13 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use xapk::zip::read::ZipArchive;
 use xapk::{Apk, Target, VersionCode};
-use xappimage::AppImageBuilder;
+use xappimage::AppImage;
+use xcli::android::AndroidSdk;
 use xcli::config::Config;
 use xcli::devices::Device;
-use xcli::sdk::flutter::{Arch, Flutter, Platform};
-use xcli::sdk::maven::{Dependency, Maven};
-use xcli::{Format, Opt};
+use xcli::flutter::{Flutter, Rule};
+use xcli::maven::{Dependency, Maven};
+use xcli::{Arch, BuildArgs, BuildTarget, CompileTarget, Format, Opt, Platform};
 use xcommon::Signer;
 
 #[derive(Parser)]
@@ -24,46 +25,6 @@ struct Args {
 fn main() -> Result<()> {
     let args = Args::parse();
     args.command.run()
-}
-
-#[derive(Parser)]
-struct BuildArgs {
-    #[clap(long)]
-    release: bool,
-    #[clap(long)]
-    device: Option<Device>,
-    #[clap(long)]
-    key: Option<PathBuf>,
-    #[clap(long)]
-    cert: Option<PathBuf>,
-}
-
-impl BuildArgs {
-    pub fn device(&self) -> Device {
-        if let Some(device) = &self.device {
-            device.clone()
-        } else {
-            Device::host()
-        }
-    }
-
-    pub fn opt(&self) -> Opt {
-        if self.release {
-            Opt::Release
-        } else {
-            Opt::Debug
-        }
-    }
-
-    pub fn signer(&self) -> Result<Option<Signer>> {
-        if let (Some(key), Some(cert)) = (self.key.as_ref(), self.cert.as_ref()) {
-            let key = std::fs::read_to_string(key)?;
-            let cert = std::fs::read_to_string(cert)?;
-            Ok(Some(Signer::new(&key, &cert)?))
-        } else {
-            Ok(None)
-        }
-    }
 }
 
 #[derive(Subcommand)]
@@ -80,121 +41,155 @@ enum Commands {
 }
 
 impl Commands {
-    pub fn run(&self) -> Result<()> {
+    pub fn run(self) -> Result<()> {
         match self {
             Self::Devices => {
                 for device in Device::list()? {
                     println!(
-                        "{:20}{:20}{:30}{}",
+                        "{:20}{:20}{:20}{}",
                         device.to_string(),
                         device.name()?,
-                        device.target()?,
-                        device.platform()?
+                        format!("{} {}", device.platform()?, device.arch()?),
+                        device.details()?,
                     );
                 }
             }
-            Self::Build { args } => build(args, false)?,
-            Self::Run { args } => build(args, true)?,
+            Self::Build { args } => build(args.build_target()?, false)?,
+            Self::Run { args } => build(args.build_target()?, true)?,
         }
         Ok(())
     }
 }
 
-fn build(args: &BuildArgs, run: bool) -> Result<()> {
-    let opt = args.opt();
-    let signer = args.signer()?;
-    let device = args.device();
-    let target = device.target()?;
-    let format = Format::from_target(&target)?;
-    let has_rust_code = Path::new("Cargo.toml").exists();
+fn build(target: BuildTarget, run: bool) -> Result<()> {
+    let _has_rust_code = Path::new("Cargo.toml").exists();
     let has_dart_code = Path::new("pubspec.yaml").exists();
-    let mut config = if has_dart_code {
+    let build_dir = Path::new("target").join("x");
+    let opt_dir = build_dir.join(target.opt().to_string());
+    let platform_dir = opt_dir.join(target.platform().to_string());
+    std::fs::create_dir_all(&platform_dir)?;
+    let config = if has_dart_code {
         Config::parse("pubspec.yaml")?
     } else {
         Config::parse("Cargo.toml")?
     };
-    if has_rust_code {
-        let mut cmd = Command::new("cargo");
-        // TODO:
-        cmd.env(
-            "RUSTFLAGS",
-            "-Clink-arg=-L/home/dvc/cloudpeer/helloworld/build/debug/linux/helloworld.AppDir/lib",
-        );
-        cmd.arg("build");
-        if opt == Opt::Release {
-            cmd.arg("--release");
-        }
-        if !device.is_host() {
-            cmd.arg("--target");
-            cmd.arg(target);
-        }
-        // configure tools and linkers for sdk
-        if !cmd.status()?.success() {
-            anyhow::bail!("cargo build failed");
-        }
-    }
-    let build_dir = if has_dart_code {
-        Path::new("build")
-    } else {
-        Path::new("target")
-    };
-    let out_dir = build_dir.join(opt.to_string());
-    std::fs::create_dir_all(&out_dir)?;
-
-    let pubspec_modified = if has_dart_code {
-        let stamp = build_dir.join("pubspec.stamp");
-        let exists = stamp.exists();
-        let stamp_time = File::create(stamp)?.metadata()?.modified()?;
-        let pubspec_time = File::open("pubspec.yaml")?.metadata()?.modified()?;
-        !exists || pubspec_time > stamp_time
-    } else {
-        false
-    };
-    if pubspec_modified {
+    let icon = config.icon(target.format());
+    let target_file = config.target_file(target.platform());
+    // run flutter pub get
+    if has_dart_code
+        && xcommon::stamp_file(Path::new("pubspec.yaml"), &build_dir.join("pubspec.stamp"))?
+    {
         let status = Command::new("flutter").arg("pub").arg("get").status()?;
         if !status.success() {
             anyhow::bail!("flutter pub get exited with status {:?}", status);
         }
     }
-    let path = match format {
+    // build final artefact
+    let out = match target.format() {
         Format::Appimage => {
-            let flutter = Flutter::from_env()?;
-            let build_dir = out_dir.join("linux");
-            let engine_dir = flutter.engine_dir(Platform::Linux, Arch::X64, opt)?;
-            let out = out_dir.join(format!("{}-x86_64.AppImage", &config.name));
+            let compile_targets = target.compile_targets().collect::<Vec<_>>();
+            if compile_targets.len() != 1 {
+                anyhow::bail!("expected one compile target for appimage");
+            }
+            let compile_target = compile_targets[0];
+            let arch_dir = platform_dir.join(compile_target.arch().to_string());
+            let appimage = AppImage::new(&arch_dir, config.name.clone())?;
+            if has_dart_code {
+                let flutter = Flutter::from_env()?;
+                let debug_engine_dir = flutter.engine_dir(CompileTarget::new(
+                    compile_target.platform(),
+                    compile_target.arch(),
+                    Opt::Debug,
+                ))?;
+                let engine_dir = flutter.engine_dir(compile_target)?;
+                appimage.add_file(
+                    &debug_engine_dir.join("icudtl.dat"),
+                    &Path::new("data").join("icudtl.dat"),
+                )?;
+                appimage.add_file(
+                    &engine_dir.join("libflutter_linux_gtk.so"),
+                    &Path::new("lib").join("libflutter_linux_gtk.so"),
+                )?;
+                // assemble flutter bundle
+                flutter.assemble(
+                    &target_file,
+                    &appimage.appdir().join("data").join("flutter_assets"),
+                    &arch_dir.join("flutter_build.d"),
+                    compile_target,
+                    Rule::CopyFlutterBundle,
+                )?;
+                if target.opt() == Opt::Release {
+                    flutter.assemble(
+                        &target_file,
+                        &appimage.appdir().join("lib"),
+                        &arch_dir.join("flutter_build_aot.d"),
+                        compile_target,
+                        Rule::CopyFlutterAotBundle,
+                    )?;
+                }
+            }
+            build_rust(compile_target, target.is_host())?;
+            let bin = Path::new("target")
+                .join(target.opt().to_string())
+                .join(&config.name);
+            appimage.add_file(&bin, Path::new(&config.name))?;
 
-            let appimage = AppImageBuilder::new(&build_dir, &out, config.name.clone())?;
-            flutter.copy_flutter_bundle(
-                &appimage.appdir().join("data").join("flutter_assets"),
-                &build_dir.join("flutter_build.d"),
-                opt,
-                Platform::Linux,
-                Arch::X64,
-            )?;
-            appimage.add_file(
-                &engine_dir.join("icudtl.dat"),
-                &Path::new("data").join("icudtl.dat"),
-            )?;
-            appimage.add_file(
-                &engine_dir.join("libflutter_linux_gtk.so"),
-                &Path::new("lib").join("libflutter_linux_gtk.so"),
-            )?;
-            // TODO: build real binary
-            appimage.add_file(
-                //&Path::new("linux").join(&config.name),
-                &Path::new("target").join("debug").join("helloworld"),
-                Path::new(&config.name),
-            )?;
             appimage.add_apprun()?;
             appimage.add_desktop()?;
-            if let Some(icon) = config.icon(Format::Appimage) {
+            if let Some(icon) = icon {
                 appimage.add_icon(icon)?;
             }
-            appimage.sign(signer)?;
-            out
+            if target.opt() == Opt::Release {
+                let out = arch_dir.join(format!("{}.AppImage", &config.name));
+                appimage.build(&out, target.signer().cloned())?;
+                out
+            } else {
+                appimage.appdir().join("AppRun")
+            }
         }
-        Format::Apk => {
-            let sdk = xcli::sdk::android::Sdk::from_env()?;
+        f => unimplemented!("{:?}", f),
+    };
+    println!("built {}", out.display());
+    // maybe run
+    if run {
+        if let Some(device) = target.device() {
+            device.run(&out, &config, has_dart_code)?;
+        } else {
+            anyhow::bail!("no device specified");
+        }
+    }
+    Ok(())
+}
+
+fn build_rust(target: CompileTarget, is_host: bool) -> Result<()> {
+    // TODO: cleanup and generalize
+    let mut cmd = Command::new("cargo");
+    cmd.env(
+        "RUSTFLAGS",
+        format!(
+            "-Clink-arg=-L/home/dvc/cloudpeer/helloworld/target/x/{}/{}/{}/helloworld.AppDir/lib",
+            target.opt(),
+            target.platform(),
+            target.arch(),
+        ),
+    );
+    cmd.arg("build");
+    if target.opt() == Opt::Release {
+        cmd.arg("--release");
+    }
+    if !is_host {
+        cmd.arg("--target");
+        cmd.arg(target.rust_triple()?);
+    }
+    // configure tools and linkers for sdk
+    if !cmd.status()?.success() {
+        anyhow::bail!("cargo build failed");
+    }
+    Ok(())
+}
+
+/*
+            let sdk = AndroidSdk::from_env()?;
             let target = Target::from_rust_triple(target)?;
 
             let manifest = &mut config.apk.manifest;
@@ -284,11 +279,4 @@ fn build(args: &BuildArgs, run: bool) -> Result<()> {
             }
             apk.finish(signer)?;
             out
-        }
-        _ => unimplemented!("{:?}", format),
-    };
-    if run {
-        device.run(&path, &config, has_dart_code)?;
-    }
-    Ok(())
-}
+*/

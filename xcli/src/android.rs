@@ -5,13 +5,13 @@ use std::process::Command;
 use xapk::Target;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Sdk {
+pub struct AndroidSdk {
     sdk_path: PathBuf,
     platforms: Vec<u32>,
     build_tools_version: String,
 }
 
-impl Sdk {
+impl AndroidSdk {
     pub fn from_env() -> Result<Self> {
         let sdk_path = {
             let mut sdk_path = std::env::var("ANDROID_HOME").ok();
@@ -121,16 +121,16 @@ impl Sdk {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Ndk {
+pub struct AndroidNdk {
     ndk_path: PathBuf,
     build_tag: u32,
     platforms: Vec<u32>,
-    sdk: Sdk,
+    sdk: AndroidSdk,
 }
 
-impl Ndk {
+impl AndroidNdk {
     pub fn from_env() -> Result<Self> {
-        let sdk = Sdk::from_env()?;
+        let sdk = AndroidSdk::from_env()?;
         let ndk_path = {
             let ndk_path = std::env::var("ANDROID_NDK_ROOT")
                 .ok()
@@ -199,7 +199,7 @@ impl Ndk {
         })
     }
 
-    pub fn sdk(&self) -> &Sdk {
+    pub fn sdk(&self) -> &AndroidSdk {
         &self.sdk
     }
 

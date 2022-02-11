@@ -1,4 +1,4 @@
-use crate::sdk::android::Ndk;
+use crate::android::AndroidNdk;
 use anyhow::Result;
 use std::collections::HashSet;
 use std::io::BufRead;
@@ -8,7 +8,7 @@ use xapk::{Apk, Target};
 
 pub fn add_lib_recursively(
     apk: &mut Apk,
-    ndk: &Ndk,
+    ndk: &AndroidNdk,
     min_sdk_version: u32,
     lib: &Path,
     target: Target,

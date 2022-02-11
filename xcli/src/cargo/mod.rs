@@ -1,4 +1,4 @@
-use crate::sdk::android::Ndk;
+use crate::android::AndroidNdk;
 use anyhow::Result;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -6,7 +6,7 @@ use xapk::Target;
 
 pub mod readelf;
 
-pub fn cargo_ndk(ndk: &Ndk, target: Target, sdk_version: u32) -> Result<Command> {
+pub fn cargo_ndk(ndk: &AndroidNdk, target: Target, sdk_version: u32) -> Result<Command> {
     let triple = target.rust_triple();
     let mut cargo = Command::new("cargo");
 

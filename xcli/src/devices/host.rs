@@ -1,4 +1,5 @@
 use crate::config::Config;
+use crate::{Arch, Platform};
 use anyhow::Result;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
@@ -21,19 +22,29 @@ impl Host {
         }
     }
 
-    pub fn target(&self) -> Result<&'static str> {
+    pub fn platform(&self) -> Result<Platform> {
         Ok(if cfg!(target_os = "linux") {
-            "x86_64-unknown-linux-gnu"
+            Platform::Linux
         } else if cfg!(target_os = "macos") {
-            "x86_64-apple-darwin"
+            Platform::Macos
         } else if cfg!(target_os = "windows") {
-            "x86_64-pc-windows-msvc"
+            Platform::Windows
         } else {
             anyhow::bail!("unsupported host");
         })
     }
 
-    pub fn platform(&self) -> Result<String> {
+    pub fn arch(&self) -> Result<Arch> {
+        if cfg!(target_arch = "x86_64") {
+            Ok(Arch::X64)
+        } else if cfg!(target_arch = "aarch64") {
+            Ok(Arch::Arm64)
+        } else {
+            anyhow::bail!("unsupported host");
+        }
+    }
+
+    pub fn details(&self) -> Result<String> {
         if cfg!(target_os = "linux") {
             let os_release = std::fs::read_to_string("/etc/os-release")?;
             let mut distro = os_release
@@ -55,31 +66,45 @@ impl Host {
         }
     }
 
-    pub fn run(&self, path: &Path, _config: &Config, attach: bool) -> Result<()> {
+    pub fn run(&self, path: &Path, _config: &Config, flutter_attach: bool) -> Result<()> {
         let mut child = Command::new(path)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .spawn()?;
         let mut lines = BufReader::new(child.stdout.take().unwrap()).lines();
-        if attach {
-            let line = lines.next().transpose()?;
-            let url = line
-                .as_ref()
-                .map(|line| line.rsplit_once(' '))
-                .flatten()
-                .map(|(_, url)| url.to_string())
-                .ok_or_else(|| anyhow::anyhow!("failed to get debug url"))?;
+        if flutter_attach {
+            let url = loop {
+                if let Some(line) = lines.next() {
+                    let line = line?;
+                    let line = line.trim();
+                    if let Some((_, url)) = line.rsplit_once(' ') {
+                        if url.starts_with("http://127.0.0.1") {
+                            break url.trim().to_string();
+                        }
+                    }
+                    println!("{}", line);
+                }
+            };
+            println!("attaching to {}", url);
             std::thread::spawn(move || {
-                Command::new("flutter")
-                    .arg("attach")
-                    .arg("--debug-url")
-                    .arg(url)
-                    .status()
+                for line in lines {
+                    if let Ok(line) = line {
+                        println!("{}", line.trim());
+                    }
+                }
             });
-        }
-        for line in lines {
-            let line = line?;
-            println!("{}", line);
+            Command::new("flutter")
+                .arg("attach")
+                .arg("--device-id")
+                .arg(self.platform()?.to_string())
+                .arg("--debug-url")
+                .arg(url)
+                .status()?;
+        } else {
+            for line in lines {
+                let line = line?;
+                println!("{}", line.trim());
+            }
         }
         Ok(())
     }

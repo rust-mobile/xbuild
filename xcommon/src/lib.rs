@@ -5,6 +5,7 @@ use image::{DynamicImage, GenericImageView, ImageOutputFormat};
 use rsa::pkcs8::FromPrivateKey;
 use rsa::{Hash, PaddingScheme, RsaPrivateKey, RsaPublicKey};
 use sha2::{Digest, Sha256};
+use std::fs::File;
 use std::io::{Seek, Write};
 use std::path::Path;
 use zip::CompressionMethod;
@@ -62,6 +63,7 @@ impl Scaler {
     }
 }
 
+#[derive(Clone)]
 pub struct Signer {
     key: RsaPrivateKey,
     pubkey: RsaPublicKey,
@@ -100,6 +102,15 @@ impl Signer {
     }
 }
 
+impl std::fmt::Debug for Signer {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("Signer")
+            .field("pubkey", &self.pubkey)
+            .field("cert", &self.cert)
+            .finish_non_exhaustive()
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ZipFileOptions {
     Unaligned,
@@ -121,6 +132,33 @@ impl ZipFileOptions {
             _ => CompressionMethod::Stored,
         }
     }
+}
+
+pub fn copy_dir_all(source: &Path, dest: &Path) -> Result<()> {
+    for entry in std::fs::read_dir(source)? {
+        let entry = entry?;
+        let file_name = entry.file_name();
+        let source = source.join(&file_name);
+        let dest = dest.join(&file_name);
+        let file_type = entry.file_type()?;
+        if file_type.is_dir() {
+            std::fs::create_dir_all(&dest)?;
+            copy_dir_all(&source, &dest)?;
+        } else if file_type.is_file() {
+            std::fs::copy(&source, &dest)?;
+        } else if file_type.is_symlink() {
+            let target = std::fs::read_link(&source)?;
+            std::os::unix::fs::symlink(target, dest)?;
+        }
+    }
+    Ok(())
+}
+
+pub fn stamp_file(file: &Path, stamp: &Path) -> Result<bool> {
+    let stamp_exists = stamp.exists();
+    let stamp_time = File::create(stamp)?.metadata()?.modified()?;
+    let file_time = File::open(file)?.metadata()?.modified()?;
+    Ok(!stamp_exists || file_time > stamp_time)
 }
 
 #[cfg(test)]

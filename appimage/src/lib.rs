@@ -6,24 +6,19 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use xcommon::Signer;
 
-static RUNTIME: &[u8] = include_bytes!("../assets/appimage-runtime");
+static RUNTIME: &[u8] = include_bytes!("../assets/runtime-x86_64");
 
-pub struct AppImageBuilder {
+pub struct AppImage {
     appdir: PathBuf,
-    out: PathBuf,
     name: String,
 }
 
-impl AppImageBuilder {
-    pub fn new(build_dir: &Path, out: &Path, name: String) -> Result<Self> {
+impl AppImage {
+    pub fn new(build_dir: &Path, name: String) -> Result<Self> {
         let appdir = build_dir.join(format!("{}.AppDir", name));
         std::fs::remove_dir_all(&appdir).ok();
         std::fs::create_dir_all(&appdir)?;
-        Ok(Self {
-            appdir,
-            out: out.to_path_buf(),
-            name,
-        })
+        Ok(Self { appdir, name })
     }
 
     pub fn appdir(&self) -> &Path {
@@ -81,11 +76,11 @@ impl AppImageBuilder {
             self.appdir.clone()
         };
         std::fs::create_dir_all(&dest)?;
-        copy_recursive(source, &dest)?;
+        xcommon::copy_dir_all(source, &dest)?;
         Ok(())
     }
 
-    pub fn sign(self, _signer: Option<Signer>) -> Result<()> {
+    pub fn build(self, out: &Path, _signer: Option<Signer>) -> Result<()> {
         let squashfs = self
             .appdir
             .parent()
@@ -101,7 +96,7 @@ impl AppImageBuilder {
             anyhow::bail!("mksquashfs failed with exit code {:?}", status);
         }
         let mut squashfs = BufReader::new(File::open(squashfs)?);
-        let mut f = File::create(self.out)?;
+        let mut f = File::create(out)?;
         f.set_permissions(Permissions::from_mode(0o755))?;
         let mut out = BufWriter::new(&mut f);
         out.write_all(RUNTIME)?;
@@ -109,24 +104,4 @@ impl AppImageBuilder {
         // TODO: sign
         Ok(())
     }
-}
-
-pub fn copy_recursive(source: &Path, dest: &Path) -> Result<()> {
-    for entry in std::fs::read_dir(source)? {
-        let entry = entry?;
-        let file_name = entry.file_name();
-        let source = source.join(&file_name);
-        let dest = dest.join(&file_name);
-        let file_type = entry.file_type()?;
-        if file_type.is_dir() {
-            std::fs::create_dir_all(&dest)?;
-            copy_recursive(&source, &dest)?;
-        } else if file_type.is_file() {
-            std::fs::copy(&source, &dest)?;
-        } else if file_type.is_symlink() {
-            let target = std::fs::read_link(&source)?;
-            std::os::unix::fs::symlink(target, dest)?;
-        }
-    }
-    Ok(())
 }

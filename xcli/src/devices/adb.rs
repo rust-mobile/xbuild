@@ -1,11 +1,12 @@
 use crate::config::Config;
 use crate::devices::{Backend, Device};
+use crate::{Arch, Platform};
 use anyhow::Result;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdout, Command, Stdio};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Adb(PathBuf);
 
 impl Adb {
@@ -241,18 +242,22 @@ impl Adb {
         self.getprop(device, "ro.product.device")
     }
 
-    pub fn target(&self, device: &str) -> Result<&'static str> {
-        let target = match self.getprop(device, "ro.product.cpu.abi")?.as_str() {
-            "arm64-v8a" => "aarch64-linux-android",
-            "armeabi-v7a" => "armv7-linux-androideabi",
-            "x86_64" => "x86_64-linux-android",
-            "x86" => "i686-linux-android",
-            abi => anyhow::bail!("unrecognized abi {}", abi),
-        };
-        Ok(target)
+    pub fn platform(&self, _device: &str) -> Result<Platform> {
+        Ok(Platform::Android)
     }
 
-    pub fn platform(&self, device: &str) -> Result<String> {
+    pub fn arch(&self, device: &str) -> Result<Arch> {
+        let arch = match self.getprop(device, "ro.product.cpu.abi")?.as_str() {
+            "arm64-v8a" => Arch::Arm64,
+            //"armeabi-v7a" => Arch::Arm,
+            "x86_64" => Arch::X64,
+            //"x86" => Arch::X86,
+            abi => anyhow::bail!("unrecognized abi {}", abi),
+        };
+        Ok(arch)
+    }
+
+    pub fn details(&self, device: &str) -> Result<String> {
         let release = self.getprop(device, "ro.build.version.release")?;
         let sdk = self.getprop(device, "ro.build.version.sdk")?;
         Ok(format!("Android {} (API {})", release, sdk))

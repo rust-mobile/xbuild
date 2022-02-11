@@ -1,19 +1,20 @@
 use crate::config::Config;
 use crate::devices::adb::Adb;
 use crate::devices::host::Host;
+use crate::{Arch, Platform};
 use anyhow::Result;
 use std::path::Path;
 
 mod adb;
 mod host;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 enum Backend {
     Adb(Adb),
     Host(Host),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Device {
     backend: Backend,
     id: String,
@@ -81,17 +82,24 @@ impl Device {
         }
     }
 
-    pub fn target(&self) -> Result<&'static str> {
-        match &self.backend {
-            Backend::Adb(adb) => adb.target(&self.id),
-            Backend::Host(host) => host.target(),
-        }
-    }
-
-    pub fn platform(&self) -> Result<String> {
+    pub fn platform(&self) -> Result<Platform> {
         match &self.backend {
             Backend::Adb(adb) => adb.platform(&self.id),
             Backend::Host(host) => host.platform(),
+        }
+    }
+
+    pub fn arch(&self) -> Result<Arch> {
+        match &self.backend {
+            Backend::Adb(adb) => adb.arch(&self.id),
+            Backend::Host(host) => host.arch(),
+        }
+    }
+
+    pub fn details(&self) -> Result<String> {
+        match &self.backend {
+            Backend::Adb(adb) => adb.details(&self.id),
+            Backend::Host(host) => host.details(),
         }
     }
 

@@ -1,4 +1,4 @@
-use crate::Format;
+use crate::{Format, Platform};
 use anyhow::Result;
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
@@ -71,6 +71,15 @@ impl Config {
             return Some(icon);
         }
         self.generic.icon.as_deref()
+    }
+
+    pub fn target_file(&self, platform: Platform) -> PathBuf {
+        let file = Path::new("lib").join(format!("{}.dart", platform));
+        if file.exists() {
+            file
+        } else {
+            Path::new("lib").join("main.dart")
+        }
     }
 }
 
