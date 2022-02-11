@@ -10,7 +10,7 @@ use xappimage::AppImage;
 use xcli::android::AndroidSdk;
 use xcli::config::Config;
 use xcli::devices::Device;
-use xcli::flutter::{Flutter, Rule};
+use xcli::flutter::Flutter;
 use xcli::maven::{Dependency, Maven};
 use xcli::{Arch, BuildArgs, BuildTarget, CompileTarget, Format, Opt, Platform};
 use xcommon::Signer;
@@ -77,7 +77,8 @@ fn build(target: BuildTarget, run: bool) -> Result<()> {
     let target_file = config.target_file(target.platform());
     // run flutter pub get
     if has_dart_code
-        && xcommon::stamp_file(Path::new("pubspec.yaml"), &build_dir.join("pubspec.stamp"))?
+        && (!Path::new(".dart_tool").join("package_config.json").exists()
+            || xcommon::stamp_file(Path::new("pubspec.yaml"), &build_dir.join("pubspec.stamp"))?)
     {
         let status = Command::new("flutter").arg("pub").arg("get").status()?;
         if !status.success() {
@@ -112,20 +113,31 @@ fn build(target: BuildTarget, run: bool) -> Result<()> {
                 )?;
                 // assemble flutter bundle
                 flutter.assemble(
-                    &target_file,
                     &appimage.appdir().join("data").join("flutter_assets"),
                     &arch_dir.join("flutter_build.d"),
                     compile_target,
-                    Rule::CopyFlutterBundle,
                 )?;
-                if target.opt() == Opt::Release {
-                    flutter.assemble(
-                        &target_file,
-                        &appimage.appdir().join("lib"),
-                        &arch_dir.join("flutter_build_aot.d"),
-                        compile_target,
-                        Rule::CopyFlutterAotBundle,
-                    )?;
+                let kernel_blob = arch_dir.join("kernel_blob.bin");
+                flutter.kernel_blob_bin(
+                    &target_file,
+                    &kernel_blob,
+                    &arch_dir.join("kernel_blob.bin.d"),
+                    compile_target.opt(),
+                )?;
+                match compile_target.opt() {
+                    Opt::Debug => {
+                        appimage.add_file(
+                            &kernel_blob,
+                            &Path::new("data")
+                                .join("flutter_assets")
+                                .join("kernel_blob.bin"),
+                        )?;
+                    }
+                    Opt::Release => {
+                        let aot_elf = arch_dir.join("libapp.so");
+                        flutter.aot_snapshot(&kernel_blob, &aot_elf, compile_target)?;
+                        appimage.add_file(&aot_elf, &Path::new("lib").join("libapp.so"))?;
+                    }
                 }
             }
             build_rust(compile_target, target.is_host())?;

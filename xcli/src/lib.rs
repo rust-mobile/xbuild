@@ -35,6 +35,20 @@ pub enum Platform {
     Windows,
 }
 
+impl Platform {
+    pub fn host() -> Result<Self> {
+        Ok(if cfg!(target_os = "linux") {
+            Platform::Linux
+        } else if cfg!(target_os = "macos") {
+            Platform::Macos
+        } else if cfg!(target_os = "windows") {
+            Platform::Windows
+        } else {
+            anyhow::bail!("unsupported host");
+        })
+    }
+}
+
 impl std::fmt::Display for Platform {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
@@ -68,6 +82,18 @@ pub enum Arch {
     Arm64,
     X64,
     //X86,
+}
+
+impl Arch {
+    pub fn host() -> Result<Self> {
+        if cfg!(target_arch = "x86_64") {
+            Ok(Arch::X64)
+        } else if cfg!(target_arch = "aarch64") {
+            Ok(Arch::Arm64)
+        } else {
+            anyhow::bail!("unsupported host");
+        }
+    }
 }
 
 impl std::fmt::Display for Arch {

@@ -3,21 +3,6 @@ use anyhow::Result;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Rule {
-    CopyFlutterBundle,
-    CopyFlutterAotBundle,
-}
-
-impl std::fmt::Display for Rule {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::CopyFlutterBundle => write!(f, "copy_flutter_bundle"),
-            Self::CopyFlutterAotBundle => write!(f, "copy_flutter_aot_bundle"),
-        }
-    }
-}
-
 pub struct Flutter {
     path: PathBuf,
 }
@@ -80,11 +65,9 @@ impl Flutter {
 
     pub fn assemble(
         &self,
-        target_file: &Path,
         flutter_assets: &Path,
         depfile: &Path,
         target: CompileTarget,
-        rule: Rule,
     ) -> Result<()> {
         let target_platform = match (target.platform(), target.arch()) {
             (Platform::Android, _) => "android",
@@ -108,13 +91,97 @@ impl Flutter {
             .arg("--output")
             .arg(flutter_assets)
             .arg(format!("-dTargetPlatform={}", target_platform))
-            .arg(format!("-dBuildMode={}", target.opt()))
-            .arg("-dTrackWidgetCreation=true")
-            .arg(format!("-dTargetFile={}", target_file.display()))
-            .arg(rule.to_string())
+            .arg("-dBuildMode=release")
+            .arg("copy_flutter_bundle")
             .status()?;
         if !status.success() {
-            anyhow::bail!("flutter assemble exited with {:?}", status);
+            anyhow::bail!("flutter assemble exited with {:?}", status.code());
+        }
+        Ok(())
+    }
+
+    pub fn host_file(&self, path: &Path) -> Result<PathBuf> {
+        let host = CompileTarget::new(Platform::host()?, Arch::host()?, Opt::Debug);
+        let path = self.engine_dir(host)?.join(path);
+        if !path.exists() {
+            anyhow::bail!("failed to locate {}", path.display());
+        }
+        Ok(path)
+    }
+
+    pub fn isolate_snapshot_data(&self) -> Result<PathBuf> {
+        self.host_file(Path::new("isolate_snapshot.bin"))
+    }
+
+    pub fn vm_snapshot_data(&self) -> Result<PathBuf> {
+        self.host_file(Path::new("vm_isolate_snapshot.bin"))
+    }
+
+    pub fn kernel_blob_bin(
+        &self,
+        target_file: &Path,
+        output: &Path,
+        depfile: &Path,
+        opt: Opt,
+    ) -> Result<()> {
+        let mut cmd = Command::new(self.path.join("bin").join("dart"));
+        cmd.arg(self.host_file(Path::new("frontend_server.dart.snapshot"))?)
+            .arg("--sdk-root")
+            .arg(
+                self.path
+                    .join("bin")
+                    .join("cache")
+                    .join("artifacts")
+                    .join("engine")
+                    .join("common")
+                    .join("flutter_patched_sdk"),
+            )
+            .arg("--target=flutter")
+            .arg("--no-print-incremental-dependencies")
+            .arg("--packages")
+            .arg(".packages")
+            .arg("--output-dill")
+            .arg(output)
+            .arg("--depfile")
+            .arg(depfile);
+        match opt {
+            Opt::Release => {
+                cmd.arg("-Ddart.vm.profile=false")
+                    .arg("-Ddart.vm.product=true")
+                    .arg("--aot")
+                    .arg("--tfa");
+            }
+            Opt::Debug => {
+                cmd.arg("-Ddart.vm.profile=false")
+                    .arg("-Ddart.vm.product=true")
+                    .arg("--track-widget-creation");
+            }
+        }
+        let status = cmd.arg(target_file).status()?;
+        if !status.success() {
+            anyhow::bail!("failed to build kernel_blob.bin");
+        }
+        Ok(())
+    }
+
+    pub fn aot_snapshot(
+        &self,
+        kernel_blob_bin: &Path,
+        snapshot: &Path,
+        target: CompileTarget,
+    ) -> Result<()> {
+        let path = self.engine_dir(target)?.join("gen_snapshot");
+        let mut cmd = Command::new(path);
+        if target.platform() == Platform::Ios || target.platform() == Platform::Macos {
+            cmd.arg("--snapshot_kind=app-aot-assembly")
+                .arg(format!("--assembly={}", snapshot.display()));
+        } else {
+            cmd.arg("--snapshot_kind=app-aot-elf")
+                .arg(format!("--elf={}", snapshot.display()));
+        }
+        let status = cmd.arg("--deterministic").arg(kernel_blob_bin).status()?;
+        if !status.success() {
+            anyhow::bail!("gen_snapshot failed with {:?}", status);
         }
         Ok(())
     }

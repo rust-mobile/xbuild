@@ -23,25 +23,11 @@ impl Host {
     }
 
     pub fn platform(&self) -> Result<Platform> {
-        Ok(if cfg!(target_os = "linux") {
-            Platform::Linux
-        } else if cfg!(target_os = "macos") {
-            Platform::Macos
-        } else if cfg!(target_os = "windows") {
-            Platform::Windows
-        } else {
-            anyhow::bail!("unsupported host");
-        })
+        Platform::host()
     }
 
     pub fn arch(&self) -> Result<Arch> {
-        if cfg!(target_arch = "x86_64") {
-            Ok(Arch::X64)
-        } else if cfg!(target_arch = "aarch64") {
-            Ok(Arch::Arm64)
-        } else {
-            anyhow::bail!("unsupported host");
-        }
+        Arch::host()
     }
 
     pub fn details(&self) -> Result<String> {
