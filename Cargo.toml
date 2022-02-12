@@ -1,7 +1,35 @@
 [package]
-name = "xcross"
+name = "xcross-example"
 version = "0.1.0"
+authors = ["Jay Oster <jay@kodewerx.org>"]
 edition = "2021"
+publish = false
+description = "an example app"
+
+[lib]
+crate-type = ["cdylib"]
+
+[features]
+optimize = ["log/release_max_level_warn"]
+default = ["optimize"]
 
 [dependencies]
-iced = { git = "https://github.com/hecrj/iced" }
+env_logger = "0.9"
+euclid = "0.22"
+log = "0.4"
+pixels = "0.9.0"
+winit = "0.26"
+winit_input_helper = "0.11"
+
+[dependencies.raqote]
+git = "https://github.com/jrmuizel/raqote.git"
+rev = "dea376474966fe91f0fa3c5115171e0df86bac22"
+default-features = false
+
+[target.'cfg(target_os = "android")'.dependencies]
+ndk-glue = { version = "0.5.0", features = ["logger"] }
+
+[patch.crates-io]
+cc = { path = "../cc-rs" }
+
+[package.metadata.bundle]
