@@ -64,6 +64,20 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
     let opt_dir = env.build_dir().join(env.target().opt().to_string());
     let platform_dir = opt_dir.join(env.target().platform().to_string());
 
+    if env.target().platform() == Platform::Windows && Platform::host()? != Platform::Windows {
+        let windows_sdk = env.build_dir().join("Windows.sdk");
+        if !windows_sdk.exists() {
+            println!("downloading windows sdk");
+            xcli::github::download_tar_zst(
+                env.build_dir(),
+                "cloudpeers",
+                "xcross",
+                "v0.1.0+1",
+                "Windows.sdk.tar.zst",
+            )?;
+        }
+    }
+
     if let Some(flutter) = env.flutter() {
         if !Path::new(".dart_tool").join("package_config.json").exists()
             || xcommon::stamp_file(
@@ -250,6 +264,22 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
             apk.finish(env.target().signer().cloned())?;
             out
         }
+        Format::Msix => {
+            let target = env.target().compile_targets().next().unwrap();
+            let arch_dir = platform_dir.join(target.arch().to_string());
+            let out = arch_dir.join(format!("{}.msix", env.name()));
+            let msix = Msix::new(out)?;
+            // data/flutter_assets
+            // data/icudtl.dat
+            // data/app.so or data/kernel_blob.bin
+            // flutter_windows.dll
+            // helloworld.exe
+            // TODO: msix.add_manifest();
+            // TODO: Images/*
+            // TODO: *.pri
+            msix.sign(env.target().signer().cloned())?;
+            out
+        }
         f => unimplemented!("{:?}", f),
     };
     println!("built {}", out.display());
@@ -313,31 +343,3 @@ fn build_classes_dex(env: &BuildEnv, flutter: &Flutter, platform_dir: &Path) -> 
     }
     Ok(())
 }
-
-/*
-            let sdk = AndroidSdk::from_env()?;
-            let target = Target::from_rust_triple(target)?;
-
-            let manifest = &mut config.apk.manifest;
-            let version = manifest
-                .version_name
-                .get_or_insert_with(|| config.version.clone());
-            let version_code = VersionCode::from_semver(version)?.to_code(1);
-            manifest.version_code.get_or_insert(version_code);
-            let target_sdk = *manifest
-                .sdk
-                .target_sdk_version
-                .get_or_insert_with(|| sdk.default_target_platform());
-
-            let android_jar = sdk.android_jar(target_sdk)?;
-            let out = out_dir.join(format!("{}-aarch64.apk", &config.name));
-            let mut apk = Apk::new(out.clone())?;
-            apk.add_res(manifest.clone(), config.icon(Format::Apk), &android_jar)?;
-
-            if has_dart_code {
-                let build_dir = out_dir.join("android");
-                let flutter = Flutter::from_env()?;
-
-
-            out
-*/

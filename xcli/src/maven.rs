@@ -301,11 +301,11 @@ impl Maven {
         let path = self.cache_dir.join(file_name);
         if !path.exists() {
             println!("downloading {}", url);
-            let res = self.client.get(url).send()?;
-            if !res.status().is_success() {
-                anyhow::bail!("GET {} returned status code {}", url, res.status());
+            let resp = self.client.get(url).send()?;
+            if !resp.status().is_success() {
+                anyhow::bail!("GET {} returned status code {}", url, resp.status());
             }
-            let mut r = BufReader::new(self.client.get(url).send()?);
+            let mut r = BufReader::new(resp);
             let mut w = BufWriter::new(File::create(&path)?);
             std::io::copy(&mut r, &mut w)?;
         }

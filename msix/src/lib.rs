@@ -11,19 +11,19 @@ pub mod manifest;
 pub mod p7x;
 mod pkcs7;
 
-pub struct MsixBuilder<W: Write + Seek> {
-    zip: ZipWriter<W>,
+pub struct Msix {
+    zip: ZipWriter<BufWriter<File>>,
     block_map: block_map::BlockMapBuilder,
     content_types: content_types::ContentTypesBuilder,
 }
 
-impl<W: Write + Seek> MsixBuilder<W> {
-    pub fn new(w: W) -> Self {
-        Self {
-            zip: ZipWriter::new(w),
+impl Msix {
+    pub fn new(path: PathBuf) -> Result<Self> {
+        let zip = ZipWriter::new(BufWriter::new(File::create(&path)?));
+        Ok(Self {
             block_map: Default::default(),
             content_types: Default::default(),
-        }
+        })
     }
 
     pub fn add_manifest(&mut self, manifest: &AppxManifest) -> Result<()> {

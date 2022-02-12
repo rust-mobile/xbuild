@@ -15,6 +15,7 @@ pub mod cargo;
 pub mod config;
 pub mod devices;
 pub mod flutter;
+pub mod github;
 pub mod maven;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -550,10 +551,20 @@ impl BuildEnv {
         if let Some(ndk) = self.android_ndk() {
             cargo.use_ndk_tools(ndk, self.target_sdk_version())?;
         }
+        if target.platform() == Platform::Windows {
+            let sdk = self.build_dir().join("Windows.sdk");
+            if sdk.exists() {
+                cargo.use_xwin(&sdk)?;
+            }
+        }
         if let Some(flutter) = self.flutter() {
             match self.target().platform() {
                 Platform::Linux => {
-                    cargo.add_lib_dir(&flutter.engine_dir(target)?);
+                    cargo.add_lib_dir(&flutter.engine_dir(target)?)?;
+                }
+                Platform::Windows => {
+                    cargo.add_lib_dir(&flutter.engine_dir(target)?)?;
+                    cargo.link_lib("flutter_windows.dll");
                 }
                 _ => {}
             }
