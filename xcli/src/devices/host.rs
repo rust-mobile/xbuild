@@ -1,5 +1,4 @@
-use crate::config::Config;
-use crate::{Arch, Platform};
+use crate::{Arch, BuildEnv, Platform};
 use anyhow::Result;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
@@ -52,7 +51,7 @@ impl Host {
         }
     }
 
-    pub fn run(&self, path: &Path, _config: &Config, flutter_attach: bool) -> Result<()> {
+    pub fn run(&self, path: &Path, _config: &BuildEnv, flutter_attach: bool) -> Result<()> {
         let mut child = Command::new(path)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())

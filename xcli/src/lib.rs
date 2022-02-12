@@ -1,7 +1,13 @@
+use crate::android::{AndroidNdk, AndroidSdk};
+use crate::cargo::Cargo;
+use crate::config::Config;
 use crate::devices::Device;
+use crate::flutter::Flutter;
+use crate::maven::Maven;
 use anyhow::Result;
 use clap::Parser;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use xapk::AndroidManifest;
 use xcommon::Signer;
 
 pub mod android;
@@ -232,19 +238,27 @@ impl CompileTarget {
         }
     }
 
-    pub fn platform(&self) -> Platform {
+    pub fn platform(self) -> Platform {
         self.platform
     }
 
-    pub fn arch(&self) -> Arch {
+    pub fn arch(self) -> Arch {
         self.arch
     }
 
-    pub fn opt(&self) -> Opt {
+    pub fn opt(self) -> Opt {
         self.opt
     }
 
-    pub fn rust_triple(&self) -> Result<&'static str> {
+    pub fn android_abi(self) -> Result<xapk::Target> {
+        match (self.platform, self.arch) {
+            (Platform::Android, Arch::Arm64) => Ok(xapk::Target::Arm64V8a),
+            (Platform::Android, Arch::X64) => Ok(xapk::Target::X86_64),
+            _ => anyhow::bail!("unsupported android abi"),
+        }
+    }
+
+    pub fn rust_triple(self) -> Result<&'static str> {
         Ok(match (self.arch, self.platform) {
             (Arch::Arm64, Platform::Android) => "aarch64-linux-android",
             (Arch::Arm64, Platform::Ios) => "aarch64-apple-ios",
@@ -259,6 +273,12 @@ impl CompileTarget {
                 platform
             ),
         })
+    }
+}
+
+impl std::fmt::Display for CompileTarget {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}-{}-{}", self.platform, self.arch, self.opt)
     }
 }
 
@@ -398,5 +418,150 @@ impl BuildTarget {
             .as_ref()
             .map(|device| device.is_host())
             .unwrap_or_default()
+    }
+}
+
+pub struct BuildEnv {
+    name: String,
+    build_target: BuildTarget,
+    build_dir: PathBuf,
+    has_rust_code: bool,
+    icon: Option<PathBuf>,
+    target_file: PathBuf,
+    android_manifest: Option<AndroidManifest>,
+    flutter: Option<Flutter>,
+    android_sdk: Option<AndroidSdk>,
+    android_ndk: Option<AndroidNdk>,
+}
+
+impl BuildEnv {
+    pub fn new(args: BuildArgs) -> Result<Self> {
+        let build_target = args.build_target()?;
+        let has_rust_code = Path::new("Cargo.toml").exists();
+        let build_dir = Path::new("target").join("x");
+        let flutter = if Path::new("pubspec.yaml").exists() {
+            Some(Flutter::from_env()?)
+        } else {
+            None
+        };
+        let config = if flutter.is_some() {
+            Config::parse("pubspec.yaml")?
+        } else {
+            Config::parse("Cargo.toml")?
+        };
+        let android_sdk = if build_target.platform() == Platform::Android {
+            Some(AndroidSdk::from_env()?)
+        } else {
+            None
+        };
+        let android_ndk = if let Some(sdk) = android_sdk.as_ref() {
+            if has_rust_code {
+                Some(AndroidNdk::from_env(sdk)?)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        let android_manifest = if let Some(sdk) = android_sdk.as_ref() {
+            Some(config.android_manifest(&sdk)?)
+        } else {
+            None
+        };
+        let target_file = config.target_file(build_target.platform());
+        let icon = config
+            .icon(build_target.format())
+            .map(|icon| icon.to_path_buf());
+        let name = config.name;
+        Ok(Self {
+            name,
+            build_target,
+            has_rust_code,
+            target_file,
+            icon,
+            flutter,
+            android_sdk,
+            android_ndk,
+            android_manifest,
+            build_dir,
+        })
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn target(&self) -> &BuildTarget {
+        &self.build_target
+    }
+
+    pub fn has_rust_code(&self) -> bool {
+        self.has_rust_code
+    }
+
+    pub fn has_dart_code(&self) -> bool {
+        self.flutter.is_some()
+    }
+
+    pub fn build_dir(&self) -> &Path {
+        &self.build_dir
+    }
+
+    pub fn target_file(&self) -> &Path {
+        &self.target_file
+    }
+
+    pub fn icon(&self) -> Option<&Path> {
+        self.icon.as_deref()
+    }
+
+    pub fn flutter(&self) -> Option<&Flutter> {
+        self.flutter.as_ref()
+    }
+
+    pub fn android_sdk(&self) -> Option<&AndroidSdk> {
+        self.android_sdk.as_ref()
+    }
+
+    pub fn android_ndk(&self) -> Option<&AndroidNdk> {
+        self.android_ndk.as_ref()
+    }
+
+    pub fn android_manifest(&self) -> Option<&AndroidManifest> {
+        self.android_manifest.as_ref()
+    }
+
+    fn target_sdk_version(&self) -> u32 {
+        self.android_manifest()
+            .unwrap()
+            .sdk
+            .target_sdk_version
+            .unwrap()
+    }
+
+    pub fn android_jar(&self) -> Result<PathBuf> {
+        self.android_sdk()
+            .unwrap()
+            .android_jar(self.target_sdk_version())
+    }
+
+    pub fn cargo(&self, target: CompileTarget) -> Result<Cargo> {
+        let mut cargo = Cargo::new(target)?;
+        if let Some(ndk) = self.android_ndk() {
+            cargo.use_ndk_tools(ndk, self.target_sdk_version())?;
+        }
+        if let Some(flutter) = self.flutter() {
+            match self.target().platform() {
+                Platform::Linux => {
+                    cargo.add_lib_dir(&flutter.engine_dir(target)?);
+                }
+                _ => {}
+            }
+        }
+        Ok(cargo)
+    }
+
+    pub fn maven(&self) -> Result<Maven> {
+        Maven::new(self.build_dir.join("maven"))
     }
 }

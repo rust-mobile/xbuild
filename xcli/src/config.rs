@@ -1,17 +1,19 @@
+use crate::android::AndroidSdk;
 use crate::{Format, Platform};
 use anyhow::Result;
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
+use xapk::{AndroidManifest, VersionCode};
 
 #[derive(Clone, Debug)]
 pub struct Config {
     pub name: String,
-    pub version: String,
-    pub description: String,
+    version: String,
+    description: String,
     generic: GenericConfig,
-    pub apk: ApkConfig,
-    pub appimage: AppimageConfig,
-    pub msix: MsixConfig,
+    apk: ApkConfig,
+    appimage: AppimageConfig,
+    msix: MsixConfig,
 }
 
 impl Config {
@@ -81,6 +83,17 @@ impl Config {
             Path::new("lib").join("main.dart")
         }
     }
+
+    pub fn android_manifest(&self, sdk: &AndroidSdk) -> Result<AndroidManifest> {
+        let mut manifest = self.apk.manifest.clone();
+        manifest.version_name = Some(self.version.clone());
+        manifest.version_code = Some(VersionCode::from_semver(&self.version)?.to_code(1));
+        manifest
+            .sdk
+            .target_sdk_version
+            .get_or_insert_with(|| sdk.default_target_platform());
+        Ok(manifest)
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -127,7 +140,7 @@ pub struct GenericConfig {
 pub struct ApkConfig {
     #[serde(flatten)]
     generic: GenericConfig,
-    pub manifest: xapk::AndroidManifest,
+    manifest: AndroidManifest,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]

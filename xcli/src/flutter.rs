@@ -18,7 +18,7 @@ impl Flutter {
         Ok(Self { path })
     }
 
-    pub fn engine_version(&self) -> Result<String> {
+    pub fn engine_version_path(&self) -> Result<PathBuf> {
         let path = self
             .path
             .join("bin")
@@ -27,7 +27,13 @@ impl Flutter {
         if !path.exists() {
             anyhow::bail!("failed to locate engine.version at {}", path.display());
         }
-        Ok(std::fs::read_to_string(&path)?.trim().into())
+        Ok(path)
+    }
+
+    pub fn engine_version(&self) -> Result<String> {
+        Ok(std::fs::read_to_string(self.engine_version_path()?)?
+            .trim()
+            .into())
     }
 
     pub fn engine_dir(&self, target: CompileTarget) -> Result<PathBuf> {
@@ -49,37 +55,50 @@ impl Flutter {
             .join("engine")
             .join(name);
         if !path.exists() {
-            // TODO: precache when engine version changes
-            let status = Command::new("flutter")
-                .arg("precache")
-                .arg("-v")
-                .arg("--suppress-analytics")
-                .arg(format!("--{}", target.platform()))
-                .status()?;
-            if !status.success() {
-                anyhow::bail!("flutter precache exited with code {}", status);
-            }
+            anyhow::bail!(
+                "failed to get engine dir for {} {} {}",
+                target.platform(),
+                target.arch(),
+                target.opt()
+            );
         }
         Ok(path)
     }
 
-    pub fn assemble(
-        &self,
-        flutter_assets: &Path,
-        depfile: &Path,
-        target: CompileTarget,
-    ) -> Result<()> {
-        let target_platform = match (target.platform(), target.arch()) {
-            (Platform::Android, _) => "android",
-            (Platform::Ios, _) => "ios",
+    pub fn pub_get(&self) -> Result<()> {
+        let status = Command::new("flutter").arg("pub").arg("get").status()?;
+        if !status.success() {
+            anyhow::bail!("flutter pub get exited with status {:?}", status);
+        }
+        Ok(())
+    }
+
+    pub fn precache(&self, platform: Platform) -> Result<()> {
+        let status = Command::new("flutter")
+            .arg("precache")
+            .arg("-v")
+            .arg("--suppress-analytics")
+            .arg(format!("--{}", platform))
+            .status()?;
+        if !status.success() {
+            anyhow::bail!("flutter precache exited with code {}", status);
+        }
+        Ok(())
+    }
+
+    pub fn build_flutter_assets(&self, flutter_assets: &Path, depfile: &Path) -> Result<()> {
+        // in release mode only the assets are copied. this means that the result
+        // should be platform independent.
+        let host = CompileTarget::new(Platform::host()?, Arch::host()?, Opt::Release);
+        let target_platform = match (host.platform(), host.arch()) {
             (Platform::Linux, Arch::Arm64) => "linux-arm64",
             (Platform::Linux, Arch::X64) => "linux-x64",
             (Platform::Macos, _) => "darwin",
             (Platform::Windows, Arch::X64) => "windows-x64",
             _ => anyhow::bail!(
                 "unsupported platform arch combination {} {}",
-                target.platform(),
-                target.arch(),
+                host.platform(),
+                host.arch(),
             ),
         };
         let status = Command::new("flutter")

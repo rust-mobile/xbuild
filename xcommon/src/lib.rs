@@ -156,6 +156,11 @@ pub fn copy_dir_all(source: &Path, dest: &Path) -> Result<()> {
 
 pub fn stamp_file(file: &Path, stamp: &Path) -> Result<bool> {
     let stamp_exists = stamp.exists();
+    if !stamp_exists {
+        if let Some(parent) = stamp.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+    }
     let stamp_time = File::create(stamp)?.metadata()?.modified()?;
     let file_time = File::open(file)?.metadata()?.modified()?;
     Ok(!stamp_exists || file_time > stamp_time)

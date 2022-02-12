@@ -7,12 +7,9 @@ use std::process::Command;
 use xapk::zip::read::ZipArchive;
 use xapk::{Apk, Target, VersionCode};
 use xappimage::AppImage;
-use xcli::android::AndroidSdk;
-use xcli::config::Config;
 use xcli::devices::Device;
-use xcli::flutter::Flutter;
-use xcli::maven::{Dependency, Maven};
-use xcli::{Arch, BuildArgs, BuildTarget, CompileTarget, Format, Opt, Platform};
+use xcli::maven::Dependency;
+use xcli::{Arch, BuildArgs, BuildEnv, BuildTarget, CompileTarget, Format, Opt, Platform};
 use xcommon::Signer;
 
 #[derive(Parser)]
@@ -54,55 +51,87 @@ impl Commands {
                     );
                 }
             }
-            Self::Build { args } => build(args.build_target()?, false)?,
-            Self::Run { args } => build(args.build_target()?, true)?,
+            Self::Build { args } => build(args, false)?,
+            Self::Run { args } => build(args, true)?,
         }
         Ok(())
     }
 }
 
-fn build(target: BuildTarget, run: bool) -> Result<()> {
-    let _has_rust_code = Path::new("Cargo.toml").exists();
-    let has_dart_code = Path::new("pubspec.yaml").exists();
-    let build_dir = Path::new("target").join("x");
-    let opt_dir = build_dir.join(target.opt().to_string());
-    let platform_dir = opt_dir.join(target.platform().to_string());
-    std::fs::create_dir_all(&platform_dir)?;
-    let config = if has_dart_code {
-        Config::parse("pubspec.yaml")?
-    } else {
-        Config::parse("Cargo.toml")?
-    };
-    let icon = config.icon(target.format());
-    let target_file = config.target_file(target.platform());
-    // run flutter pub get
-    if has_dart_code
-        && (!Path::new(".dart_tool").join("package_config.json").exists()
-            || xcommon::stamp_file(Path::new("pubspec.yaml"), &build_dir.join("pubspec.stamp"))?)
-    {
-        let status = Command::new("flutter").arg("pub").arg("get").status()?;
-        if !status.success() {
-            anyhow::bail!("flutter pub get exited with status {:?}", status);
+fn build(args: BuildArgs, run: bool) -> Result<()> {
+    let env = BuildEnv::new(args)?;
+    let opt_dir = env.build_dir().join(env.target().opt().to_string());
+    let platform_dir = opt_dir.join(env.target().platform().to_string());
+
+    if let Some(flutter) = env.flutter() {
+        if !Path::new(".dart_tool").join("package_config.json").exists()
+            || xcommon::stamp_file(
+                Path::new("pubspec.yaml"),
+                &env.build_dir().join("pubspec.stamp"),
+            )?
+        {
+            println!("pub get");
+            flutter.pub_get()?;
+        }
+        if xcommon::stamp_file(
+            &flutter.engine_version_path()?,
+            &platform_dir.join("engine.version.stamp"),
+        )? {
+            println!("precaching flutter engine");
+            flutter.precache(env.target().platform())?;
+        }
+        println!("building flutter_assets");
+        flutter.build_flutter_assets(
+            &env.build_dir().join("flutter_assets"),
+            &env.build_dir().join("flutter_assets.d"),
+        )?;
+        println!("building kernel_blob.bin");
+        let kernel_blob = platform_dir.join("kernel_blob.bin");
+        flutter.kernel_blob_bin(
+            env.target_file(),
+            &kernel_blob,
+            &platform_dir.join("kernel_blob.bin.d"),
+            env.target().opt(),
+        )?;
+        if env.target().opt() == Opt::Release
+            && xcommon::stamp_file(&kernel_blob, &platform_dir.join("kernel_blob.bin.stamp"))?
+        {
+            for target in env.target().compile_targets() {
+                println!("building aot snapshot for {}", target);
+                let arch_dir = platform_dir.join(target.arch().to_string());
+                std::fs::create_dir_all(&arch_dir)?;
+                flutter.aot_snapshot(&kernel_blob, &arch_dir.join("libapp.so"), target)?;
+            }
         }
     }
-    // build final artefact
-    let out = match target.format() {
+
+    if env.has_rust_code() {
+        for target in env.target().compile_targets() {
+            println!("building rust for {}", target);
+            env.cargo(target)?.build()?;
+        }
+    }
+
+    let out = match env.target().format() {
         Format::Appimage => {
-            let compile_targets = target.compile_targets().collect::<Vec<_>>();
-            if compile_targets.len() != 1 {
-                anyhow::bail!("expected one compile target for appimage");
+            println!("building appimage");
+            let target = env.target().compile_targets().next().unwrap();
+            let arch_dir = platform_dir.join(target.arch().to_string());
+
+            let appimage = AppImage::new(&arch_dir, env.name().to_string())?;
+            appimage.add_apprun()?;
+            appimage.add_desktop()?;
+            if let Some(icon) = env.icon() {
+                appimage.add_icon(icon)?;
             }
-            let compile_target = compile_targets[0];
-            let arch_dir = platform_dir.join(compile_target.arch().to_string());
-            let appimage = AppImage::new(&arch_dir, config.name.clone())?;
-            if has_dart_code {
-                let flutter = Flutter::from_env()?;
+
+            if let Some(flutter) = env.flutter() {
                 let debug_engine_dir = flutter.engine_dir(CompileTarget::new(
-                    compile_target.platform(),
-                    compile_target.arch(),
+                    target.platform(),
+                    target.arch(),
                     Opt::Debug,
                 ))?;
-                let engine_dir = flutter.engine_dir(compile_target)?;
+                let engine_dir = flutter.engine_dir(target)?;
                 appimage.add_file(
                     &debug_engine_dir.join("icudtl.dat"),
                     &Path::new("data").join("icudtl.dat"),
@@ -111,49 +140,34 @@ fn build(target: BuildTarget, run: bool) -> Result<()> {
                     &engine_dir.join("libflutter_linux_gtk.so"),
                     &Path::new("lib").join("libflutter_linux_gtk.so"),
                 )?;
-                // assemble flutter bundle
-                flutter.assemble(
-                    &appimage.appdir().join("data").join("flutter_assets"),
-                    &arch_dir.join("flutter_build.d"),
-                    compile_target,
-                )?;
-                let kernel_blob = arch_dir.join("kernel_blob.bin");
-                flutter.kernel_blob_bin(
-                    &target_file,
-                    &kernel_blob,
-                    &arch_dir.join("kernel_blob.bin.d"),
-                    compile_target.opt(),
-                )?;
-                match compile_target.opt() {
+                match target.opt() {
                     Opt::Debug => {
                         appimage.add_file(
-                            &kernel_blob,
+                            &platform_dir.join("kernel_blob.bin"),
                             &Path::new("data")
                                 .join("flutter_assets")
                                 .join("kernel_blob.bin"),
                         )?;
                     }
                     Opt::Release => {
-                        let aot_elf = arch_dir.join("libapp.so");
-                        flutter.aot_snapshot(&kernel_blob, &aot_elf, compile_target)?;
-                        appimage.add_file(&aot_elf, &Path::new("lib").join("libapp.so"))?;
+                        appimage.add_file(
+                            &arch_dir.join("libapp.so"),
+                            &Path::new("lib").join("libapp.so"),
+                        )?;
                     }
                 }
             }
-            build_rust(compile_target, target.is_host())?;
-            let bin = Path::new("target")
-                .join(target.opt().to_string())
-                .join(&config.name);
-            appimage.add_file(&bin, Path::new(&config.name))?;
 
-            appimage.add_apprun()?;
-            appimage.add_desktop()?;
-            if let Some(icon) = icon {
-                appimage.add_icon(icon)?;
+            if env.has_rust_code() {
+                let bin = Path::new("target")
+                    .join(target.opt().to_string())
+                    .join(env.name());
+                appimage.add_file(&bin, Path::new(env.name()))?;
             }
+
             if target.opt() == Opt::Release {
-                let out = arch_dir.join(format!("{}.AppImage", &config.name));
-                appimage.build(&out, target.signer().cloned())?;
+                let out = arch_dir.join(format!("{}.AppImage", env.name()));
+                appimage.build(&out, env.target().signer().cloned())?;
                 out
             } else {
                 appimage.appdir().join("AppRun")
@@ -162,40 +176,13 @@ fn build(target: BuildTarget, run: bool) -> Result<()> {
         f => unimplemented!("{:?}", f),
     };
     println!("built {}", out.display());
-    // maybe run
+
     if run {
-        if let Some(device) = target.device() {
-            device.run(&out, &config, has_dart_code)?;
+        if let Some(device) = env.target().device() {
+            device.run(&out, &env, env.has_dart_code())?;
         } else {
             anyhow::bail!("no device specified");
         }
-    }
-    Ok(())
-}
-
-fn build_rust(target: CompileTarget, is_host: bool) -> Result<()> {
-    // TODO: cleanup and generalize
-    let mut cmd = Command::new("cargo");
-    cmd.env(
-        "RUSTFLAGS",
-        format!(
-            "-Clink-arg=-L/home/dvc/cloudpeer/helloworld/target/x/{}/{}/{}/helloworld.AppDir/lib",
-            target.opt(),
-            target.platform(),
-            target.arch(),
-        ),
-    );
-    cmd.arg("build");
-    if target.opt() == Opt::Release {
-        cmd.arg("--release");
-    }
-    if !is_host {
-        cmd.arg("--target");
-        cmd.arg(target.rust_triple()?);
-    }
-    // configure tools and linkers for sdk
-    if !cmd.status()?.success() {
-        anyhow::bail!("cargo build failed");
     }
     Ok(())
 }

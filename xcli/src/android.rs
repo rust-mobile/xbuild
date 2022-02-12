@@ -125,12 +125,10 @@ pub struct AndroidNdk {
     ndk_path: PathBuf,
     build_tag: u32,
     platforms: Vec<u32>,
-    sdk: AndroidSdk,
 }
 
 impl AndroidNdk {
-    pub fn from_env() -> Result<Self> {
-        let sdk = AndroidSdk::from_env()?;
+    pub fn from_env(sdk: &AndroidSdk) -> Result<Self> {
         let ndk_path = {
             let ndk_path = std::env::var("ANDROID_NDK_ROOT")
                 .ok()
@@ -192,15 +190,10 @@ impl AndroidNdk {
             .collect();
 
         Ok(Self {
-            sdk,
             ndk_path,
             build_tag,
             platforms,
         })
-    }
-
-    pub fn sdk(&self) -> &AndroidSdk {
-        &self.sdk
     }
 
     pub fn path(&self) -> &Path {

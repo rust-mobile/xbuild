@@ -1,5 +1,4 @@
-use crate::config::Config;
-use crate::devices::{Backend, Device};
+use crate::devices::{Backend, BuildEnv, Device};
 use crate::{Arch, Platform};
 use anyhow::Result;
 use std::io::{BufRead, BufReader};
@@ -175,11 +174,12 @@ impl Adb {
         &self,
         device: &str,
         path: &Path,
-        config: &Config,
+        env: &BuildEnv,
         flutter_attach: bool,
     ) -> Result<()> {
-        let package = &config.apk.manifest.package;
-        let activity = &config.apk.manifest.application.activity.name;
+        let manifest = env.android_manifest().unwrap();
+        let package = &manifest.package;
+        let activity = &manifest.application.activity.name;
         self.stop(device, package)?;
         self.install(device, path)?;
         let last_timestamp = self.logcat_last_timestamp(device)?;

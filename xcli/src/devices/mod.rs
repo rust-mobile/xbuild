@@ -1,7 +1,6 @@
-use crate::config::Config;
 use crate::devices::adb::Adb;
 use crate::devices::host::Host;
-use crate::{Arch, Platform};
+use crate::{Arch, BuildEnv, Platform};
 use anyhow::Result;
 use std::path::Path;
 
@@ -103,10 +102,10 @@ impl Device {
         }
     }
 
-    pub fn run(&self, path: &Path, config: &Config, attach: bool) -> Result<()> {
+    pub fn run(&self, path: &Path, env: &BuildEnv, attach: bool) -> Result<()> {
         match &self.backend {
-            Backend::Adb(adb) => adb.run(&self.id, path, config, attach),
-            Backend::Host(host) => host.run(path, config, attach),
+            Backend::Adb(adb) => adb.run(&self.id, path, env, attach),
+            Backend::Host(host) => host.run(path, env, attach),
         }
     }
 }
