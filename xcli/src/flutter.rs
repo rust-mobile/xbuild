@@ -119,7 +119,7 @@ impl Flutter {
         Ok(())
     }
 
-    pub fn host_file(&self, path: &Path) -> Result<PathBuf> {
+    fn host_file(&self, path: &Path) -> Result<PathBuf> {
         let host = CompileTarget::new(Platform::host()?, Arch::host()?, Opt::Debug);
         let path = self.engine_dir(host)?.join(path);
         if !path.exists() {
@@ -189,8 +189,15 @@ impl Flutter {
         snapshot: &Path,
         target: CompileTarget,
     ) -> Result<()> {
-        let path = self.engine_dir(target)?.join("gen_snapshot");
-        let mut cmd = Command::new(path);
+        let gen_snapshot = match target.platform() {
+            Platform::Linux => self.engine_dir(target)?.join("gen_snapshot"),
+            Platform::Android => self
+                .engine_dir(target)?
+                .join("linux-x64")
+                .join("gen_snapshot"),
+            _ => unimplemented!(),
+        };
+        let mut cmd = Command::new(gen_snapshot);
         if target.platform() == Platform::Ios || target.platform() == Platform::Macos {
             cmd.arg("--snapshot_kind=app-aot-assembly")
                 .arg(format!("--assembly={}", snapshot.display()));

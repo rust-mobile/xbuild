@@ -300,6 +300,7 @@ impl Maven {
     fn cache(&self, url: &str, file_name: &str) -> Result<PathBuf> {
         let path = self.cache_dir.join(file_name);
         if !path.exists() {
+            println!("downloading {}", url);
             let res = self.client.get(url).send()?;
             if !res.status().is_success() {
                 anyhow::bail!("GET {} returned status code {}", url, res.status());

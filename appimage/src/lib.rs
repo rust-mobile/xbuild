@@ -69,12 +69,8 @@ impl AppImage {
         Ok(())
     }
 
-    pub fn add_directory(&self, source: &Path, dest: Option<&Path>) -> Result<()> {
-        let dest = if let Some(dest) = dest {
-            self.appdir.join(dest)
-        } else {
-            self.appdir.clone()
-        };
+    pub fn add_directory(&self, source: &Path, dest: &Path) -> Result<()> {
+        let dest = self.appdir.join(dest);
         std::fs::create_dir_all(&dest)?;
         xcommon::copy_dir_all(source, &dest)?;
         Ok(())
