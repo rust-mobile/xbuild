@@ -575,4 +575,24 @@ impl BuildEnv {
     pub fn maven(&self) -> Result<Maven> {
         Maven::new(self.build_dir.join("maven"))
     }
+
+    pub fn cargo_artefact(&self, target: CompileTarget) -> Result<PathBuf> {
+        let target_dir = Path::new("target");
+        let arch_dir = if target.platform() == Platform::host()? && target.arch() == Arch::host()? {
+            target_dir.to_path_buf()
+        } else {
+            target_dir.join(target.rust_triple()?)
+        };
+        let opt_dir = arch_dir.join(target.opt().to_string());
+        let bin_name = if target.platform() == Platform::Windows {
+            format!("{}.exe", self.name())
+        } else {
+            self.name.clone()
+        };
+        let bin_path = opt_dir.join(bin_name);
+        if !bin_path.exists() {
+            anyhow::bail!("failed to locate bin {}", bin_path.display());
+        }
+        Ok(bin_path)
+    }
 }

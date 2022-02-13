@@ -1,8 +1,13 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Default)]
 pub struct BlockMapBuilder {
     block_map: Option<AppxBlockMap>,
+}
+
+impl Default for BlockMapBuilder {
+    fn default() -> Self {
+        Self { block_map: Some(AppxBlockMap::default()) }
+    }
 }
 
 impl BlockMapBuilder {

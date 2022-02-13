@@ -6,11 +6,13 @@ use rsa::pkcs8::FromPrivateKey;
 use rsa::{Hash, PaddingScheme, RsaPrivateKey, RsaPublicKey};
 use sha2::{Digest, Sha256};
 use std::fs::File;
-use std::io::{Seek, Write};
+use std::io::{BufWriter, Seek, Write};
 use std::path::Path;
-use zip::CompressionMethod;
+use zip::write::FileOptions;
+use zip::{CompressionMethod, ZipWriter};
 
 pub use rasn_pkix::Certificate;
+pub use zip::read::ZipFile;
 
 pub struct Scaler {
     img: DynamicImage,
@@ -131,6 +133,79 @@ impl ZipFileOptions {
             Self::Compressed => CompressionMethod::Deflated,
             _ => CompressionMethod::Stored,
         }
+    }
+}
+
+pub struct Zip(ZipWriter<BufWriter<File>>);
+
+impl Zip {
+    pub fn new(path: &Path) -> Result<Self> {
+        Ok(Self(ZipWriter::new(BufWriter::new(File::create(path)?))))
+    }
+
+    pub fn add_file(&mut self, source: &Path, dest: &Path, opts: ZipFileOptions) -> Result<()> {
+        let mut f = File::open(source)?;
+        self.start_file(dest, opts)?;
+        std::io::copy(&mut f, &mut self.0)?;
+        Ok(())
+    }
+
+    pub fn add_directory(&mut self, source: &Path, dest: &Path) -> Result<()> {
+        add_recursive(self, source, dest)?;
+        Ok(())
+    }
+
+    pub fn add_zip_file(&mut self, f: ZipFile) -> Result<()> {
+        self.0.raw_copy_file(f)?;
+        Ok(())
+    }
+
+    pub fn create_file(&mut self, dest: &Path, opts: ZipFileOptions, contents: &[u8]) -> Result<()> {
+        self.start_file(dest, opts)?;
+        self.0.write_all(contents)?;
+        Ok(())
+    }
+
+    pub fn start_file(&mut self, dest: &Path, opts: ZipFileOptions) -> Result<()> {
+        let name = dest
+            .iter()
+            .map(|seg| seg.to_str().unwrap())
+            .collect::<Vec<_>>()
+            .join("/");
+        let zopts = FileOptions::default().compression_method(opts.compression_method());
+        self.0.start_file_aligned(name, zopts, opts.alignment())?;
+        Ok(())
+    }
+
+    pub fn finish(mut self) -> Result<()> {
+        self.0.finish()?;
+        Ok(())
+    }
+}
+
+fn add_recursive(zip: &mut Zip, source: &Path, dest: &Path) -> Result<()> {
+    for entry in std::fs::read_dir(source)? {
+        let entry = entry?;
+        let file_name = entry.file_name();
+        let source = source.join(&file_name);
+        let dest = dest.join(&file_name);
+        let file_type = entry.file_type()?;
+        if file_type.is_dir() {
+            add_recursive(zip, &source, &dest)?;
+        } else if file_type.is_file() {
+            zip.add_file(&source, &dest, ZipFileOptions::Compressed)?;
+        }
+    }
+    Ok(())
+}
+
+impl Write for Zip {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0.write(bytes)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.0.flush()
     }
 }
 

@@ -10,8 +10,9 @@ use xappimage::AppImage;
 use xcli::devices::Device;
 use xcli::flutter::Flutter;
 use xcli::maven::Dependency;
-use xcli::{BuildArgs, BuildEnv, CompileTarget, Format, Opt, Platform};
+use xcli::{BuildArgs, BuildEnv, Format, Opt, Platform};
 use xcommon::ZipFileOptions;
+use xmsix::Msix;
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -149,14 +150,9 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
             }
 
             if let Some(flutter) = env.flutter() {
-                let debug_engine_dir = flutter.engine_dir(CompileTarget::new(
-                    target.platform(),
-                    target.arch(),
-                    Opt::Debug,
-                ))?;
                 let engine_dir = flutter.engine_dir(target)?;
                 appimage.add_file(
-                    &debug_engine_dir.join("icudtl.dat"),
+                    &flutter.icudtl_dat()?,
                     &Path::new("data").join("icudtl.dat"),
                 )?;
                 appimage.add_file(
@@ -186,10 +182,7 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
             }
 
             if env.has_rust_code() {
-                let bin = Path::new("target")
-                    .join(target.opt().to_string())
-                    .join(env.name());
-                appimage.add_file(&bin, Path::new(env.name()))?;
+                appimage.add_file(&env.cargo_artefact(target)?, Path::new(env.name()))?;
             }
 
             if target.opt() == Opt::Release {
@@ -218,7 +211,7 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
                     let flutter_jar = env.maven()?.package(&flutter_engine)?;
                     let mut zip = ZipArchive::new(BufReader::new(File::open(flutter_jar)?))?;
                     let f = zip.by_name(&format!("lib/{}/libflutter.so", abi.android_abi()))?;
-                    apk.raw_copy_file(f)?;
+                    apk.add_zip_file(f)?;
                 }
                 apk.add_dex(&platform_dir.join("classes.dex"))?;
                 apk.add_directory(
@@ -267,14 +260,56 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
         Format::Msix => {
             let target = env.target().compile_targets().next().unwrap();
             let arch_dir = platform_dir.join(target.arch().to_string());
+            std::fs::create_dir_all(&arch_dir)?;
             let out = arch_dir.join(format!("{}.msix", env.name()));
-            let msix = Msix::new(out)?;
-            // data/flutter_assets
-            // data/icudtl.dat
-            // data/app.so or data/kernel_blob.bin
-            // flutter_windows.dll
-            // helloworld.exe
+            let mut msix = Msix::new(&out)?;
+
+            if let Some(flutter) = env.flutter() {
+                let engine_dir = flutter.engine_dir(target)?;
+                msix.add_file(
+                    &flutter.icudtl_dat()?,
+                    &Path::new("data").join("icudtl.dat"),
+                    ZipFileOptions::Compressed,
+                )?;
+                msix.add_file(
+                    &engine_dir.join("flutter_windows.dll"),
+                    &Path::new("flutter_windows.dll"),
+                    ZipFileOptions::Compressed,
+                )?;
+                msix.add_directory(
+                    &env.build_dir().join("flutter_assets"),
+                    &Path::new("data").join("flutter_assets"),
+                )?;
+                match target.opt() {
+                    Opt::Debug => {
+                        msix.add_file(
+                            &platform_dir.join("kernel_blob.bin"),
+                            &Path::new("data")
+                                .join("flutter_assets")
+                                .join("kernel_blob.bin"),
+                            ZipFileOptions::Compressed,
+                        )?;
+                    }
+                    Opt::Release => {
+                        msix.add_file(
+                            &arch_dir.join("libapp.so"),
+                            &Path::new("data").join("app.so"),
+                            ZipFileOptions::Compressed,
+                        )?;
+                    }
+                }
+            }
+            if env.has_rust_code() {
+                msix.add_file(
+                    &env.cargo_artefact(target)?,
+                    format!("{}.exe", env.name()).as_ref(),
+                    ZipFileOptions::Compressed,
+                )?;
+            }
             // TODO: msix.add_manifest();
+            // TODO: content types
+            // TODO: blockmap
+            // TODO: hashes
             // TODO: Images/*
             // TODO: *.pri
             msix.sign(env.target().signer().cloned())?;

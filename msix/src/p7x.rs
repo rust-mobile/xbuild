@@ -10,6 +10,9 @@ use std::io::Read;
 use std::path::Path;
 use zip::ZipArchive;
 
+const DEBUG_KEY_PEM: &str = include_str!("../assets/debug.key.pem");
+const DEBUG_CERT_PEM: &str = include_str!("../assets/debug.cert.pem");
+
 const P7X_MAGIC: u32 = 0x504b4358;
 
 pub fn read_p7x(path: &Path) -> Result<SignedData> {
@@ -29,13 +32,17 @@ pub fn read_p7x(path: &Path) -> Result<SignedData> {
     Ok(data)
 }
 
-pub fn p7x(signer: &Signer, hashes: &[[u8; 32]; 5]) -> Vec<u8> {
+pub fn p7x(signer: Option<Signer>, hashes: &[[u8; 32]; 5]) -> Vec<u8> {
+    let signer = signer
+        .map(Ok)
+        .unwrap_or_else(|| Signer::new(DEBUG_KEY_PEM, DEBUG_CERT_PEM))
+        .unwrap();
     let payload = Payload::new(hashes);
     let encap_content_info = EncapsulatedContentInfo {
         content_type: SPC_INDIRECT_DATA_OBJID.into(),
         content: Any::new(payload),
     };
-    let signed_data = build_pkcs7(signer, encap_content_info);
+    let signed_data = build_pkcs7(&signer, encap_content_info);
     let content_info = ContentInfo {
         content_type: CONTENT_SIGNED_DATA.into(),
         content: Any::new(rasn::der::encode(&signed_data).unwrap()),

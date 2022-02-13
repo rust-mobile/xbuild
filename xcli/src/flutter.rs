@@ -128,6 +128,10 @@ impl Flutter {
         Ok(path)
     }
 
+    pub fn icudtl_dat(&self) -> Result<PathBuf> {
+        self.host_file(Path::new("icudtl.dat"))
+    }
+
     pub fn isolate_snapshot_data(&self) -> Result<PathBuf> {
         self.host_file(Path::new("isolate_snapshot.bin"))
     }

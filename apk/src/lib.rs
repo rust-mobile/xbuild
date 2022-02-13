@@ -1,11 +1,8 @@
 use crate::compiler::Table;
 use anyhow::Result;
-use std::fs::File;
-use std::io::{BufWriter, Cursor, Write};
+use std::io::Cursor;
 use std::path::{Path, PathBuf};
-use xcommon::{Scaler, ZipFileOptions};
-use zip::read::ZipFile;
-use zip::write::{FileOptions, ZipWriter};
+use xcommon::{Scaler, Zip, ZipFile, ZipFileOptions};
 
 mod compiler;
 pub mod manifest;
@@ -22,12 +19,12 @@ pub use zip;
 
 pub struct Apk {
     path: PathBuf,
-    zip: ZipWriter<BufWriter<File>>,
+    zip: Zip,
 }
 
 impl Apk {
     pub fn new(path: PathBuf) -> Result<Self> {
-        let zip = ZipWriter::new(BufWriter::new(File::create(&path)?));
+        let zip = Zip::new(&path)?;
         Ok(Self { path, zip })
     }
 
@@ -45,39 +42,45 @@ impl Apk {
             scaler.optimize();
             let mipmap = crate::compiler::compile_mipmap(&manifest.package, "icon")?;
 
-            self.start_file(Path::new("resources.arsc"), ZipFileOptions::Aligned(4))?;
             let mut cursor = Cursor::new(&mut buf);
             mipmap.chunk().write(&mut cursor)?;
-            self.zip.write_all(&buf)?;
+            self.zip.create_file(
+                Path::new("resources.arsc"),
+                ZipFileOptions::Aligned(4),
+                &buf,
+            )?;
 
             for (name, size) in mipmap.variants() {
                 buf.clear();
                 let mut cursor = Cursor::new(&mut buf);
                 scaler.write(&mut cursor, size)?;
-                self.start_file(name.as_ref(), ZipFileOptions::Aligned(4))?;
-                self.zip.write_all(&buf)?;
+                self.zip
+                    .create_file(name.as_ref(), ZipFileOptions::Aligned(4), &buf)?;
             }
 
             table.import_chunk(mipmap.chunk());
             manifest.application.icon = Some("@mipmap/icon".into());
         }
         let manifest = crate::compiler::compile_manifest(manifest, &table)?;
-        self.start_file(Path::new("AndroidManifest.xml"), ZipFileOptions::Compressed)?;
         buf.clear();
         let mut cursor = Cursor::new(&mut buf);
         manifest.write(&mut cursor)?;
-        self.zip.write_all(&buf)?;
+        self.zip.create_file(
+            Path::new("AndroidManifest.xml"),
+            ZipFileOptions::Compressed,
+            &buf,
+        )?;
         Ok(())
     }
 
     pub fn add_dex(&mut self, dex: &Path) -> Result<()> {
-        self.add_file(dex, Path::new("classes.dex"), ZipFileOptions::Compressed)?;
+        self.zip
+            .add_file(dex, Path::new("classes.dex"), ZipFileOptions::Compressed)?;
         Ok(())
     }
 
-    pub fn raw_copy_file(&mut self, f: ZipFile) -> Result<()> {
-        self.zip.raw_copy_file(f)?;
-        Ok(())
+    pub fn add_zip_file(&mut self, f: ZipFile) -> Result<()> {
+        self.zip.add_zip_file(f)
     }
 
     pub fn add_lib(&mut self, target: Target, path: &Path) -> Result<()> {
@@ -86,35 +89,22 @@ impl Apk {
             .ok_or_else(|| anyhow::anyhow!("invalid path"))?
             .to_str()
             .ok_or_else(|| anyhow::anyhow!("invalid path"))?;
-        let mut f = File::open(path)?;
-        self.start_file(
+        self.zip.add_file(
+            path,
             &Path::new("lib").join(target.android_abi()).join(name),
             ZipFileOptions::Compressed,
-        )?;
-        std::io::copy(&mut f, &mut self.zip)?;
-        Ok(())
+        )
     }
 
-    pub fn add_file(&mut self, path: &Path, dest: &Path, opts: ZipFileOptions) -> Result<()> {
-        let mut f = File::open(path)?;
-        self.start_file(dest, opts)?;
-        std::io::copy(&mut f, &mut self.zip)?;
-        Ok(())
+    pub fn add_file(&mut self, source: &Path, dest: &Path, opts: ZipFileOptions) -> Result<()> {
+        self.zip.add_file(source, dest, opts)
     }
 
     pub fn add_directory(&mut self, source: &Path, dest: &Path) -> Result<()> {
-        add_recursive(self, source, dest)?;
-        Ok(())
+        self.zip.add_directory(source, dest)
     }
 
-    fn start_file(&mut self, name: &Path, opts: ZipFileOptions) -> Result<()> {
-        let name = name.iter().map(|seg| seg.to_str().unwrap()).collect::<Vec<_>>().join("/");
-        let zopts = FileOptions::default().compression_method(opts.compression_method());
-        self.zip.start_file_aligned(name, zopts, opts.alignment())?;
-        Ok(())
-    }
-
-    pub fn finish(mut self, signer: Option<Signer>) -> Result<()> {
+    pub fn finish(self, signer: Option<Signer>) -> Result<()> {
         self.zip.finish()?;
         crate::sign::sign(&self.path, signer)?;
         Ok(())
@@ -127,22 +117,6 @@ impl Apk {
     pub fn verify(path: &Path) -> Result<Vec<Certificate>> {
         crate::sign::verify(path)
     }
-}
-
-fn add_recursive(builder: &mut Apk, source: &Path, dest: &Path) -> Result<()> {
-    for entry in std::fs::read_dir(source)? {
-        let entry = entry?;
-        let file_name = entry.file_name();
-        let source = source.join(&file_name);
-        let dest = dest.join(&file_name);
-        let file_type = entry.file_type()?;
-        if file_type.is_dir() {
-            add_recursive(builder, &source, &dest)?;
-        } else if file_type.is_file() {
-            builder.add_file(&source, &dest, ZipFileOptions::Compressed)?;
-        }
-    }
-    Ok(())
 }
 
 #[cfg(test)]
