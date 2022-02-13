@@ -62,12 +62,13 @@ impl Msix {
             .unwrap();
 
         // add content types and block map
-        let zip = ZipArchive::new(BufReader::new(File::open(path)?))?;
+        let mut zip = ZipArchive::new(BufReader::new(File::open(path)?))?;
         let mut content_types = ContentTypesBuilder::default();
         let mut block_map = BlockMapBuilder::default();
-        for file in zip.file_names() {
-            content_types.add(file.as_ref());
-            // TODO: blockmap
+        for i in 0..zip.len() {
+            let mut file = zip.by_index(i)?;
+            content_types.add(file.name().as_ref());
+            block_map.add(file.name().to_string(), file.size(), &mut file)?;
         }
         let content_types = to_xml(&content_types.finish());
         let axct = Sha256::digest(&content_types);

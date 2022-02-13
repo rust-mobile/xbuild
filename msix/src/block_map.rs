@@ -1,20 +1,45 @@
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::io::Read;
 
 pub struct BlockMapBuilder {
-    block_map: Option<AppxBlockMap>,
+    block_map: AppxBlockMap,
+    buf: Vec<u8>,
 }
 
 impl Default for BlockMapBuilder {
     fn default() -> Self {
         Self {
-            block_map: Some(AppxBlockMap::default()),
+            block_map: AppxBlockMap::default(),
+            buf: Vec::with_capacity(64_000),
         }
     }
 }
 
 impl BlockMapBuilder {
-    pub fn finish(&mut self) -> AppxBlockMap {
-        self.block_map.take().unwrap()
+    pub fn add<R: Read>(&mut self, name: String, size: u64, r: &mut R) -> Result<()> {
+        let mut file = File {
+            lfh_size: 30 + name.len() as u16,
+            name,
+            size,
+            ..Default::default()
+        };
+        loop {
+            self.buf.clear();
+            r.take(self.buf.capacity() as u64)
+                .read_to_end(&mut self.buf)?;
+            file.blocks.push(Block::new(&self.buf));
+            if self.buf.len() != self.buf.capacity() {
+                break;
+            }
+        }
+        self.block_map.files.push(file);
+        Ok(())
+    }
+
+    pub fn finish(self) -> AppxBlockMap {
+        self.block_map
     }
 }
 
@@ -54,7 +79,7 @@ pub struct File {
     pub name: String,
     /// Size, in bytes, of the file's uncompressed data.
     #[serde(rename(serialize = "Size"))]
-    pub size: u32,
+    pub size: u64,
     /// Size, in bytes, of the file's Local File Header (LFH) structure in the
     /// package. For more info about file headers, see ZIP file format
     /// specification.
@@ -76,6 +101,15 @@ pub struct Block {
     /// potentially varies in size.
     #[serde(rename(serialize = "Size"))]
     pub size: Option<u16>,
+}
+
+impl Block {
+    pub fn new(bytes: &[u8]) -> Self {
+        Self {
+            hash: base64::encode(&Sha256::digest(bytes)),
+            size: None,
+        }
+    }
 }
 
 fn default_namespace() -> String {
