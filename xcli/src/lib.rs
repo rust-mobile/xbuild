@@ -9,6 +9,7 @@ use clap::Parser;
 use std::path::{Path, PathBuf};
 use xapk::AndroidManifest;
 use xcommon::Signer;
+use xmsix::AppxManifest;
 
 pub mod android;
 pub mod cargo;
@@ -430,6 +431,7 @@ pub struct BuildEnv {
     icon: Option<PathBuf>,
     target_file: PathBuf,
     android_manifest: Option<AndroidManifest>,
+    appx_manifest: Option<AppxManifest>,
     flutter: Option<Flutter>,
     android_sdk: Option<AndroidSdk>,
     android_ndk: Option<AndroidNdk>,
@@ -469,6 +471,11 @@ impl BuildEnv {
         } else {
             None
         };
+        let appx_manifest = if build_target.platform() == Platform::Windows {
+            Some(config.appx_manifest()?)
+        } else {
+            None
+        };
         let target_file = config.target_file(build_target.platform());
         let icon = config
             .icon(build_target.format())
@@ -484,6 +491,7 @@ impl BuildEnv {
             android_sdk,
             android_ndk,
             android_manifest,
+            appx_manifest,
             build_dir,
         })
     }
@@ -530,6 +538,10 @@ impl BuildEnv {
 
     pub fn android_manifest(&self) -> Option<&AndroidManifest> {
         self.android_manifest.as_ref()
+    }
+
+    pub fn appx_manifest(&self) -> Option<&AppxManifest> {
+        self.appx_manifest.as_ref()
     }
 
     fn target_sdk_version(&self) -> u32 {

@@ -15,3 +15,7 @@ serde = { version = "1.0.136", features = ["derive"] }
 sha2 = "0.10.1"
 xcommon = { version = "0.1.0", path = "../xcommon" }
 zip = "0.5.13"
+
+[dev-dependencies]
+der-parser = "7.0.0"
+rsa = "0.5.0"

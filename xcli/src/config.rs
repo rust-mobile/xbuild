@@ -4,6 +4,7 @@ use anyhow::Result;
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 use xapk::{AndroidManifest, VersionCode};
+use xmsix::AppxManifest;
 
 #[derive(Clone, Debug)]
 pub struct Config {
@@ -94,6 +95,10 @@ impl Config {
             .get_or_insert_with(|| sdk.default_target_platform());
         Ok(manifest)
     }
+
+    pub fn appx_manifest(&self) -> Result<AppxManifest> {
+        Ok(self.msix.manifest.clone())
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -153,4 +158,5 @@ pub struct AppimageConfig {
 pub struct MsixConfig {
     #[serde(flatten)]
     generic: GenericConfig,
+    manifest: AppxManifest,
 }

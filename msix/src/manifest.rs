@@ -45,45 +45,23 @@ impl Default for AppxManifest {
     }
 }
 
-macro_rules! elements {
-    ($plural:ident, $singular:expr, $ty:ty) => {
-        #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-        pub struct $plural {
-            #[serde(rename(serialize = $singular))]
-            inner: Vec<$ty>,
-        }
-
-        impl std::ops::Deref for $plural {
-            type Target = Vec<$ty>;
-
-            fn deref(&self) -> &Self::Target {
-                &self.inner
-            }
-        }
-
-        impl std::ops::DerefMut for $plural {
-            fn deref_mut(&mut self) -> &mut Self::Target {
-                &mut self.inner
-            }
-        }
-
-        impl From<Vec<$ty>> for $plural {
-            fn from(inner: Vec<$ty>) -> Self {
-                Self { inner }
-            }
-        }
-
-        impl From<$plural> for Vec<$ty> {
-            fn from(outer: $plural) -> Vec<$ty> {
-                outer.inner
-            }
-        }
-    };
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct Applications {
+    #[serde(rename(serialize = "Application"))]
+    pub application: Vec<Application>,
 }
 
-elements!(Applications, "Application", Application);
-elements!(Dependencies, "TargetDeviceFamily", TargetDeviceFamily);
-elements!(Resources, "Resource", Resource);
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct Resources {
+    #[serde(rename(serialize = "Resource"))]
+    pub resource: Vec<Resource>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct Dependencies {
+    #[serde(rename(serialize = "TargetDeviceFamily"))]
+    pub target_device_family: Vec<TargetDeviceFamily>,
+}
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Identity {
@@ -94,7 +72,7 @@ pub struct Identity {
     #[serde(rename(serialize = "Publisher"))]
     publisher: String,
     #[serde(rename(serialize = "ProcessorArchitecture"))]
-    arch: String,
+    processor_architecture: String,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -159,15 +137,19 @@ impl Default for TargetDeviceFamily {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum Capability {
+    #[serde(rename(deserialize = "capability"))]
+    #[serde(rename(serialize = "Capability"))]
     Capability {
         #[serde(rename(serialize = "Name"))]
         name: String,
     },
-    #[serde(rename(serialize = "rescap::Capability"))]
+    #[serde(rename(deserialize = "restricted"))]
+    #[serde(rename(serialize = "rescap:Capability"))]
     Restricted {
         #[serde(rename(serialize = "Name"))]
         name: String,
     },
+    #[serde(rename(deserialize = "device"))]
     #[serde(rename(serialize = "DeviceCapability"))]
     Device {
         #[serde(rename(serialize = "Name"))]
@@ -221,7 +203,11 @@ pub struct DefaultTile {
     pub show_names_on_tiles: ShowNameOnTiles,
 }
 
-elements!(ShowNameOnTiles, "ShowOn", ShowOn);
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct ShowNameOnTiles {
+    #[serde(rename(serialize = "uap:ShowOn"))]
+    pub show_on: Vec<ShowOn>,
+}
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct ShowOn {
@@ -288,7 +274,7 @@ mod tests {
                 name: "com.flutter.fluttertodoapp".into(),
                 version: "1.0.0.0".into(),
                 publisher: "CN=Msix Testing, O=Msix Testing Corporation, S=Some-State, C=US".into(),
-                arch: "x64".into(),
+                processor_architecture: "x64".into(),
             },
             properties: Properties {
                 display_name: "fluttertodoapp".into(),
@@ -324,18 +310,19 @@ mod tests {
                         logo_71x71: "Images\\SmallTile.png".into(),
                         logo_310x310: "Images\\LargeTile.png".into(),
                         logo_310x150: "Images\\Wide310x150Logo.png".into(),
-                        show_names_on_tiles: vec![
-                            ShowOn {
-                                tile: "square150x150Logo".into(),
-                            },
-                            ShowOn {
-                                tile: "square310x310Logo".into(),
-                            },
-                            ShowOn {
-                                tile: "wide310x150Logo".into(),
-                            },
-                        ]
-                        .into(),
+                        show_names_on_tiles: ShowNameOnTiles {
+                            show_on: vec![
+                                ShowOn {
+                                    tile: "square150x150Logo".into(),
+                                },
+                                ShowOn {
+                                    tile: "square310x310Logo".into(),
+                                },
+                                ShowOn {
+                                    tile: "wide310x150Logo".into(),
+                                },
+                            ],
+                        },
                     },
                     splash_screen: SplashScreen {
                         image: "Images\\SplashScreen.png".into(),
@@ -351,5 +338,6 @@ mod tests {
         };
         let xml = quick_xml::se::to_string(&manifest).unwrap();
         println!("{}", xml);
+        assert!(false);
     }
 }

@@ -6,7 +6,9 @@ pub struct BlockMapBuilder {
 
 impl Default for BlockMapBuilder {
     fn default() -> Self {
-        Self { block_map: Some(AppxBlockMap::default()) }
+        Self {
+            block_map: Some(AppxBlockMap::default()),
+        }
     }
 }
 

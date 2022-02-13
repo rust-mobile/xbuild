@@ -263,6 +263,7 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
             std::fs::create_dir_all(&arch_dir)?;
             let out = arch_dir.join(format!("{}.msix", env.name()));
             let mut msix = Msix::new(&out)?;
+            msix.add_manifest(env.appx_manifest().unwrap())?;
 
             if let Some(flutter) = env.flutter() {
                 let engine_dir = flutter.engine_dir(target)?;
@@ -306,7 +307,6 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
                     ZipFileOptions::Compressed,
                 )?;
             }
-            // TODO: msix.add_manifest();
             // TODO: content types
             // TODO: blockmap
             // TODO: hashes

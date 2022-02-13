@@ -1,4 +1,3 @@
-use crate::manifest::AppxManifest;
 use anyhow::Result;
 use serde::Serialize;
 use std::io::Write;
@@ -10,6 +9,8 @@ mod content_types;
 pub mod manifest;
 pub mod p7x;
 mod pkcs7;
+
+pub use crate::manifest::AppxManifest;
 
 pub struct Msix {
     zip: Zip,
