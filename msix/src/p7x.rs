@@ -10,9 +10,6 @@ use std::io::Read;
 use std::path::Path;
 use zip::ZipArchive;
 
-const DEBUG_KEY_PEM: &str = include_str!("../assets/debug.key.pem");
-const DEBUG_CERT_PEM: &str = include_str!("../assets/debug.cert.pem");
-
 const P7X_MAGIC: u32 = 0x504b4358;
 
 pub fn read_p7x(path: &Path) -> Result<SignedData> {
@@ -32,12 +29,8 @@ pub fn read_p7x(path: &Path) -> Result<SignedData> {
     Ok(data)
 }
 
-pub fn p7x(signer: Option<Signer>, hashes: &[[u8; 32]; 5]) -> Vec<u8> {
-    let signer = signer
-        .map(Ok)
-        .unwrap_or_else(|| Signer::new(DEBUG_KEY_PEM, DEBUG_CERT_PEM))
-        .unwrap();
-    let payload = Payload::new(hashes);
+pub fn p7x(signer: &Signer, digests: &Digests) -> Vec<u8> {
+    let payload = Payload::new(digests);
     let encap_content_info = EncapsulatedContentInfo {
         content_type: SPC_INDIRECT_DATA_OBJID.into(),
         content: Any::new(payload),
@@ -53,6 +46,20 @@ pub fn p7x(signer: Option<Signer>, hashes: &[[u8; 32]; 5]) -> Vec<u8> {
     p7x
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct Digests {
+    /// Zip contents hash.
+    pub axpc: [u8; 32],
+    /// Zip central directory hash.
+    pub axcd: [u8; 32],
+    /// Content types hash (uncompressed).
+    pub axct: [u8; 32],
+    /// Block map hash (uncompressed).
+    pub axbm: [u8; 32],
+    /// Content integrity hash (uncompressed, optional).
+    pub axci: [u8; 32],
+}
+
 #[derive(AsnType, Clone, Debug, Eq, Encode, PartialEq)]
 #[rasn(tag(context, 0))]
 struct Payload {
@@ -60,8 +67,8 @@ struct Payload {
 }
 
 impl Payload {
-    pub fn new(hashes: &[[u8; 32]; 5]) -> Vec<u8> {
-        let indirect_data = SpcIndirectData::new(hashes);
+    pub fn new(digests: &Digests) -> Vec<u8> {
+        let indirect_data = SpcIndirectData::new(digests);
         rasn::der::encode(&Self { indirect_data }).unwrap()
     }
 }
@@ -73,19 +80,19 @@ struct SpcIndirectData {
 }
 
 impl SpcIndirectData {
-    pub fn new(hashes: &[[u8; 32]; 5]) -> Self {
+    pub fn new(digests: &Digests) -> Self {
         let mut payload = Vec::with_capacity(184);
         payload.extend_from_slice(&*b"APPX");
         payload.extend_from_slice(&*b"AXPC");
-        payload.extend_from_slice(&hashes[0]);
+        payload.extend_from_slice(&digests.axpc);
         payload.extend_from_slice(&*b"AXCD");
-        payload.extend_from_slice(&hashes[1]);
+        payload.extend_from_slice(&digests.axcd);
         payload.extend_from_slice(&*b"AXCT");
-        payload.extend_from_slice(&hashes[2]);
+        payload.extend_from_slice(&digests.axct);
         payload.extend_from_slice(&*b"AXBM");
-        payload.extend_from_slice(&hashes[3]);
+        payload.extend_from_slice(&digests.axbm);
         payload.extend_from_slice(&*b"AXCI");
-        payload.extend_from_slice(&hashes[4]);
+        payload.extend_from_slice(&digests.axci);
         Self {
             sip_info: Default::default(),
             content: SpcIndirectDataContent::new(payload),

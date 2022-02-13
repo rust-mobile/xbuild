@@ -262,7 +262,7 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
             let arch_dir = platform_dir.join(target.arch().to_string());
             std::fs::create_dir_all(&arch_dir)?;
             let out = arch_dir.join(format!("{}.msix", env.name()));
-            let mut msix = Msix::new(&out)?;
+            let mut msix = Msix::new(out.clone())?;
             msix.add_manifest(env.appx_manifest().unwrap())?;
 
             if let Some(flutter) = env.flutter() {
@@ -307,12 +307,9 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
                     ZipFileOptions::Compressed,
                 )?;
             }
-            // TODO: content types
-            // TODO: blockmap
-            // TODO: hashes
             // TODO: Images/*
             // TODO: *.pri
-            msix.sign(env.target().signer().cloned())?;
+            msix.finish(env.target().signer().cloned())?;
             out
         }
         f => unimplemented!("{:?}", f),

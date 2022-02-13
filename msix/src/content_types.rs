@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::path::Path;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct ContentTypesBuilder {
     ext: HashSet<String>,
     inner: Option<ContentTypes>,
@@ -26,6 +26,15 @@ impl ContentTypesBuilder {
 
     pub fn finish(&mut self) -> ContentTypes {
         self.inner.take().unwrap()
+    }
+}
+
+impl Default for ContentTypesBuilder {
+    fn default() -> Self {
+        Self {
+            ext: Default::default(),
+            inner: Some(Default::default()),
+        }
     }
 }
 

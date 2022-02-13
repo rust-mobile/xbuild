@@ -1,12 +1,13 @@
 use anyhow::Result;
+use byteorder::{LittleEndian, ReadBytesExt};
 use image::imageops::FilterType;
 use image::io::Reader as ImageReader;
 use image::{DynamicImage, GenericImageView, ImageOutputFormat};
 use rsa::pkcs8::FromPrivateKey;
 use rsa::{Hash, PaddingScheme, RsaPrivateKey, RsaPublicKey};
 use sha2::{Digest, Sha256};
-use std::fs::File;
-use std::io::{BufWriter, Seek, Write};
+use std::fs::{File, OpenOptions};
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use zip::write::FileOptions;
 use zip::{CompressionMethod, ZipWriter};
@@ -136,11 +137,53 @@ impl ZipFileOptions {
     }
 }
 
-pub struct Zip(ZipWriter<BufWriter<File>>);
+pub struct ZipInfo {
+    pub cde_start: u64,
+    pub cd_start: u64,
+}
+
+impl ZipInfo {
+    pub fn new<R: Read + Seek>(r: &mut R) -> Result<Self> {
+        let cde_start = find_cde_start_pos(r)?;
+        r.seek(SeekFrom::Start(cde_start + 16))?;
+        let cd_start = r.read_u32::<LittleEndian>()? as u64;
+        Ok(Self { cde_start, cd_start })
+    }
+}
+
+// adapted from zip-rs
+fn find_cde_start_pos<R: Read + Seek>(reader: &mut R) -> Result<u64> {
+    const CENTRAL_DIRECTORY_END_SIGNATURE: u32 = 0x06054b50;
+    const HEADER_SIZE: u64 = 22;
+    let file_length = reader.seek(SeekFrom::End(0))?;
+    let search_upper_bound = file_length.saturating_sub(HEADER_SIZE + ::std::u16::MAX as u64);
+    if file_length < HEADER_SIZE {
+        anyhow::bail!("Invalid zip header");
+    }
+    let mut pos = file_length - HEADER_SIZE;
+    while pos >= search_upper_bound {
+        reader.seek(SeekFrom::Start(pos as u64))?;
+        if reader.read_u32::<LittleEndian>()? == CENTRAL_DIRECTORY_END_SIGNATURE {
+            return Ok(pos);
+        }
+        pos = match pos.checked_sub(1) {
+            Some(p) => p,
+            None => break,
+        };
+    }
+    anyhow::bail!("Could not find central directory end");
+}
+
+pub struct Zip(ZipWriter<File>);
 
 impl Zip {
     pub fn new(path: &Path) -> Result<Self> {
-        Ok(Self(ZipWriter::new(BufWriter::new(File::create(path)?))))
+        Ok(Self(ZipWriter::new(File::create(path)?)))
+    }
+
+    pub fn append(path: &Path) -> Result<Self> {
+        let f = OpenOptions::new().read(true).write(true).open(path)?;
+        Ok(Self(ZipWriter::new_append(f)?))
     }
 
     pub fn add_file(&mut self, source: &Path, dest: &Path, opts: ZipFileOptions) -> Result<()> {

@@ -7,12 +7,11 @@ use sha2::{Digest as _, Sha256};
 use std::fs::File;
 use std::io::{BufReader, Cursor, Read, Seek, SeekFrom, Write};
 use std::path::Path;
-use xcommon::Signer;
+use xcommon::{Signer, ZipInfo};
 
 const DEBUG_KEY_PEM: &str = include_str!("../assets/debug.key.pem");
 const DEBUG_CERT_PEM: &str = include_str!("../assets/debug.cert.pem");
 
-const CENTRAL_DIRECTORY_END_SIGNATURE: u32 = 0x06054b50;
 const APK_SIGNING_BLOCK_MAGIC: &[u8] = b"APK Sig Block 42";
 const APK_SIGNING_BLOCK_V2_ID: u32 = 0x7109871a;
 const APK_SIGNING_BLOCK_V3_ID: u32 = 0xf05368c0;
@@ -419,10 +418,10 @@ fn write_apk_signing_block<W: Write + Seek>(
 }
 
 fn parse_apk_signing_block<R: Read + Seek>(r: &mut R) -> Result<ApkSignatureBlock> {
+    let info = ZipInfo::new(r)?;
     let mut block = ApkSignatureBlock::default();
-    block.cde_start = find_cde_start_pos(r)?;
-    r.seek(SeekFrom::Start(block.cde_start + 16))?;
-    block.cd_start = r.read_u32::<LittleEndian>()? as u64;
+    block.cde_start = info.cde_start;
+    block.cd_start = info.cd_start;
     r.seek(SeekFrom::Start(block.cd_start - 16 - 8))?;
     let mut remaining_size = r.read_u64::<LittleEndian>()?;
     let mut magic = [0; 16];
@@ -444,30 +443,4 @@ fn parse_apk_signing_block<R: Read + Seek>(r: &mut R) -> Result<ApkSignatureBloc
         remaining_size -= length + 8;
     }
     Ok(block)
-}
-
-// adapted from zip-rs
-fn find_cde_start_pos<R: Read + Seek>(reader: &mut R) -> Result<u64> {
-    const HEADER_SIZE: u64 = 22;
-    const BYTES_BETWEEN_MAGIC_AND_COMMENT_SIZE: u64 = HEADER_SIZE - 6;
-    let file_length = reader.seek(SeekFrom::End(0))?;
-    let search_upper_bound = file_length.saturating_sub(HEADER_SIZE + ::std::u16::MAX as u64);
-    if file_length < HEADER_SIZE {
-        anyhow::bail!("Invalid zip header");
-    }
-    let mut pos = file_length - HEADER_SIZE;
-    while pos >= search_upper_bound {
-        reader.seek(SeekFrom::Start(pos as u64))?;
-        if reader.read_u32::<LittleEndian>()? == CENTRAL_DIRECTORY_END_SIGNATURE {
-            reader.seek(SeekFrom::Current(
-                BYTES_BETWEEN_MAGIC_AND_COMMENT_SIZE as i64,
-            ))?;
-            return Ok(pos);
-        }
-        pos = match pos.checked_sub(1) {
-            Some(p) => p,
-            None => break,
-        };
-    }
-    anyhow::bail!("Could not find central directory end");
 }

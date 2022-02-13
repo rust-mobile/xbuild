@@ -1,8 +1,14 @@
+use crate::block_map::BlockMapBuilder;
+use crate::content_types::ContentTypesBuilder;
+use crate::p7x::Digests;
 use anyhow::Result;
 use serde::Serialize;
-use std::io::Write;
-use std::path::Path;
-use xcommon::{Signer, Zip, ZipFileOptions};
+use sha2::{Digest, Sha256};
+use std::fs::File;
+use std::io::{BufReader, Read, Seek, SeekFrom};
+use std::path::{Path, PathBuf};
+use xcommon::{Signer, Zip, ZipFileOptions, ZipInfo};
+use zip::ZipArchive;
 
 mod block_map;
 mod content_types;
@@ -12,21 +18,28 @@ mod pkcs7;
 
 pub use crate::manifest::AppxManifest;
 
+const DEBUG_KEY_PEM: &str = include_str!("../assets/debug.key.pem");
+const DEBUG_CERT_PEM: &str = include_str!("../assets/debug.cert.pem");
+
 pub struct Msix {
+    path: PathBuf,
     zip: Zip,
-    block_map: block_map::BlockMapBuilder,
 }
 
 impl Msix {
-    pub fn new(path: &Path) -> Result<Self> {
+    pub fn new(path: PathBuf) -> Result<Self> {
         Ok(Self {
-            zip: Zip::new(path)?,
-            block_map: Default::default(),
+            zip: Zip::new(&path)?,
+            path,
         })
     }
 
     pub fn add_manifest(&mut self, manifest: &AppxManifest) -> Result<()> {
-        self.add_xml_file("AppxManifest.xml".as_ref(), manifest)
+        self.zip.create_file(
+            "AppxManifest.xml".as_ref(),
+            ZipFileOptions::Compressed,
+            &to_xml(manifest),
+        )
     }
 
     pub fn add_file(&mut self, source: &Path, dest: &Path, opts: ZipFileOptions) -> Result<()> {
@@ -37,29 +50,77 @@ impl Msix {
         self.zip.add_directory(source, dest)
     }
 
-    fn add_xml_file<T: Serialize>(&mut self, dest: &Path, xml: &T) -> Result<()> {
-        self.zip.start_file(dest, ZipFileOptions::Compressed)?;
-        self.zip
-            .write_all(r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>"#.as_bytes())?;
-        quick_xml::se::to_writer(&mut self.zip, xml)?;
-        Ok(())
+    pub fn finish(self, signer: Option<Signer>) -> Result<()> {
+        self.zip.finish()?;
+        Self::sign(&self.path, signer)
     }
 
-    pub fn sign(mut self, signer: Option<Signer>) -> Result<()> {
-        //let content_types = self.content_types.finish();
-        let block_map = self.block_map.finish();
+    pub fn sign(path: &Path, signer: Option<Signer>) -> Result<()> {
+        let signer = signer
+            .map(Ok)
+            .unwrap_or_else(|| Signer::new(DEBUG_KEY_PEM, DEBUG_CERT_PEM))
+            .unwrap();
 
-        //self.add_xml_file("[Content_Types].xml".as_ref(), &content_types)?;
-        self.add_xml_file("AppxBlockMap.xml".as_ref(), &block_map)?;
-        // TODO: compute hashes
-        let hashes = [[0; 32]; 5];
-        let sig = p7x::p7x(signer, &hashes);
-        self.zip.create_file(
+        // add content types and block map
+        let zip = ZipArchive::new(BufReader::new(File::open(path)?))?;
+        let mut content_types = ContentTypesBuilder::default();
+        let mut block_map = BlockMapBuilder::default();
+        for file in zip.file_names() {
+            content_types.add(file.as_ref());
+            // TODO: blockmap
+        }
+        let content_types = to_xml(&content_types.finish());
+        let axct = Sha256::digest(&content_types);
+        let block_map = to_xml(&block_map.finish());
+        let axbm = Sha256::digest(&block_map);
+        let mut zip = Zip::append(path)?;
+        zip.create_file(
+            "[Content_Types].xml".as_ref(),
+            ZipFileOptions::Compressed,
+            &content_types,
+        )?;
+        zip.create_file(
+            "AppxBlockMap.xml".as_ref(),
+            ZipFileOptions::Compressed,
+            &block_map,
+        )?;
+        zip.finish()?;
+
+        // compute zip hashes
+        let mut r = BufReader::new(File::open(path)?);
+        let info = ZipInfo::new(&mut r)?;
+        r.seek(SeekFrom::Start(0))?;
+        let mut hasher = Sha256::new();
+        let mut pc = (&mut r).take(info.cd_start);
+        std::io::copy(&mut pc, &mut hasher)?;
+        let axpc = hasher.finalize_reset();
+        hasher.reset();
+        std::io::copy(&mut r, &mut hasher)?;
+        let axcd = hasher.finalize();
+        let digests = Digests {
+            axpc: axpc.into(),
+            axcd: axcd.into(),
+            axct: axct.into(),
+            axbm: axbm.into(),
+            ..Default::default()
+        };
+
+        // sign zip
+        let sig = p7x::p7x(&signer, &digests);
+        let mut zip = Zip::append(path)?;
+        zip.create_file(
             "AppxSignature.p7x".as_ref(),
             ZipFileOptions::Compressed,
             &sig,
         )?;
-        self.zip.finish()?;
+        zip.finish()?;
         Ok(())
     }
+}
+
+fn to_xml<T: Serialize>(xml: &T) -> Vec<u8> {
+    let mut buf = vec![];
+    buf.extend_from_slice(r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>"#.as_bytes());
+    quick_xml::se::to_writer(&mut buf, xml).unwrap();
+    buf
 }

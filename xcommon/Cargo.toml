@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.53"
+byteorder = "1.4.3"
 image = "0.24.0"
 pem = "1.0.2"
 rasn = "0.5.0"
