@@ -24,7 +24,7 @@ pub struct Apk {
 
 impl Apk {
     pub fn new(path: PathBuf) -> Result<Self> {
-        let zip = Zip::new(&path)?;
+        let zip = Zip::new(&path, "/")?;
         Ok(Self { path, zip })
     }
 

@@ -174,22 +174,25 @@ fn find_cde_start_pos<R: Read + Seek>(reader: &mut R) -> Result<u64> {
     anyhow::bail!("Could not find central directory end");
 }
 
-pub struct Zip(ZipWriter<File>);
+pub struct Zip {
+    zip: ZipWriter<File>,
+    sep: &'static str,
+}
 
 impl Zip {
-    pub fn new(path: &Path) -> Result<Self> {
-        Ok(Self(ZipWriter::new(File::create(path)?)))
+    pub fn new(path: &Path, sep: &'static str) -> Result<Self> {
+        Ok(Self { zip: ZipWriter::new(File::create(path)?), sep })
     }
 
-    pub fn append(path: &Path) -> Result<Self> {
+    pub fn append(path: &Path, sep: &'static str) -> Result<Self> {
         let f = OpenOptions::new().read(true).write(true).open(path)?;
-        Ok(Self(ZipWriter::new_append(f)?))
+        Ok(Self { zip: ZipWriter::new_append(f)?, sep, })
     }
 
     pub fn add_file(&mut self, source: &Path, dest: &Path, opts: ZipFileOptions) -> Result<()> {
         let mut f = File::open(source)?;
         self.start_file(dest, opts)?;
-        std::io::copy(&mut f, &mut self.0)?;
+        std::io::copy(&mut f, &mut self.zip)?;
         Ok(())
     }
 
@@ -199,13 +202,13 @@ impl Zip {
     }
 
     pub fn add_zip_file(&mut self, f: ZipFile) -> Result<()> {
-        self.0.raw_copy_file(f)?;
+        self.zip.raw_copy_file(f)?;
         Ok(())
     }
 
     pub fn create_file(&mut self, dest: &Path, opts: ZipFileOptions, contents: &[u8]) -> Result<()> {
         self.start_file(dest, opts)?;
-        self.0.write_all(contents)?;
+        self.zip.write_all(contents)?;
         Ok(())
     }
 
@@ -214,14 +217,14 @@ impl Zip {
             .iter()
             .map(|seg| seg.to_str().unwrap())
             .collect::<Vec<_>>()
-            .join("/");
+            .join(self.sep);
         let zopts = FileOptions::default().compression_method(opts.compression_method());
-        self.0.start_file_aligned(name, zopts, opts.alignment())?;
+        self.zip.start_file_aligned(name, zopts, opts.alignment())?;
         Ok(())
     }
 
     pub fn finish(mut self) -> Result<()> {
-        self.0.finish()?;
+        self.zip.finish()?;
         Ok(())
     }
 }
@@ -244,11 +247,11 @@ fn add_recursive(zip: &mut Zip, source: &Path, dest: &Path) -> Result<()> {
 
 impl Write for Zip {
     fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-        self.0.write(bytes)
+        self.zip.write(bytes)
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
-        self.0.flush()
+        self.zip.flush()
     }
 }
 

@@ -12,7 +12,7 @@ impl Default for BlockMapBuilder {
     fn default() -> Self {
         Self {
             block_map: AppxBlockMap::default(),
-            buf: Vec::with_capacity(64_000),
+            buf: Vec::with_capacity(65_536),
         }
     }
 }
@@ -90,7 +90,7 @@ pub struct File {
     pub blocks: Vec<Block>,
 }
 
-/// Represents a 64kb block of binary data contained in a file.
+/// Represents a 64kib block of binary data contained in a file.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Block {
     /// The hash value of the uncompressed data block.

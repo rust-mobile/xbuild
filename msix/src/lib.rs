@@ -29,7 +29,7 @@ pub struct Msix {
 impl Msix {
     pub fn new(path: PathBuf) -> Result<Self> {
         Ok(Self {
-            zip: Zip::new(&path)?,
+            zip: Zip::new(&path, "\\")?,
             path,
         })
     }
@@ -38,7 +38,7 @@ impl Msix {
         self.zip.create_file(
             "AppxManifest.xml".as_ref(),
             ZipFileOptions::Compressed,
-            &to_xml(manifest),
+            &to_xml(manifest, true),
         )
     }
 
@@ -70,11 +70,11 @@ impl Msix {
             content_types.add(file.name().as_ref());
             block_map.add(file.name().to_string(), file.size(), &mut file)?;
         }
-        let content_types = to_xml(&content_types.finish());
+        let content_types = to_xml(&content_types.finish(), true);
         let axct = Sha256::digest(&content_types);
-        let block_map = to_xml(&block_map.finish());
+        let block_map = to_xml(&block_map.finish(), false);
         let axbm = Sha256::digest(&block_map);
-        let mut zip = Zip::append(path)?;
+        let mut zip = Zip::append(path, "\\")?;
         zip.create_file(
             "[Content_Types].xml".as_ref(),
             ZipFileOptions::Compressed,
@@ -82,7 +82,9 @@ impl Msix {
         )?;
         zip.create_file(
             "AppxBlockMap.xml".as_ref(),
-            ZipFileOptions::Compressed,
+            // compressing requires figuring out the compressed block size
+            // which is currently not possible with the zip crate.
+            ZipFileOptions::Unaligned,
             &block_map,
         )?;
         zip.finish()?;
@@ -108,7 +110,7 @@ impl Msix {
 
         // sign zip
         let sig = p7x::p7x(&signer, &digests);
-        let mut zip = Zip::append(path)?;
+        let mut zip = Zip::append(path, "\\")?;
         zip.create_file(
             "AppxSignature.p7x".as_ref(),
             ZipFileOptions::Compressed,
@@ -119,9 +121,14 @@ impl Msix {
     }
 }
 
-fn to_xml<T: Serialize>(xml: &T) -> Vec<u8> {
+fn to_xml<T: Serialize>(xml: &T, standalone: bool) -> Vec<u8> {
     let mut buf = vec![];
-    buf.extend_from_slice(r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>"#.as_bytes());
+    let standalone = if standalone {
+        "yes"
+    } else {
+        "no"
+    };
+    buf.extend_from_slice(format!(r#"<?xml version="1.0" encoding="UTF-8" standalone="{}"?>"#, standalone).as_bytes());
     quick_xml::se::to_writer(&mut buf, xml).unwrap();
     buf
 }
