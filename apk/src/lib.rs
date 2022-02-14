@@ -2,7 +2,7 @@ use crate::compiler::Table;
 use anyhow::Result;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
-use xcommon::{Scaler, Zip, ZipFile, ZipFileOptions};
+use xcommon::{Scaler, ScalerOpts, Zip, ZipFile, ZipFileOptions};
 
 mod compiler;
 pub mod manifest;
@@ -24,7 +24,7 @@ pub struct Apk {
 
 impl Apk {
     pub fn new(path: PathBuf) -> Result<Self> {
-        let zip = Zip::new(&path, "/")?;
+        let zip = Zip::new(&path)?;
         Ok(Self { path, zip })
     }
 
@@ -53,7 +53,7 @@ impl Apk {
             for (name, size) in mipmap.variants() {
                 buf.clear();
                 let mut cursor = Cursor::new(&mut buf);
-                scaler.write(&mut cursor, size)?;
+                scaler.write(&mut cursor, ScalerOpts::new(size))?;
                 self.zip
                     .create_file(name.as_ref(), ZipFileOptions::Aligned(4), &buf)?;
             }

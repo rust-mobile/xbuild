@@ -264,6 +264,10 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
             let out = arch_dir.join(format!("{}.msix", env.name()));
             let mut msix = Msix::new(out.clone())?;
             msix.add_manifest(env.appx_manifest().unwrap())?;
+            if let Some(icon) = env.icon() {
+                msix.add_icon(icon)?;
+            }
+            // TODO: *.pri
 
             if let Some(flutter) = env.flutter() {
                 let engine_dir = flutter.engine_dir(target)?;
@@ -307,8 +311,6 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
                     ZipFileOptions::Compressed,
                 )?;
             }
-            // TODO: Images/*
-            // TODO: *.pri
             msix.finish(env.target().signer().cloned())?;
             out
         }

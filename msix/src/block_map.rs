@@ -2,6 +2,8 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::io::Read;
+use std::path::Path;
+use zip::read::ZipFile;
 
 pub struct BlockMapBuilder {
     block_map: AppxBlockMap,
@@ -18,7 +20,13 @@ impl Default for BlockMapBuilder {
 }
 
 impl BlockMapBuilder {
-    pub fn add<R: Read>(&mut self, name: String, size: u64, r: &mut R) -> Result<()> {
+    pub fn add(&mut self, f: &mut ZipFile) -> Result<()> {
+        let name = Path::new(f.name())
+            .iter()
+            .map(|seg| seg.to_str().unwrap())
+            .collect::<Vec<_>>()
+            .join("\\");
+        let size = f.size();
         let mut file = File {
             lfh_size: 30 + name.len() as u16,
             name,
@@ -27,7 +35,7 @@ impl BlockMapBuilder {
         };
         loop {
             self.buf.clear();
-            r.take(self.buf.capacity() as u64)
+            f.take(self.buf.capacity() as u64)
                 .read_to_end(&mut self.buf)?;
             file.blocks.push(Block::new(&self.buf));
             if self.buf.len() != self.buf.capacity() {

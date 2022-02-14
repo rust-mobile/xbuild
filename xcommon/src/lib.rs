@@ -2,12 +2,12 @@ use anyhow::Result;
 use byteorder::{LittleEndian, ReadBytesExt};
 use image::imageops::FilterType;
 use image::io::Reader as ImageReader;
-use image::{DynamicImage, GenericImageView, ImageOutputFormat};
+use image::{DynamicImage, GenericImageView, ImageOutputFormat, RgbaImage};
 use rsa::pkcs8::FromPrivateKey;
 use rsa::{Hash, PaddingScheme, RsaPrivateKey, RsaPublicKey};
 use sha2::{Digest, Sha256};
 use std::fs::{File, OpenOptions};
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use zip::write::FileOptions;
 use zip::{CompressionMethod, ZipWriter};
@@ -58,11 +58,85 @@ impl Scaler {
         }
     }
 
-    pub fn write<W: Write + Seek>(&self, w: &mut W, size: u32) -> Result<()> {
-        self.img
-            .resize(size, size, FilterType::Nearest)
-            .write_to(w, ImageOutputFormat::Png)?;
+    pub fn write<W: Write + Seek>(&self, w: &mut W, opts: ScalerOpts) -> Result<()> {
+        let resized = self
+            .img
+            .resize(opts.scaled_size, opts.scaled_size, FilterType::Nearest);
+        if opts.scaled_size == opts.target_width && opts.scaled_size == opts.target_height {
+            resized.write_to(w, ImageOutputFormat::Png)?;
+        } else {
+            let x = (opts.target_width - opts.scaled_size) / 2;
+            let y = (opts.target_height - opts.scaled_size) / 2;
+            let mut padded = RgbaImage::new(opts.target_width, opts.target_height);
+            image::imageops::overlay(&mut padded, &resized, x as i64, y as i64);
+            padded.write_to(w, ImageOutputFormat::Png)?;
+        }
         Ok(())
+    }
+
+    pub fn to_vec(&self, opts: ScalerOpts) -> Vec<u8> {
+        let mut buf = vec![];
+        let mut cursor = Cursor::new(&mut buf);
+        self.write(&mut cursor, opts).unwrap();
+        buf
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ScalerOptsBuilder {
+    width: u32,
+    height: u32,
+    scale: f32,
+    padding: f32,
+}
+
+impl ScalerOptsBuilder {
+    pub fn new(width: u32, height: u32) -> Self {
+        Self {
+            width,
+            height,
+            scale: 1.0,
+            padding: 0.0,
+        }
+    }
+
+    pub fn scale(mut self, scale: f32) -> Self {
+        self.scale = scale;
+        self
+    }
+
+    pub fn padding(mut self, percent: f32) -> Self {
+        self.padding = percent;
+        self
+    }
+
+    pub fn build(self) -> ScalerOpts {
+        let target_width = (self.width as f32 * self.scale) as u32;
+        let target_height = (self.height as f32 * self.scale) as u32;
+        let unpadded_size = std::cmp::min(target_width, target_height);
+        let scaled_size = (unpadded_size as f32 - (unpadded_size as f32 * self.padding)) as u32;
+        ScalerOpts {
+            target_width,
+            target_height,
+            scaled_size,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ScalerOpts {
+    target_width: u32,
+    target_height: u32,
+    scaled_size: u32,
+}
+
+impl ScalerOpts {
+    pub fn new(size: u32) -> Self {
+        Self {
+            target_width: size,
+            target_height: size,
+            scaled_size: size,
+        }
     }
 }
 
@@ -147,7 +221,10 @@ impl ZipInfo {
         let cde_start = find_cde_start_pos(r)?;
         r.seek(SeekFrom::Start(cde_start + 16))?;
         let cd_start = r.read_u32::<LittleEndian>()? as u64;
-        Ok(Self { cde_start, cd_start })
+        Ok(Self {
+            cde_start,
+            cd_start,
+        })
     }
 }
 
@@ -176,17 +253,20 @@ fn find_cde_start_pos<R: Read + Seek>(reader: &mut R) -> Result<u64> {
 
 pub struct Zip {
     zip: ZipWriter<File>,
-    sep: &'static str,
 }
 
 impl Zip {
-    pub fn new(path: &Path, sep: &'static str) -> Result<Self> {
-        Ok(Self { zip: ZipWriter::new(File::create(path)?), sep })
+    pub fn new(path: &Path) -> Result<Self> {
+        Ok(Self {
+            zip: ZipWriter::new(File::create(path)?),
+        })
     }
 
-    pub fn append(path: &Path, sep: &'static str) -> Result<Self> {
+    pub fn append(path: &Path) -> Result<Self> {
         let f = OpenOptions::new().read(true).write(true).open(path)?;
-        Ok(Self { zip: ZipWriter::new_append(f)?, sep, })
+        Ok(Self {
+            zip: ZipWriter::new_append(f)?,
+        })
     }
 
     pub fn add_file(&mut self, source: &Path, dest: &Path, opts: ZipFileOptions) -> Result<()> {
@@ -206,7 +286,12 @@ impl Zip {
         Ok(())
     }
 
-    pub fn create_file(&mut self, dest: &Path, opts: ZipFileOptions, contents: &[u8]) -> Result<()> {
+    pub fn create_file(
+        &mut self,
+        dest: &Path,
+        opts: ZipFileOptions,
+        contents: &[u8],
+    ) -> Result<()> {
         self.start_file(dest, opts)?;
         self.zip.write_all(contents)?;
         Ok(())
@@ -217,7 +302,7 @@ impl Zip {
             .iter()
             .map(|seg| seg.to_str().unwrap())
             .collect::<Vec<_>>()
-            .join(self.sep);
+            .join("/");
         let zopts = FileOptions::default().compression_method(opts.compression_method());
         self.zip.start_file_aligned(name, zopts, opts.alignment())?;
         Ok(())
