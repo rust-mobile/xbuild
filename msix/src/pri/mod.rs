@@ -3,8 +3,10 @@ use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Seek, SeekFrom, Write};
 
 mod data_item;
+mod pri_descriptor;
 
 pub use data_item::DataItem;
+pub use pri_descriptor::{PriDescriptor, PriDescriptorFlags};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PriFile {
@@ -148,11 +150,7 @@ impl Section {
     }
 
     pub fn write<W: Write + Seek>(&self, w: &mut W) -> Result<()> {
-        let section_identifier = match &self.data {
-            SectionData::DataItem(_) => DataItem::IDENTIFIER.as_bytes(),
-            SectionData::Unknown(unknown) => &unknown.identifier,
-        };
-        w.write_all(section_identifier)?;
+        w.write_all(&self.data.section_identifier())?;
         w.write_u32::<LittleEndian>(self.section_qualifier)?;
         w.write_u16::<LittleEndian>(self.flags)?;
         w.write_u16::<LittleEndian>(self.section_flags)?;
@@ -173,7 +171,7 @@ impl Section {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum SectionData {
     DataItem(DataItem),
-    // PriDescriptor
+    PriDescriptor(PriDescriptor),
     // ResourceMap
     // DecisionInfo
     // HierarchicalSchema,
@@ -181,9 +179,18 @@ pub enum SectionData {
 }
 
 impl SectionData {
+    pub fn section_identifier(&self) -> [u8; 16] {
+        match self {
+            SectionData::DataItem(_) => *DataItem::IDENTIFIER,
+            SectionData::PriDescriptor(_) => *PriDescriptor::IDENTIFIER,
+            SectionData::Unknown(unknown) => unknown.identifier,
+        }
+    }
+
     pub fn read(identifier: [u8; 16], length: u32, r: &mut impl Read) -> Result<Self> {
-        match identifier {
-            x if x == DataItem::IDENTIFIER.as_bytes() => Ok(Self::DataItem(DataItem::read(r)?)),
+        match &identifier {
+            DataItem::IDENTIFIER => Ok(Self::DataItem(DataItem::read(r)?)),
+            PriDescriptor::IDENTIFIER => Ok(Self::PriDescriptor(PriDescriptor::read(r)?)),
             _ => Ok(Self::Unknown(UnknownSection::read(identifier, length, r)?)),
         }
     }
@@ -191,6 +198,7 @@ impl SectionData {
     pub fn write(&self, w: &mut impl Write) -> Result<()> {
         match self {
             Self::DataItem(section) => section.write(w)?,
+            Self::PriDescriptor(section) => section.write(w)?,
             Self::Unknown(section) => section.write(w)?,
         }
         Ok(())

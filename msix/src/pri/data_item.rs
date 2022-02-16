@@ -27,7 +27,7 @@ pub struct DataItem {
 }
 
 impl DataItem {
-    pub const IDENTIFIER: &'static str = "[mrm_dataitem] \0";
+    pub const IDENTIFIER: &'static [u8; 16] = b"[mrm_dataitem] \0";
 
     pub fn read(r: &mut impl Read) -> Result<Self> {
         ensure!(r.read_u32::<LittleEndian>()? == 0);
