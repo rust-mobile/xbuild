@@ -282,8 +282,12 @@ mod tests {
                 logo: "Images\\StoreLogo.png".into(),
                 description: "A new Flutter project.".into(),
             },
-            resources: vec![Default::default()].into(),
-            dependencies: vec![Default::default()].into(),
+            resources: Resources {
+                resource: vec![Default::default()],
+            },
+            dependencies: Dependencies {
+                target_device_family: vec![Default::default()],
+            },
             capabilities: vec![
                 Capability::Capability {
                     name: "internetClient".into(),
@@ -295,45 +299,46 @@ mod tests {
                     name: "location".into(),
                 },
             ],
-            applications: vec![Application {
-                id: "fluttertodoapp".into(),
-                executable: "todoapp.exe".into(),
-                entry_point: "Windows.FullTrustApplication".into(),
-                visual_elements: VisualElements {
-                    background_color: "transparent".into(),
-                    display_name: "fluttertodoapp".into(),
-                    description: "A new flutter project.".into(),
-                    logo_44x44: "Images\\Square44x44Logo.png".into(),
-                    logo_150x150: "Images\\Square150x150Logo.png".into(),
-                    default_tile: DefaultTile {
-                        short_name: "fluttertodoapp".into(),
-                        logo_71x71: "Images\\SmallTile.png".into(),
-                        logo_310x310: "Images\\LargeTile.png".into(),
-                        logo_310x150: "Images\\Wide310x150Logo.png".into(),
-                        show_names_on_tiles: ShowNameOnTiles {
-                            show_on: vec![
-                                ShowOn {
-                                    tile: "square150x150Logo".into(),
-                                },
-                                ShowOn {
-                                    tile: "square310x310Logo".into(),
-                                },
-                                ShowOn {
-                                    tile: "wide310x150Logo".into(),
-                                },
-                            ],
+            applications: Applications {
+                application: vec![Application {
+                    id: "fluttertodoapp".into(),
+                    executable: "todoapp.exe".into(),
+                    entry_point: "Windows.FullTrustApplication".into(),
+                    visual_elements: VisualElements {
+                        background_color: "transparent".into(),
+                        display_name: "fluttertodoapp".into(),
+                        description: "A new flutter project.".into(),
+                        logo_44x44: "Images\\Square44x44Logo.png".into(),
+                        logo_150x150: "Images\\Square150x150Logo.png".into(),
+                        default_tile: DefaultTile {
+                            short_name: "fluttertodoapp".into(),
+                            logo_71x71: "Images\\SmallTile.png".into(),
+                            logo_310x310: "Images\\LargeTile.png".into(),
+                            logo_310x150: "Images\\Wide310x150Logo.png".into(),
+                            show_names_on_tiles: ShowNameOnTiles {
+                                show_on: vec![
+                                    ShowOn {
+                                        tile: "square150x150Logo".into(),
+                                    },
+                                    ShowOn {
+                                        tile: "square310x310Logo".into(),
+                                    },
+                                    ShowOn {
+                                        tile: "wide310x150Logo".into(),
+                                    },
+                                ],
+                            },
+                        },
+                        splash_screen: SplashScreen {
+                            image: "Images\\SplashScreen.png".into(),
+                        },
+                        lock_screen: LockScreen {
+                            badge_logo: "Images\\BadgeLogo.png".into(),
+                            notification: "badge".into(),
                         },
                     },
-                    splash_screen: SplashScreen {
-                        image: "Images\\SplashScreen.png".into(),
-                    },
-                    lock_screen: LockScreen {
-                        badge_logo: "Images\\BadgeLogo.png".into(),
-                        notification: "badge".into(),
-                    },
-                },
-            }]
-            .into(),
+                }],
+            },
             ..Default::default()
         };
         let xml = quick_xml::se::to_string(&manifest).unwrap();
