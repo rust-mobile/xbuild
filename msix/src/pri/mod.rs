@@ -4,17 +4,19 @@ use std::io::{Read, Seek, SeekFrom, Write};
 
 mod data_item;
 mod decision_info;
+mod hierarchical_schema;
 mod pri_descriptor;
+mod resource_map;
 
 pub use data_item::DataItem;
 pub use decision_info::{Decision, DecisionInfo, Qualifier, QualifierSet, QualifierType};
+pub use hierarchical_schema::{HierarchicalSchema, ResourceMapEntry};
 pub use pri_descriptor::{PriDescriptor, PriDescriptorFlags};
+pub use resource_map::ResourceMap;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PriFile {
-    pub version: &'static str,
-    pub toc: Vec<TocEntry>,
-    pub sections: Vec<Section>,
+    sections: Vec<Section>,
 }
 
 impl PriFile {
@@ -59,15 +61,68 @@ impl PriFile {
             sections.push(Section::read(r)?);
         }
         Ok(Self {
-            version,
-            toc,
             sections,
         })
+    }
+
+    pub fn write<W: Write + Seek>(&self, w: &mut W) -> Result<()> {
+        w.write_all(Self::MRM_PRI2.as_bytes())?;
+        w.write_u16::<LittleEndian>(0)?;
+        w.write_u16::<LittleEndian>(1)?;
+        w.write_u32::<LittleEndian>(0)?;
+        let toc_offset = 30;
+        w.write_u32::<LittleEndian>(toc_offset)?;
+        let section_start_offset = self.sections.len() as u64 * 32 + toc_offset as u64;
+        w.write_u32::<LittleEndian>(section_start_offset as u32)?;
+        w.write_u16::<LittleEndian>(self.sections.len() as u16)?;
+        w.write_u16::<LittleEndian>(0xffff)?;
+        w.write_u32::<LittleEndian>(0)?;
+        for section in &self.sections {
+            TocEntry {
+                section_identifier: section.data.section_identifier(),
+                flags: section.flags,
+                section_flags: section.section_flags,
+                section_qualifier: section.section_qualifier,
+                section_offset: 0,
+                section_length: 0,
+            }.write(w)?;
+        }
+        for (i, section) in self.sections.iter().enumerate() {
+            let start = w.seek(SeekFrom::Current(0))?;
+            section.write(w)?;
+            let end = w.seek(SeekFrom::Current(0))?;
+            let offset = start - section_start_offset;
+            let length = end - start;
+            w.seek(SeekFrom::Start(toc_offset as u64 + 32 * i as u64 + 24))?;
+            w.write_u32::<LittleEndian>(offset as u32)?;
+            w.write_u32::<LittleEndian>(length as u32)?;
+            w.seek(SeekFrom::Start(end))?;
+        }
+        let pos = w.seek(SeekFrom::Current(0))?;
+        let total_file_size = pos + 16;
+        w.write_u32::<LittleEndian>(0xdefffade)?;
+        w.write_u32::<LittleEndian>(total_file_size as u32)?;
+        w.write_all(Self::MRM_PRI2.as_bytes())?;
+        w.seek(SeekFrom::Start(12))?;
+        w.write_u32::<LittleEndian>(total_file_size as u32)?;
+        Ok(())
+    }
+
+    pub fn add_section(&mut self, section: Section) {
+        self.sections.push(section);
+    }
+
+    pub fn num_sections(&self) -> usize {
+        self.sections.len()
+    }
+
+    pub fn section(&self, index: usize) -> Option<&Section> {
+        self.sections.get(index)
     }
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
-pub struct TocEntry {
+struct TocEntry {
     pub section_identifier: [u8; 16],
     pub flags: u16,
     pub section_flags: u16,
@@ -168,6 +223,7 @@ impl Section {
         w.write_u32::<LittleEndian>(section_length)?;
         w.seek(SeekFrom::Start(start - 8))?;
         w.write_u32::<LittleEndian>(section_length)?;
+        w.seek(SeekFrom::Start(end + 8))?;
         Ok(())
     }
 }
@@ -176,9 +232,9 @@ impl Section {
 pub enum SectionData {
     DataItem(DataItem),
     PriDescriptor(PriDescriptor),
-    // ResourceMap
+    ResourceMap(ResourceMap),
     DecisionInfo(DecisionInfo),
-    // HierarchicalSchema,
+    HierarchicalSchema(HierarchicalSchema),
     Unknown(UnknownSection),
 }
 
@@ -187,7 +243,9 @@ impl SectionData {
         match self {
             Self::DataItem(_) => *DataItem::IDENTIFIER,
             Self::PriDescriptor(_) => *PriDescriptor::IDENTIFIER,
+            Self::ResourceMap(_) => *ResourceMap::IDENTIFIER,
             Self::DecisionInfo(_) => *DecisionInfo::IDENTIFIER,
+            Self::HierarchicalSchema(_) => *HierarchicalSchema::IDENTIFIER,
             Self::Unknown(unknown) => unknown.identifier,
         }
     }
@@ -196,7 +254,11 @@ impl SectionData {
         match &identifier {
             DataItem::IDENTIFIER => Ok(Self::DataItem(DataItem::read(r)?)),
             PriDescriptor::IDENTIFIER => Ok(Self::PriDescriptor(PriDescriptor::read(r)?)),
+            //ResourceMap::IDENTIFIER => Ok(Self::ResourceMap(ResourceMap::read(r)?)),
             DecisionInfo::IDENTIFIER => Ok(Self::DecisionInfo(DecisionInfo::read(r)?)),
+            HierarchicalSchema::IDENTIFIER => {
+                Ok(Self::HierarchicalSchema(HierarchicalSchema::read(r)?))
+            }
             _ => Ok(Self::Unknown(UnknownSection::read(identifier, length, r)?)),
         }
     }
@@ -205,8 +267,11 @@ impl SectionData {
         match self {
             Self::DataItem(section) => section.write(w)?,
             Self::PriDescriptor(section) => section.write(w)?,
+            //Self::ResourceMap(section) => section.write(w)?,
             Self::DecisionInfo(section) => section.write(w)?,
+            Self::HierarchicalSchema(section) => section.write(w)?,
             Self::Unknown(section) => section.write(w)?,
+            _ => {}
         }
         Ok(())
     }

@@ -1,8 +1,17 @@
 # cross
 
-Cross is a cross platform build tool for cross platform rust and flutter projects.
+Cross is a cross platform build tool for rust and rust/flutter projects. It supports cross
+compiling debug builds for all platforms.
 
 ## Scope and limitations of cross
+
+- flutter plugins are not supported
+
+Cross compiling release builds is currently not possible for a few reasons:
+
+- dart/flutter lacks support for cross compiling aot snapshots
+- creating an appimage relies on mksquashfs (linux only)
+- creating a dmg relies on hdiutil (macos only)
 
 ### Android
 Since cross platform frameworks implement their own resource management system there is only
@@ -13,4 +22,6 @@ Most code is expected to be written in rust/dart. If you require flutter plugins
 Kotlin/Java or integrate with existing Kotlin/Java code you likely need a different tool.
 
 Currently not all manifest features are supported yet. If something is missing please open an
-issue so we can prioritize.
+issue or PR.
+
+### Linux
