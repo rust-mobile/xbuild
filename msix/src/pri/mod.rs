@@ -3,12 +3,14 @@ use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Seek, SeekFrom, Write};
 
 mod data_item;
+mod decision_info;
 mod pri_descriptor;
 
 pub use data_item::DataItem;
+pub use decision_info::{Decision, DecisionInfo, Qualifier, QualifierSet, QualifierType};
 pub use pri_descriptor::{PriDescriptor, PriDescriptorFlags};
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PriFile {
     pub version: &'static str,
     pub toc: Vec<TocEntry>,
@@ -121,7 +123,7 @@ impl TocEntry {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Section {
     pub section_qualifier: u32,
     pub flags: u16,
@@ -130,7 +132,8 @@ pub struct Section {
 }
 
 impl Section {
-    pub fn read(r: &mut impl Read) -> Result<Self> {
+    pub fn read<R: Read + Seek>(r: &mut R) -> Result<Self> {
+        let start = r.seek(SeekFrom::Current(0))?;
         let mut section_identifier = [0; 16];
         r.read_exact(&mut section_identifier)?;
         let section_qualifier = r.read_u32::<LittleEndian>()?;
@@ -139,6 +142,7 @@ impl Section {
         let section_length = r.read_u32::<LittleEndian>()?;
         ensure!(r.read_u32::<LittleEndian>()? == 0);
         let data = SectionData::read(section_identifier, section_length - 16 - 24, r)?;
+        r.seek(SeekFrom::Start(start + section_length as u64 - 8))?;
         ensure!(r.read_u32::<LittleEndian>()? == 0xdef5fade);
         ensure!(r.read_u32::<LittleEndian>()? == section_length);
         Ok(Self {
@@ -168,12 +172,12 @@ impl Section {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum SectionData {
     DataItem(DataItem),
     PriDescriptor(PriDescriptor),
     // ResourceMap
-    // DecisionInfo
+    DecisionInfo(DecisionInfo),
     // HierarchicalSchema,
     Unknown(UnknownSection),
 }
@@ -181,24 +185,27 @@ pub enum SectionData {
 impl SectionData {
     pub fn section_identifier(&self) -> [u8; 16] {
         match self {
-            SectionData::DataItem(_) => *DataItem::IDENTIFIER,
-            SectionData::PriDescriptor(_) => *PriDescriptor::IDENTIFIER,
-            SectionData::Unknown(unknown) => unknown.identifier,
+            Self::DataItem(_) => *DataItem::IDENTIFIER,
+            Self::PriDescriptor(_) => *PriDescriptor::IDENTIFIER,
+            Self::DecisionInfo(_) => *DecisionInfo::IDENTIFIER,
+            Self::Unknown(unknown) => unknown.identifier,
         }
     }
 
-    pub fn read(identifier: [u8; 16], length: u32, r: &mut impl Read) -> Result<Self> {
+    pub fn read<R: Read + Seek>(identifier: [u8; 16], length: u32, r: &mut R) -> Result<Self> {
         match &identifier {
             DataItem::IDENTIFIER => Ok(Self::DataItem(DataItem::read(r)?)),
             PriDescriptor::IDENTIFIER => Ok(Self::PriDescriptor(PriDescriptor::read(r)?)),
+            DecisionInfo::IDENTIFIER => Ok(Self::DecisionInfo(DecisionInfo::read(r)?)),
             _ => Ok(Self::Unknown(UnknownSection::read(identifier, length, r)?)),
         }
     }
 
-    pub fn write(&self, w: &mut impl Write) -> Result<()> {
+    pub fn write<W: Write + Seek>(&self, w: &mut W) -> Result<()> {
         match self {
             Self::DataItem(section) => section.write(w)?,
             Self::PriDescriptor(section) => section.write(w)?,
+            Self::DecisionInfo(section) => section.write(w)?,
             Self::Unknown(section) => section.write(w)?,
         }
         Ok(())

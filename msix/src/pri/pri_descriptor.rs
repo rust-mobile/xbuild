@@ -53,7 +53,6 @@ impl PriDescriptor {
         for _ in 0..num_data_item_sections {
             data_item_sections.push(r.read_u16::<LittleEndian>()?);
         }
-        ensure!(r.read_u32::<LittleEndian>()? == 0);
         Ok(Self {
             pri_flags,
             included_file_list_section,
@@ -98,7 +97,6 @@ impl PriDescriptor {
         for id in &self.data_item_sections {
             w.write_u16::<LittleEndian>(*id)?;
         }
-        w.write_u32::<LittleEndian>(0)?;
         Ok(())
     }
 }
