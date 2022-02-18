@@ -141,7 +141,7 @@ impl HierarchicalSchema {
         })
     }
 
-    pub fn write<W: Write + Seek>(&self, _w: &mut W) -> Result<()> {
+    pub fn write<W: Write + Seek>(&self, w: &mut W) -> Result<()> {
         w.write_u16::<LittleEndian>(1)?;
         w.write_u16::<LittleEndian>(self.unique_name.len() as u16 + 1)?;
         w.write_u16::<LittleEndian>(self.name.len() as u16 + 1)?;

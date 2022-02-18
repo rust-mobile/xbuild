@@ -79,6 +79,20 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
         }
     }
 
+    if env.target().platform() == Platform::Macos && Platform::host()? != Platform::Macos {
+        let macos_sdk = env.build_dir().join("MacOSX.sdk");
+        if !macos_sdk.exists() {
+            println!("downloading macos sdk");
+            xcli::github::download_tar_zst(
+                env.build_dir(),
+                "cloudpeers",
+                "xcross",
+                "v0.1.0+1",
+                "MacOSX.sdk.tar.zst",
+            )?;
+        }
+    }
+
     if let Some(flutter) = env.flutter() {
         if !Path::new(".dart_tool").join("package_config.json").exists()
             || xcommon::stamp_file(

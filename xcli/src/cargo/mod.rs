@@ -30,7 +30,6 @@ pub struct Cargo {
     target: CompileTarget,
     triple: Option<&'static str>,
     c_flags: String,
-    cxx_flags: String,
     rust_flags: String,
 }
 
@@ -54,7 +53,6 @@ impl Cargo {
             target,
             triple,
             c_flags: "".into(),
-            cxx_flags: "".into(),
             rust_flags: "".into(),
         })
     }
@@ -70,19 +68,41 @@ impl Cargo {
     }
 
     pub fn use_xwin(&mut self, path: &Path) -> Result<()> {
+        let path = path.canonicalize()?;
         self.cfg_tool(Tool::Cc, "clang");
         self.cfg_tool(Tool::Cxx, "clang++");
         self.cfg_tool(Tool::Ar, "llvm-lib");
         self.cfg_tool(Tool::Linker, "rust-lld");
-        self.add_lib_dir(&path.join("crt").join("lib").join("x86_64"))?;
-        self.add_lib_dir(&path.join("sdk").join("lib").join("um").join("x86_64"))?;
-        self.add_lib_dir(&path.join("sdk").join("lib").join("ucrt").join("x86_64"))?;
-        self.add_target_feature("+crt-static");
         self.use_ld("lld-link");
-        self.add_include_dir(&path.join("crt").join("include"))?;
-        self.add_include_dir(&path.join("sdk").join("include").join("um"))?;
-        self.add_include_dir(&path.join("sdk").join("include").join("ucrt"))?;
-        self.add_include_dir(&path.join("sdk").join("include").join("shared"))?;
+        self.add_target_feature("+crt-static");
+        self.add_include_dir(&path.join("crt").join("include"));
+        self.add_include_dir(&path.join("sdk").join("include").join("um"));
+        self.add_include_dir(&path.join("sdk").join("include").join("ucrt"));
+        self.add_include_dir(&path.join("sdk").join("include").join("shared"));
+        self.add_lib_dir(&path.join("crt").join("lib").join("x86_64"));
+        self.add_lib_dir(&path.join("sdk").join("lib").join("um").join("x86_64"));
+        self.add_lib_dir(&path.join("sdk").join("lib").join("ucrt").join("x86_64"));
+        Ok(())
+    }
+
+    pub fn use_macos_sdk(&mut self, path: &Path) -> Result<()> {
+        let path = path.canonicalize()?;
+        self.cfg_tool(Tool::Cc, "clang");
+        self.cfg_tool(Tool::Cxx, "clang++");
+        self.cfg_tool(Tool::Ar, "llvm-ar");
+        self.cfg_tool(Tool::Linker, "clang");
+        self.use_ld("lld");
+        self.set_sysroot(&path);
+        self.add_define("TARGET_OS_OSX", "1");
+        self.add_cflag("-mmacosx-version-min=10.11");
+        self.add_link_arg("--target=x86_64-apple-darwin");
+        self.add_link_arg("-mmacosx-version-min=10.11");
+        self.add_link_arg(&format!("--sysroot={}", path.display()));
+        self.add_include_dir(&path.join("usr").join("include"));
+        self.add_lib_dir(&path.join("usr").join("lib"));
+        self.add_lib_dir(&path.join("usr").join("lib").join("system"));
+        self.add_framework_dir(&path.join("System").join("Library").join("Frameworks"));
+        self.add_framework_dir(&path.join("System").join("Library").join("PrivateFrameworks"));
         Ok(())
     }
 
@@ -117,15 +137,22 @@ impl Cargo {
         }
     }
 
-    pub fn add_lib_dir(&mut self, path: &Path) -> Result<()> {
-        let path = path.canonicalize()?;
+    pub fn add_lib_dir(&mut self, path: &Path) {
         self.rust_flags
             .push_str(&format!("-Lnative={} ", path.display()));
-        Ok(())
+    }
+
+    pub fn add_framework_dir(&mut self, path: &Path) {
+        self.rust_flags
+            .push_str(&format!("-Lframework={} ", path.display()));
     }
 
     pub fn link_lib(&mut self, name: &str) {
         self.rust_flags.push_str(&format!("-l{}", name));
+    }
+
+    pub fn link_framework(&mut self, name: &str) {
+        self.rust_flags.push_str(&format!("-lframework={}", name));
     }
 
     pub fn add_target_feature(&mut self, target_feature: &str) {
@@ -133,22 +160,38 @@ impl Cargo {
             .push_str(&format!("-Ctarget-feature={} ", target_feature));
     }
 
-    pub fn add_include_dir(&mut self, path: &Path) -> Result<()> {
-        let path = path.canonicalize()?;
+    pub fn add_link_arg(&mut self, link_arg: &str) {
+        self.rust_flags
+            .push_str(&format!("-Clink-arg={} ", link_arg));
+    }
+
+    pub fn add_define(&mut self, name: &str, value: &str) {
+        self.c_flags.push_str(&format!("-D{}={} ", name, value));
+    }
+
+    pub fn add_include_dir(&mut self, path: &Path) {
         self.c_flags.push_str(&format!("-I{} ", path.display()));
-        self.cxx_flags.push_str(&format!("-I{} ", path.display()));
-        Ok(())
+    }
+
+    pub fn set_sysroot(&mut self, path: &Path) {
+        let arg = format!("--sysroot={}", path.display());
+        self.add_cflag(&arg);
+        self.add_link_arg(&arg);
+    }
+
+    pub fn add_cflag(&mut self, flag: &str) {
+        self.c_flags.push_str(flag);
+        self.c_flags.push(' ');
     }
 
     pub fn use_ld(&mut self, name: &str) {
-        self.c_flags.push_str(&format!("-fuse-ld={} ", name));
-        self.cxx_flags.push_str(&format!("-fuse-ld={} ", name));
+        self.add_link_arg(&format!("-fuse-ld={}", name));
     }
 
     pub fn build(&mut self) -> Result<()> {
         self.cargo_target_env("RUSTFLAGS", &self.rust_flags.clone());
         self.cc_triple_env("CFLAGS", &self.c_flags.clone());
-        self.cc_triple_env("CXXFLAGS", &self.cxx_flags.clone());
+        self.cc_triple_env("CXXFLAGS", &self.c_flags.clone());
         if !self.cmd.status()?.success() {
             anyhow::bail!("cargo build failed");
         }

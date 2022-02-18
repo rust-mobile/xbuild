@@ -569,13 +569,23 @@ impl BuildEnv {
                 cargo.use_xwin(&sdk)?;
             }
         }
+        if target.platform() == Platform::Macos {
+            let sdk = self.build_dir().join("MacOSX.sdk");
+            if sdk.exists() {
+                cargo.use_macos_sdk(&sdk)?;
+            }
+        }
         if let Some(flutter) = self.flutter() {
             match self.target().platform() {
                 Platform::Linux => {
-                    cargo.add_lib_dir(&flutter.engine_dir(target)?)?;
+                    cargo.add_lib_dir(&flutter.engine_dir(target)?);
+                }
+                Platform::Macos => {
+                    cargo.add_framework_dir(&flutter.engine_dir(target)?);
+                    cargo.link_framework("FlutterMacOS");
                 }
                 Platform::Windows => {
-                    cargo.add_lib_dir(&flutter.engine_dir(target)?)?;
+                    cargo.add_lib_dir(&flutter.engine_dir(target)?);
                     cargo.link_lib("flutter_windows.dll");
                 }
                 _ => {}
