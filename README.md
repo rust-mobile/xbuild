@@ -1,7 +1,7 @@
 # cross
 
-Cross is a cross platform build tool for rust and rust/flutter projects. It supports cross
-compiling debug builds for all platforms.
+Cross is a build tool for rust and rust/flutter projects with support for cross compiling debug
+builds and packaging/publishing for all major stores.
 
 ## Scope and limitations of cross
 

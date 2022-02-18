@@ -142,6 +142,40 @@ impl HierarchicalSchema {
     }
 
     pub fn write<W: Write + Seek>(&self, _w: &mut W) -> Result<()> {
+        w.write_u16::<LittleEndian>(1)?;
+        w.write_u16::<LittleEndian>(self.unique_name.len() as u16 + 1)?;
+        w.write_u16::<LittleEndian>(self.name.len() as u16 + 1)?;
+        w.write_u16::<LittleEndian>(0)?;
+        w.write_all(b"[def_hnamesx]  \0")?;
+        w.write_u16::<LittleEndian>(1)?;
+        w.write_u16::<LittleEndian>(0)?;
+        w.write_u32::<LittleEndian>(0)?;
+        // TODO: checksum
+        w.write_u32::<LittleEndian>(0)?;
+        w.write_u32::<LittleEndian>(self.scopes.len() as u32)?;
+        w.write_u32::<LittleEndian>(self.items.len() as u32)?;
+        for c in self.unique_name.chars() {
+            w.write_u16::<LittleEndian>(c as u16)?;
+        }
+        w.write_u16::<LittleEndian>(0)?;
+        for c in self.name.chars() {
+            w.write_u16::<LittleEndian>(c as u16)?;
+        }
+        w.write_u16::<LittleEndian>(0)?;
+        w.write_u16::<LittleEndian>(0)?;
+        // TODO: max full path length
+        w.write_u16::<LittleEndian>(256)?;
+        w.write_u16::<LittleEndian>(0)?;
+        w.write_u32::<LittleEndian>((self.scopes.len() + self.items.len()) as u32)?;
+        w.write_u32::<LittleEndian>(self.scopes.len() as u32)?;
+        w.write_u32::<LittleEndian>(self.items.len() as u32)?;
+        // TODO: unicode_data_length
+        w.write_u32::<LittleEndian>(0)?;
+        // TODO: what's this for
+        w.write_u32::<LittleEndian>(0)?;
+        // TODO: what's this for
+        w.write_u32::<LittleEndian>(0)?;
+
         Ok(())
     }
 }
