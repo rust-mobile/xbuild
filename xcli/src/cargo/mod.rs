@@ -85,7 +85,7 @@ impl Cargo {
         Ok(())
     }
 
-    pub fn use_macos_sdk(&mut self, path: &Path) -> Result<()> {
+    pub fn use_macos_sdk(&mut self, path: &Path, minimum_version: &str) -> Result<()> {
         let path = path.canonicalize()?;
         self.cfg_tool(Tool::Cc, "clang");
         self.cfg_tool(Tool::Cxx, "clang++");
@@ -94,15 +94,22 @@ impl Cargo {
         self.use_ld("lld");
         self.set_sysroot(&path);
         self.add_define("TARGET_OS_OSX", "1");
-        self.add_cflag("-mmacosx-version-min=10.11");
+        self.add_cflag(&format!("-mmacosx-version-min={}", minimum_version));
         self.add_link_arg("--target=x86_64-apple-darwin");
-        self.add_link_arg("-mmacosx-version-min=10.11");
+        self.add_link_arg(&format!("-mmacosx-version-min={}", minimum_version));
         self.add_link_arg(&format!("--sysroot={}", path.display()));
+        self.add_link_arg("-rpath");
+        self.add_link_arg("@executable_path/../Frameworks");
         self.add_include_dir(&path.join("usr").join("include"));
         self.add_lib_dir(&path.join("usr").join("lib"));
         self.add_lib_dir(&path.join("usr").join("lib").join("system"));
         self.add_framework_dir(&path.join("System").join("Library").join("Frameworks"));
-        self.add_framework_dir(&path.join("System").join("Library").join("PrivateFrameworks"));
+        self.add_framework_dir(
+            &path
+                .join("System")
+                .join("Library")
+                .join("PrivateFrameworks"),
+        );
         Ok(())
     }
 

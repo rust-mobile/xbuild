@@ -1,4 +1,5 @@
 use anyhow::Result;
+use appbundle::AppBundle;
 use clap::{Parser, Subcommand};
 use std::fs::File;
 use std::io::BufReader;
@@ -270,6 +271,47 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
             }
             apk.finish(env.target().signer().cloned())?;
             out
+        }
+        Format::Dmg => {
+            let target = env.target().compile_targets().next().unwrap();
+            let arch_dir = platform_dir.join(target.arch().to_string());
+            std::fs::create_dir_all(&arch_dir)?;
+            let mut app = AppBundle::new(&arch_dir, env.info_plist().unwrap().clone())?;
+            if let Some(icon) = env.icon() {
+                app.add_icon(icon)?;
+            }
+            if let Some(flutter) = env.flutter() {
+                app.add_framework(&flutter.engine_dir(target)?.join("FlutterMacOS.framework"))?;
+                app.add_directory(
+                    &env.build_dir().join("flutter_assets"),
+                    Path::new("flutter_assets"),
+                )?;
+                match target.opt() {
+                    Opt::Debug => {
+                        app.add_file(
+                            &platform_dir.join("kernel_blob.bin"),
+                            &Path::new("flutter_assets").join("kernel_blob.bin"),
+                        )?;
+                    }
+                    Opt::Release => {
+                        app.add_file(
+                            &arch_dir.join("libapp.so"),
+                            &Path::new("flutter_assets").join("libapp.so"),
+                        )?;
+                    }
+                }
+            }
+            if env.has_rust_code() {
+                app.add_executable(&env.cargo_artefact(target)?)?;
+            }
+            let appdir = app.finish(env.target().signer().cloned())?;
+            if target.opt() == Opt::Release {
+                let out = arch_dir.join(format!("{}.dmg", env.name()));
+                appbundle::make_dmg(&arch_dir, &appdir, &out)?;
+                out
+            } else {
+                appdir
+            }
         }
         Format::Msix => {
             let target = env.target().compile_targets().next().unwrap();

@@ -1,5 +1,5 @@
 [workspace]
-members = ["apk", "appimage", "msix", "xcli", "xcommon"]
+members = ["apk", "appbundle", "appimage", "msix", "xcli", "xcommon"]
 
 [patch.crates-io]
 rasn = { git = "https://github.com/XAMPPRocky/rasn" }

@@ -1,6 +1,7 @@
 use crate::android::AndroidSdk;
 use crate::{Format, Platform};
 use anyhow::Result;
+use appbundle::InfoPlist;
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 use xapk::{AndroidManifest, VersionCode};
@@ -13,6 +14,7 @@ pub struct Config {
     description: String,
     generic: GenericConfig,
     apk: ApkConfig,
+    appbundle: AppbundleConfig,
     appimage: AppimageConfig,
     msix: MsixConfig,
 }
@@ -41,6 +43,7 @@ impl Config {
                     description: toml.package.description.unwrap_or_default(),
                     generic: config.generic.unwrap_or_default(),
                     apk: config.apk.unwrap_or_default(),
+                    appbundle: config.appbundle.unwrap_or_default(),
                     appimage: config.appimage.unwrap_or_default(),
                     msix: config.msix.unwrap_or_default(),
                 }
@@ -54,6 +57,7 @@ impl Config {
                     description: yaml.description.unwrap_or_default(),
                     generic: config.generic.unwrap_or_default(),
                     apk: config.apk.unwrap_or_default(),
+                    appbundle: config.appbundle.unwrap_or_default(),
                     appimage: config.appimage.unwrap_or_default(),
                     msix: config.msix.unwrap_or_default(),
                 }
@@ -67,6 +71,7 @@ impl Config {
         let icon = match format {
             Format::Apk => self.apk.generic.icon.as_deref(),
             Format::Appimage => self.appimage.generic.icon.as_deref(),
+            Format::Dmg => self.appbundle.generic.icon.as_deref(),
             Format::Msix => self.msix.generic.icon.as_deref(),
             _ => return self.generic.icon.as_deref(),
         };
@@ -94,6 +99,13 @@ impl Config {
             .target_sdk_version
             .get_or_insert_with(|| sdk.default_target_platform());
         Ok(manifest)
+    }
+
+    pub fn info_plist(&self) -> Result<InfoPlist> {
+        let mut info = self.appbundle.info.clone();
+        info.short_version = Some(self.version.clone());
+        info.minimum_system_version = Some("10.11".to_string());
+        Ok(info)
     }
 
     pub fn appx_manifest(&self) -> Result<AppxManifest> {
@@ -132,6 +144,7 @@ pub struct RawConfig {
     #[serde(flatten)]
     generic: Option<GenericConfig>,
     pub apk: Option<ApkConfig>,
+    pub appbundle: Option<AppbundleConfig>,
     pub appimage: Option<AppimageConfig>,
     pub msix: Option<MsixConfig>,
 }
@@ -139,6 +152,13 @@ pub struct RawConfig {
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct GenericConfig {
     icon: Option<PathBuf>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct AppbundleConfig {
+    #[serde(flatten)]
+    generic: GenericConfig,
+    info: InfoPlist,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]

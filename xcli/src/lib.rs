@@ -5,6 +5,7 @@ use crate::devices::Device;
 use crate::flutter::Flutter;
 use crate::maven::Maven;
 use anyhow::Result;
+use appbundle::InfoPlist;
 use clap::Parser;
 use std::path::{Path, PathBuf};
 use xapk::AndroidManifest;
@@ -432,6 +433,7 @@ pub struct BuildEnv {
     target_file: PathBuf,
     android_manifest: Option<AndroidManifest>,
     appx_manifest: Option<AppxManifest>,
+    info_plist: Option<InfoPlist>,
     flutter: Option<Flutter>,
     android_sdk: Option<AndroidSdk>,
     android_ndk: Option<AndroidNdk>,
@@ -476,6 +478,13 @@ impl BuildEnv {
         } else {
             None
         };
+        let info_plist = if build_target.platform() == Platform::Macos
+            || build_target.platform() == Platform::Ios
+        {
+            Some(config.info_plist()?)
+        } else {
+            None
+        };
         let target_file = config.target_file(build_target.platform());
         let icon = config
             .icon(build_target.format())
@@ -492,6 +501,7 @@ impl BuildEnv {
             android_ndk,
             android_manifest,
             appx_manifest,
+            info_plist,
             build_dir,
         })
     }
@@ -544,6 +554,10 @@ impl BuildEnv {
         self.appx_manifest.as_ref()
     }
 
+    pub fn info_plist(&self) -> Option<&InfoPlist> {
+        self.info_plist.as_ref()
+    }
+
     fn target_sdk_version(&self) -> u32 {
         self.android_manifest()
             .unwrap()
@@ -572,7 +586,13 @@ impl BuildEnv {
         if target.platform() == Platform::Macos {
             let sdk = self.build_dir().join("MacOSX.sdk");
             if sdk.exists() {
-                cargo.use_macos_sdk(&sdk)?;
+                let minimum_version = self
+                    .info_plist()
+                    .unwrap()
+                    .minimum_system_version
+                    .as_ref()
+                    .unwrap();
+                cargo.use_macos_sdk(&sdk, minimum_version)?;
             }
         }
         if let Some(flutter) = self.flutter() {

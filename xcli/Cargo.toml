@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+appbundle = { version = "0.1.0", path = "../appbundle" }
 anyhow = "1.0.53"
 clap = { version = "3.0.13", features = ["derive"] }
 dunce = "1.0.2"
