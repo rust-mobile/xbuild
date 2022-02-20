@@ -29,6 +29,31 @@ impl AppBundle {
         &self.appdir
     }
 
+    fn content_dir(&self) -> PathBuf {
+        if self.info.requires_ios == Some(true) {
+            self.appdir.to_path_buf()
+        } else {
+            self.appdir.join("Contents")
+        }
+    }
+
+    fn resource_dir(&self) -> PathBuf {
+        self.content_dir().join("Resources")
+    }
+
+    fn framework_dir(&self) -> PathBuf {
+        self.content_dir().join("Frameworks")
+    }
+
+    fn executable_dir(&self) -> PathBuf {
+        let contents = self.content_dir();
+        if self.info.requires_ios == Some(true) {
+            contents
+        } else {
+            contents.join("MacOS")
+        }
+    }
+
     pub fn add_icon(&mut self, path: &Path) -> Result<()> {
         let mut icns = IconFamily::new();
         let scaler = Scaler::open(path)?;
@@ -40,11 +65,7 @@ impl AppBundle {
             let image = Image::read_png(&*buf)?;
             icns.add_icon(&image)?;
         }
-        let path = self
-            .appdir
-            .join("Contents")
-            .join("Resources")
-            .join("AppIcon.icns");
+        let path = self.resource_dir().join("AppIcon.icns");
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -54,7 +75,7 @@ impl AppBundle {
     }
 
     pub fn add_file(&self, path: &Path, dest: &Path) -> Result<()> {
-        let dest = self.appdir.join("Contents").join("Resources").join(dest);
+        let dest = self.resource_dir().join(dest);
         if let Some(parent) = dest.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -63,7 +84,7 @@ impl AppBundle {
     }
 
     pub fn add_directory(&self, source: &Path, dest: &Path) -> Result<()> {
-        let resource_dir = self.appdir.join("Contents").join("Resources").join(dest);
+        let resource_dir = self.resource_dir().join(dest);
         std::fs::create_dir_all(&resource_dir)?;
         xcommon::copy_dir_all(source, &resource_dir)?;
         Ok(())
@@ -71,7 +92,7 @@ impl AppBundle {
 
     pub fn add_executable(&mut self, path: &Path) -> Result<()> {
         let file_name = path.file_name().unwrap().to_str().unwrap();
-        let exe_dir = self.appdir.join("Contents").join("MacOS");
+        let exe_dir = self.executable_dir();
         std::fs::create_dir_all(&exe_dir)?;
         std::fs::copy(path, exe_dir.join(file_name))?;
         if self.info.executable.is_none() {
@@ -81,11 +102,7 @@ impl AppBundle {
     }
 
     pub fn add_framework(&self, path: &Path) -> Result<()> {
-        let framework_dir = self
-            .appdir
-            .join("Contents")
-            .join("Frameworks")
-            .join(path.file_name().unwrap());
+        let framework_dir = self.framework_dir().join(path.file_name().unwrap());
         std::fs::create_dir_all(&framework_dir)?;
         xcommon::copy_dir_all(path, &framework_dir)?;
         Ok(())
@@ -93,14 +110,14 @@ impl AppBundle {
 
     pub fn add_lib(&self, path: &Path) -> Result<()> {
         let file_name = path.file_name().unwrap();
-        let framework_dir = self.appdir.join("Contents").join("Frameworks");
+        let framework_dir = self.framework_dir();
         std::fs::create_dir_all(&framework_dir)?;
         std::fs::copy(path, framework_dir.join(file_name))?;
         Ok(())
     }
 
     pub fn finish(self, _signer: Option<Signer>) -> Result<PathBuf> {
-        let path = self.appdir.join("Contents").join("Info.plist");
+        let path = self.content_dir().join("Info.plist");
         plist::to_file_xml(path, &self.info)?;
         Ok(self.appdir)
     }

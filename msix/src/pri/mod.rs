@@ -60,9 +60,7 @@ impl PriFile {
             ))?;
             sections.push(Section::read(r)?);
         }
-        Ok(Self {
-            sections,
-        })
+        Ok(Self { sections })
     }
 
     pub fn write<W: Write + Seek>(&self, w: &mut W) -> Result<()> {
@@ -85,7 +83,8 @@ impl PriFile {
                 section_qualifier: section.section_qualifier,
                 section_offset: 0,
                 section_length: 0,
-            }.write(w)?;
+            }
+            .write(w)?;
         }
         for (i, section) in self.sections.iter().enumerate() {
             let start = w.seek(SeekFrom::Current(0))?;

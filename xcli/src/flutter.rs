@@ -42,10 +42,15 @@ impl Flutter {
         } else {
             target.platform().to_string()
         };
-        let name = if target.opt() == Opt::Debug {
-            format!("{}-{}", platform, target.arch())
+        let platform_arch = if target.platform() == Platform::Ios {
+            format!("{}", platform)
         } else {
-            format!("{}-{}-{}", platform, target.arch(), target.opt())
+            format!("{}-{}", platform, target.arch())
+        };
+        let name = if target.opt() == Opt::Debug {
+            platform_arch
+        } else {
+            format!("{}-{}", platform_arch, target.opt())
         };
         let path = self
             .path

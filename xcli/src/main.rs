@@ -11,7 +11,7 @@ use xappimage::AppImage;
 use xcli::devices::Device;
 use xcli::flutter::Flutter;
 use xcli::maven::Dependency;
-use xcli::{BuildArgs, BuildEnv, Format, Opt, Platform};
+use xcli::{BuildArgs, BuildEnv, CompileTarget, Format, Opt, Platform};
 use xcommon::ZipFileOptions;
 use xmsix::Msix;
 
@@ -46,7 +46,7 @@ impl Commands {
             Self::Devices => {
                 for device in Device::list()? {
                     println!(
-                        "{:20}{:20}{:20}{}",
+                        "{:50}{:20}{:20}{}",
                         device.to_string(),
                         device.name()?,
                         format!("{} {}", device.platform()?, device.arch()?),
@@ -90,6 +90,20 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
                 "xcross",
                 "v0.1.0+1",
                 "MacOSX.sdk.tar.zst",
+            )?;
+        }
+    }
+
+    if env.target().platform() == Platform::Ios && Platform::host()? != Platform::Macos {
+        let ios_sdk = env.build_dir().join("iPhoneOS.sdk");
+        if !ios_sdk.exists() {
+            println!("downloading ios sdk");
+            xcli::github::download_tar_zst(
+                env.build_dir(),
+                "cloudpeers",
+                "xcross",
+                "v0.1.0+1",
+                "iPhoneOS.sdk.tar.zst",
             )?;
         }
     }
@@ -144,7 +158,10 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
     }
 
     // TODO: skipping build on android for now
-    if env.has_rust_code() && env.target().platform() != Platform::Android {
+    if env.has_rust_code()
+        && env.target().platform() != Platform::Android
+        && env.target().platform() != Platform::Ios
+    {
         for target in env.target().compile_targets() {
             println!("building rust for {}", target);
             env.cargo(target)?.build()?;
@@ -313,6 +330,46 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
                 appdir
             }
         }
+        Format::Ipa => {
+            let target = env.target().compile_targets().next().unwrap();
+            let arch_dir = platform_dir.join(target.arch().to_string());
+            std::fs::create_dir_all(&arch_dir)?;
+            let mut info_plist = env.info_plist().unwrap().clone();
+            info_plist.requires_ios = Some(true);
+            let mut app = AppBundle::new(&arch_dir, info_plist)?;
+            if let Some(icon) = env.icon() {
+                app.add_icon(icon)?;
+            }
+            if let Some(flutter) = env.flutter() {
+                let framework = flutter
+                    .engine_dir(target)?
+                    .join("Flutter.xcframework")
+                    .join("ios-arm64_armv7")
+                    .join("Flutter.framework");
+                app.add_framework(&framework)?;
+                app.add_directory(
+                    &env.build_dir().join("flutter_assets"),
+                    Path::new("flutter_assets"),
+                )?;
+                match target.opt() {
+                    Opt::Debug => {
+                        app.add_file(
+                            &platform_dir.join("kernel_blob.bin"),
+                            &Path::new("flutter_assets").join("kernel_blob.bin"),
+                        )?;
+                    }
+                    Opt::Release => {
+                        app.add_file(
+                            &arch_dir.join("libapp.so"),
+                            &Path::new("flutter_assets").join("libapp.so"),
+                        )?;
+                    }
+                }
+                build_ios_main(&env, flutter, &arch_dir, target)?;
+                app.add_executable(&arch_dir.join("main"))?;
+            }
+            app.finish(env.target().signer().cloned())?
+        }
         Format::Msix => {
             let target = env.target().compile_targets().next().unwrap();
             let arch_dir = platform_dir.join(target.arch().to_string());
@@ -430,6 +487,38 @@ fn build_classes_dex(env: &BuildEnv, flutter: &Flutter, platform_dir: &Path) -> 
         .status()?;
     if !status.success() {
         anyhow::bail!("d8 exited with nonzero exit code.");
+    }
+    Ok(())
+}
+
+fn build_ios_main(
+    env: &BuildEnv,
+    flutter: &Flutter,
+    arch_dir: &Path,
+    target: CompileTarget,
+) -> Result<()> {
+    let sdk = env.build_dir().join("iPhoneOS.sdk");
+    let main_m = arch_dir.join("main.m");
+    let main = arch_dir.join("main");
+    let framework = flutter
+        .engine_dir(target)?
+        .join("Flutter.xcframework")
+        .join("ios-arm64_armv7");
+    std::fs::write(&main_m, include_bytes!("../assets/main.m"))?;
+    let status = Command::new("clang")
+        .arg("-objc")
+        .arg("-fmodules")
+        .arg("--target=arm64-apple-ios")
+        .arg(format!("--sysroot={}", sdk.display()))
+        .arg("-F")
+        .arg(framework)
+        .arg("-fuse-ld=lld")
+        .arg("-o")
+        .arg(&main)
+        .arg(&main_m)
+        .status()?;
+    if !status.success() {
+        anyhow::bail!("failed to build main.m");
     }
     Ok(())
 }
