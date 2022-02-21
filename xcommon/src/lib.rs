@@ -153,15 +153,28 @@ impl Signer {
     /// A new self signed certificate can be generated using openssl:
     /// ```sh
     /// openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout key.pem -out cert.pem
+    /// cat cert.pem > pem
+    /// cat key.pem >> pem
     /// ```
-    pub fn new(private_key: &str, certificate: &str) -> Result<Self> {
-        let key = RsaPrivateKey::from_pkcs8_pem(private_key)?;
+    pub fn new(pem: &str) -> Result<Self> {
+        let pem = pem::parse_many(pem)?;
+        let key = if let Some(key) = pem.iter().find(|pem| pem.tag == "PRIVATE KEY") {
+            RsaPrivateKey::from_pkcs8_der(&key.contents)?
+        } else {
+            anyhow::bail!("no private key found");
+        };
+        let cert = if let Some(cert) = pem.iter().find(|pem| pem.tag == "CERTIFICATE") {
+            rasn::der::decode::<Certificate>(&cert.contents)
+                .map_err(|err| anyhow::anyhow!("{}", err))?
+        } else {
+            anyhow::bail!("no certificate found");
+        };
         let pubkey = RsaPublicKey::from(&key);
-        let pem = pem::parse(certificate)?;
-        anyhow::ensure!(pem.tag == "CERTIFICATE");
-        let cert = rasn::der::decode::<Certificate>(&pem.contents)
-            .map_err(|err| anyhow::anyhow!("{}", err))?;
         Ok(Self { key, pubkey, cert })
+    }
+
+    pub fn from_path(path: &Path) -> Result<Self> {
+        Self::new(&std::fs::read_to_string(path)?)
     }
 
     pub fn sign(&self, bytes: &[u8]) -> Vec<u8> {
@@ -172,6 +185,10 @@ impl Signer {
 
     pub fn pubkey(&self) -> &RsaPublicKey {
         &self.pubkey
+    }
+
+    pub fn key(&self) -> &RsaPrivateKey {
+        &self.key
     }
 
     pub fn cert(&self) -> &Certificate {
@@ -376,11 +393,10 @@ pub fn stamp_file(file: &Path, stamp: &Path) -> Result<bool> {
 mod tests {
     use super::*;
 
-    const KEY: &str = include_str!("../../assets/key.pem");
-    const CERT: &str = include_str!("../../assets/cert.pem");
+    const PEM: &str = include_str!("../assets/test.pem");
 
     #[test]
     fn create_signer() {
-        Signer::new(KEY, CERT).unwrap();
+        Signer::new(PEM).unwrap();
     }
 }

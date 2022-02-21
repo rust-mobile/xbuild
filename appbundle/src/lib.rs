@@ -1,9 +1,15 @@
 use anyhow::Result;
+use apple_codesign::{BundleSigner, SettingsScope, SigningSettings};
 use icns::{IconFamily, Image};
+use pkcs8::ToPrivateKey;
+use plist::Value;
+use rasn_cms::{ContentInfo, SignedData};
+use slog::{o, Drain};
 use std::fs::File;
 use std::io::{BufWriter, Cursor};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use x509_certificate::{CapturedX509Certificate, InMemorySigningKeyPair};
 use xcommon::{Scaler, ScalerOpts, Signer};
 
 mod info;
@@ -15,6 +21,8 @@ const ICON_SIZES: [u32; 6] = [16, 32, 64, 128, 256, 512];
 pub struct AppBundle {
     appdir: PathBuf,
     info: InfoPlist,
+    entitlements: Option<Value>,
+    team_id: Option<String>,
 }
 
 impl AppBundle {
@@ -22,7 +30,12 @@ impl AppBundle {
         let appdir = build_dir.join(format!("{}.app", &info.name));
         std::fs::remove_dir_all(&appdir).ok();
         std::fs::create_dir_all(&appdir)?;
-        Ok(Self { appdir, info })
+        Ok(Self {
+            appdir,
+            info,
+            entitlements: None,
+            team_id: None,
+        })
     }
 
     pub fn appdir(&self) -> &Path {
@@ -38,7 +51,11 @@ impl AppBundle {
     }
 
     fn resource_dir(&self) -> PathBuf {
-        self.content_dir().join("Resources")
+        if self.info.requires_ios == Some(true) {
+            self.content_dir()
+        } else {
+            self.content_dir().join("Resources")
+        }
     }
 
     fn framework_dir(&self) -> PathBuf {
@@ -116,9 +133,64 @@ impl AppBundle {
         Ok(())
     }
 
-    pub fn finish(self, _signer: Option<Signer>) -> Result<PathBuf> {
+    pub fn add_provisioning_profile(&mut self, path: &Path) -> Result<()> {
+        let cms = std::fs::read(path)?;
+        let info =
+            rasn::der::decode::<ContentInfo>(&cms).map_err(|err| anyhow::anyhow!("{}", err))?;
+        let data = rasn::der::decode::<SignedData>(info.content.as_bytes())
+            .map_err(|err| anyhow::anyhow!("{}", err))?;
+        let xml = data.encap_content_info.content.as_ref().unwrap().as_ref();
+        let profile: plist::Value = plist::from_reader_xml(xml)?;
+        let dict = profile
+            .as_dictionary()
+            .ok_or_else(|| anyhow::anyhow!("invalid provisioning profile"))?;
+        let entitlements = dict
+            .get("Entitlements")
+            .ok_or_else(|| anyhow::anyhow!("missing key Entitlements"))?
+            .clone();
+        let team_id = dict
+            .get("TeamIdentifier")
+            .ok_or_else(|| anyhow::anyhow!("missing key TeamIdentifier"))?
+            .as_array()
+            .ok_or_else(|| anyhow::anyhow!("missing team identifier"))?
+            .get(0)
+            .ok_or_else(|| anyhow::anyhow!("missing team identifier"))?
+            .as_string()
+            .ok_or_else(|| anyhow::anyhow!("missing team identifier"))?
+            .to_string();
+        self.entitlements = Some(entitlements);
+        self.team_id = Some(team_id);
+        std::fs::copy(path, self.appdir().join("embedded.mobileprovision"))?;
+        Ok(())
+    }
+
+    pub fn finish(self, signer: Option<Signer>) -> Result<PathBuf> {
         let path = self.content_dir().join("Info.plist");
         plist::to_file_xml(path, &self.info)?;
+
+        if let Some(signer) = signer {
+            let decorator = slog_term::TermDecorator::new().build();
+            let drain = slog_term::CompactFormat::new(decorator).build();
+            let drain = std::sync::Mutex::new(drain).fuse();
+            let logger = slog::Logger::root(drain, o!());
+            let mut signing_settings = SigningSettings::default();
+            let cert =
+                CapturedX509Certificate::from_der(rasn::der::encode(signer.cert()).unwrap())?;
+            let key = InMemorySigningKeyPair::from_pkcs8_der(signer.key().to_pkcs8_der().unwrap())?;
+            signing_settings.set_signing_key(&key, cert);
+            if let Some(entitlements) = self.entitlements.as_ref() {
+                let mut buf = vec![];
+                entitlements.to_writer_xml(&mut buf)?;
+                let entitlements = std::str::from_utf8(&buf)?;
+                signing_settings.set_entitlements_xml(SettingsScope::Main, entitlements);
+            }
+            if let Some(team_id) = self.team_id.as_ref() {
+                signing_settings.set_team_id(team_id)
+            }
+            let bundle_signer = BundleSigner::new_from_path(self.appdir())?;
+            bundle_signer.write_signed_bundle(&logger, self.appdir(), &signing_settings)?;
+        }
+
         Ok(self.appdir)
     }
 }
@@ -162,4 +234,16 @@ fn make_compressed_dmg(uncompressed_dmg: &Path, dmg: &Path) -> Result<()> {
         anyhow::bail!("failed to build compressed dmg");
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_mobile_provision() -> Result<()> {
+        let mut bundle = AppBundle::new(Path::new("/tmp").into(), InfoPlist::default())?;
+        bundle.add_provisioning_profile(Path::new("/home/dvc/embedded.mobileprovision"))?;
+        Ok(())
+    }
 }

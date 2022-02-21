@@ -5,3 +5,5 @@ members = ["apk", "appbundle", "appimage", "msix", "xcli", "xcommon"]
 rasn = { git = "https://github.com/XAMPPRocky/rasn" }
 rasn-cms = { git = "https://github.com/XAMPPRocky/rasn" }
 rasn-pkix = { git = "https://github.com/XAMPPRocky/rasn" }
+#x509-certificate = { git = "https://github.com/indygreg/pyoxidizer" }
+#apple-codesign = { path = "../pyoxidizer/apple-codesign" }

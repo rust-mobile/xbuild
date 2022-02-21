@@ -19,8 +19,7 @@ pub mod pri;
 
 pub use crate::manifest::AppxManifest;
 
-const DEBUG_KEY_PEM: &str = include_str!("../assets/debug.key.pem");
-const DEBUG_CERT_PEM: &str = include_str!("../assets/debug.cert.pem");
+const DEBUG_PEM: &str = include_str!("../assets/debug.pem");
 
 const IMAGES: [(&str, (u32, u32), f32); 8] = [
     ("SmallTile", (71, 71), 0.34),
@@ -91,7 +90,7 @@ impl Msix {
     pub fn sign(path: &Path, signer: Option<Signer>) -> Result<()> {
         let signer = signer
             .map(Ok)
-            .unwrap_or_else(|| Signer::new(DEBUG_KEY_PEM, DEBUG_CERT_PEM))
+            .unwrap_or_else(|| Signer::new(DEBUG_PEM))
             .unwrap();
 
         // add content types and block map

@@ -9,8 +9,7 @@ use std::io::{BufReader, Cursor, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use xcommon::{Signer, ZipInfo};
 
-const DEBUG_KEY_PEM: &str = include_str!("../assets/debug.key.pem");
-const DEBUG_CERT_PEM: &str = include_str!("../assets/debug.cert.pem");
+const DEBUG_PEM: &str = include_str!("../assets/debug.pem");
 
 const APK_SIGNING_BLOCK_MAGIC: &[u8] = b"APK Sig Block 42";
 const APK_SIGNING_BLOCK_V2_ID: u32 = 0x7109871a;
@@ -94,9 +93,7 @@ pub fn verify(path: &Path) -> Result<Vec<Certificate>> {
 }
 
 pub fn sign(path: &Path, signer: Option<Signer>) -> Result<()> {
-    let signer = signer
-        .map(Ok)
-        .unwrap_or_else(|| Signer::new(DEBUG_KEY_PEM, DEBUG_CERT_PEM))?;
+    let signer = signer.map(Ok).unwrap_or_else(|| Signer::new(DEBUG_PEM))?;
     let apk = std::fs::read(path)?;
     let mut r = Cursor::new(&apk);
     let block = parse_apk_signing_block(&mut r)?;

@@ -341,12 +341,12 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
                 app.add_icon(icon)?;
             }
             if let Some(flutter) = env.flutter() {
-                let framework = flutter
+                /*let framework = flutter
                     .engine_dir(target)?
                     .join("Flutter.xcframework")
                     .join("ios-arm64_armv7")
                     .join("Flutter.framework");
-                app.add_framework(&framework)?;
+                app.add_framework(&framework)?;*/
                 app.add_directory(
                     &env.build_dir().join("flutter_assets"),
                     Path::new("flutter_assets"),
@@ -368,6 +368,7 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
                 build_ios_main(&env, flutter, &arch_dir, target)?;
                 app.add_executable(&arch_dir.join("main"))?;
             }
+            app.add_provisioning_profile(env.target().provisioning_profile().unwrap())?;
             app.finish(env.target().signer().cloned())?
         }
         Format::Msix => {

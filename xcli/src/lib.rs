@@ -299,18 +299,16 @@ pub struct BuildArgs {
     device: Option<Device>,
     #[clap(long, conflicts_with = "device")]
     store: Option<Store>,
-    #[clap(long, requires = "cert")]
-    key: Option<PathBuf>,
-    #[clap(long, requires = "key")]
-    cert: Option<PathBuf>,
+    #[clap(long)]
+    pem: Option<PathBuf>,
+    #[clap(long)]
+    provisioning_profile: Option<PathBuf>,
 }
 
 impl BuildArgs {
     pub fn build_target(self) -> Result<BuildTarget> {
-        let signer = if let (Some(key), Some(cert)) = (self.key.as_ref(), self.cert.as_ref()) {
-            let key = std::fs::read_to_string(key)?;
-            let cert = std::fs::read_to_string(cert)?;
-            Some(Signer::new(&key, &cert)?)
+        let signer = if let Some(pem) = self.pem.as_ref() {
+            Some(Signer::from_path(&pem)?)
         } else {
             None
         };
@@ -358,6 +356,16 @@ impl BuildArgs {
         } else {
             Opt::Debug
         };
+        let provisioning_profile =
+            if self.provisioning_profile.is_some() || platform == Platform::Ios {
+                if self.provisioning_profile.is_some() && platform == Platform::Ios {
+                    self.provisioning_profile
+                } else {
+                    anyhow::bail!("--provisioning-profile is only valid for ios");
+                }
+            } else {
+                None
+            };
         Ok(BuildTarget {
             opt,
             platform,
@@ -366,6 +374,7 @@ impl BuildArgs {
             device,
             store,
             signer,
+            provisioning_profile,
         })
     }
 }
@@ -379,6 +388,7 @@ pub struct BuildTarget {
     device: Option<Device>,
     store: Option<Store>,
     signer: Option<Signer>,
+    provisioning_profile: Option<PathBuf>,
 }
 
 impl BuildTarget {
@@ -406,10 +416,6 @@ impl BuildTarget {
         self.store
     }
 
-    pub fn signer(&self) -> Option<&Signer> {
-        self.signer.as_ref()
-    }
-
     pub fn compile_targets(&self) -> impl Iterator<Item = CompileTarget> + '_ {
         self.archs
             .iter()
@@ -421,6 +427,14 @@ impl BuildTarget {
             .as_ref()
             .map(|device| device.is_host())
             .unwrap_or_default()
+    }
+
+    pub fn signer(&self) -> Option<&Signer> {
+        self.signer.as_ref()
+    }
+
+    pub fn provisioning_profile(&self) -> Option<&Path> {
+        self.provisioning_profile.as_deref()
     }
 }
 
