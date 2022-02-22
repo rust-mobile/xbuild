@@ -1,5 +1,5 @@
 use anyhow::Result;
-use apple_codesign::{BundleSigner, SettingsScope, SigningSettings};
+use apple_codesign::{BundleSigner, ExecutableSegmentFlags, SettingsScope, SigningSettings};
 use icns::{IconFamily, Image};
 use pkcs8::ToPrivateKey;
 use plist::Value;
@@ -174,10 +174,15 @@ impl AppBundle {
             let drain = std::sync::Mutex::new(drain).fuse();
             let logger = slog::Logger::root(drain, o!());
             let mut signing_settings = SigningSettings::default();
+            signing_settings.set_executable_segment_flags(
+                SettingsScope::Main,
+                ExecutableSegmentFlags::MAIN_BINARY,
+            );
             let cert =
                 CapturedX509Certificate::from_der(rasn::der::encode(signer.cert()).unwrap())?;
             let key = InMemorySigningKeyPair::from_pkcs8_der(signer.key().to_pkcs8_der().unwrap())?;
             signing_settings.set_signing_key(&key, cert);
+            signing_settings.chain_apple_certificates();
             if let Some(entitlements) = self.entitlements.as_ref() {
                 let mut buf = vec![];
                 entitlements.to_writer_xml(&mut buf)?;

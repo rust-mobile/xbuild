@@ -336,17 +336,18 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
             std::fs::create_dir_all(&arch_dir)?;
             let mut info_plist = env.info_plist().unwrap().clone();
             info_plist.requires_ios = Some(true);
+            info_plist.minimum_system_version = None;
             let mut app = AppBundle::new(&arch_dir, info_plist)?;
-            if let Some(icon) = env.icon() {
+            /*if let Some(icon) = env.icon() {
                 app.add_icon(icon)?;
-            }
+            }*/
             if let Some(flutter) = env.flutter() {
-                /*let framework = flutter
+                let framework = flutter
                     .engine_dir(target)?
                     .join("Flutter.xcframework")
                     .join("ios-arm64_armv7")
                     .join("Flutter.framework");
-                app.add_framework(&framework)?;*/
+                app.add_framework(&framework)?;
                 app.add_directory(
                     &env.build_dir().join("flutter_assets"),
                     Path::new("flutter_assets"),
