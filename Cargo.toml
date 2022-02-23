@@ -1,9 +1,18 @@
 [workspace]
-members = ["apk", "appbundle", "appimage", "msix", "xcli", "xcommon"]
+members = [
+    "apk",
+    "appbundle",
+    "appimage",
+    "examples/flutter",
+    "msix",
+    "xcli",
+    "xcommon",
+]
+default-members = ["xcli"]
 
 [patch.crates-io]
 rasn = { git = "https://github.com/XAMPPRocky/rasn" }
 rasn-cms = { git = "https://github.com/XAMPPRocky/rasn" }
 rasn-pkix = { git = "https://github.com/XAMPPRocky/rasn" }
-#x509-certificate = { git = "https://github.com/indygreg/pyoxidizer" }
-#apple-codesign = { path = "../pyoxidizer/apple-codesign" }
+#x509-certificate = { git = "https://github.com/dvc94ch/pyoxidizer", branch = "der-entitlements" }
+#apple-codesign = { git = "https://github.com/dvc94ch/pyoxidizer", branch = "der-entitlements" }
