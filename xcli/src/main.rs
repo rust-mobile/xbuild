@@ -65,6 +65,9 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
     let env = BuildEnv::new(args)?;
     let opt_dir = env.build_dir().join(env.target().opt().to_string());
     let platform_dir = opt_dir.join(env.target().platform().to_string());
+    println!("package {}", env.cargo().package());
+    println!("root_dir {}", env.cargo().root_dir().display());
+    println!("target_dir {}", env.cargo().target_dir().display());
 
     if env.target().platform() == Platform::Windows && Platform::host()? != Platform::Windows {
         let windows_sdk = env.build_dir().join("Windows.sdk");
@@ -73,7 +76,7 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
             xcli::github::download_tar_zst(
                 env.build_dir(),
                 "cloudpeers",
-                "xcross",
+                "x",
                 "v0.1.0+1",
                 "Windows.sdk.tar.zst",
             )?;
@@ -87,7 +90,7 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
             xcli::github::download_tar_zst(
                 env.build_dir(),
                 "cloudpeers",
-                "xcross",
+                "x",
                 "v0.1.0+1",
                 "MacOSX.sdk.tar.zst",
             )?;
@@ -101,7 +104,7 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
             xcli::github::download_tar_zst(
                 env.build_dir(),
                 "cloudpeers",
-                "xcross",
+                "x",
                 "v0.1.0+1",
                 "iPhoneOS.sdk.tar.zst",
             )?;
@@ -109,14 +112,15 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
     }
 
     if let Some(flutter) = env.flutter() {
-        if !Path::new(".dart_tool").join("package_config.json").exists()
-            || xcommon::stamp_file(
-                Path::new("pubspec.yaml"),
-                &env.build_dir().join("pubspec.stamp"),
-            )?
+        if !env
+            .root_dir()
+            .join(".dart_tool")
+            .join("package_config.json")
+            .exists()
+            || xcommon::stamp_file(env.pubspec(), &env.build_dir().join("pubspec.stamp"))?
         {
             println!("pub get");
-            flutter.pub_get()?;
+            flutter.pub_get(env.root_dir())?;
         }
         let engine_version_changed = xcommon::stamp_file(
             &flutter.engine_version_path()?,
@@ -134,12 +138,14 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
         }
         println!("building flutter_assets");
         flutter.build_flutter_assets(
+            env.root_dir(),
             &env.build_dir().join("flutter_assets"),
             &env.build_dir().join("flutter_assets.d"),
         )?;
         println!("building kernel_blob.bin");
         let kernel_blob = platform_dir.join("kernel_blob.bin");
         flutter.kernel_blob_bin(
+            env.root_dir(),
             env.target_file(),
             &kernel_blob,
             &platform_dir.join("kernel_blob.bin.d"),
@@ -152,19 +158,27 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
                 println!("building aot snapshot for {}", target);
                 let arch_dir = platform_dir.join(target.arch().to_string());
                 std::fs::create_dir_all(&arch_dir)?;
-                flutter.aot_snapshot(&kernel_blob, &arch_dir.join("libapp.so"), target)?;
+                flutter.aot_snapshot(
+                    env.root_dir(),
+                    &kernel_blob,
+                    &arch_dir.join("libapp.so"),
+                    target,
+                )?;
             }
         }
     }
 
-    // TODO: skipping build on android for now
-    if env.has_rust_code()
-        && env.target().platform() != Platform::Android
-        && env.target().platform() != Platform::Ios
-    {
+    // TODO:
+    //for target in env.target().compile_targets() {
+    // println!("building rust library for {}", target);
+    // env.cargo_build(target)?.exec()?;
+    //}
+
+    if env.target().platform() != Platform::Android && env.target().platform() != Platform::Ios {
         for target in env.target().compile_targets() {
-            println!("building rust for {}", target);
-            env.cargo(target)?.build()?;
+            println!("building rust binary for {}", target);
+            let arch_dir = platform_dir.join(target.arch().to_string());
+            env.cargo_build(target, &arch_dir.join("cargo"))?.exec()?;
         }
     }
 
@@ -213,9 +227,8 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
                 }
             }
 
-            if env.has_rust_code() {
-                appimage.add_file(&env.cargo_artefact(target)?, Path::new(env.name()))?;
-            }
+            let main = env.cargo_artefact(&arch_dir.join("cargo"), target)?;
+            appimage.add_file(&main, Path::new(env.name()))?;
 
             if target.opt() == Opt::Release {
                 let out = arch_dir.join(format!("{}.AppImage", env.name()));
@@ -318,9 +331,8 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
                     }
                 }
             }
-            if env.has_rust_code() {
-                app.add_executable(&env.cargo_artefact(target)?)?;
-            }
+            let main = env.cargo_artefact(&arch_dir.join("cargo"), target)?;
+            app.add_executable(&main)?;
             let appdir = app.finish(env.target().signer().cloned())?;
             if target.opt() == Opt::Release {
                 let out = arch_dir.join(format!("{}.dmg", env.name()));
@@ -338,6 +350,7 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
             info_plist.requires_ios = Some(true);
             info_plist.minimum_system_version = None;
             let mut app = AppBundle::new(&arch_dir, info_plist)?;
+            // TODO:
             /*if let Some(icon) = env.icon() {
                 app.add_icon(icon)?;
             }*/
@@ -419,13 +432,12 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
                     }
                 }
             }
-            if env.has_rust_code() {
-                msix.add_file(
-                    &env.cargo_artefact(target)?,
-                    format!("{}.exe", env.name()).as_ref(),
-                    ZipFileOptions::Compressed,
-                )?;
-            }
+            let main = env.cargo_artefact(&arch_dir.join("cargo"), target)?;
+            msix.add_file(
+                &main,
+                format!("{}.exe", env.name()).as_ref(),
+                ZipFileOptions::Compressed,
+            )?;
             msix.finish(env.target().signer().cloned())?;
             out
         }

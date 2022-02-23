@@ -1,5 +1,5 @@
 use crate::android::{AndroidNdk, AndroidSdk};
-use crate::cargo::Cargo;
+use crate::cargo::{Cargo, CargoBuild, CrateType};
 use crate::config::Config;
 use crate::devices::Device;
 use crate::flutter::Flutter;
@@ -287,6 +287,30 @@ impl std::fmt::Display for CompileTarget {
 
 #[derive(Parser)]
 pub struct BuildArgs {
+    #[clap(flatten)]
+    build_target: BuildTargetArgs,
+    #[clap(flatten)]
+    cargo: CargoArgs,
+}
+
+#[derive(Parser)]
+pub struct CargoArgs {
+    #[clap(long, short)]
+    package: Option<String>,
+    #[clap(long)]
+    manifest_path: Option<PathBuf>,
+    #[clap(long)]
+    target_dir: Option<PathBuf>,
+}
+
+impl CargoArgs {
+    pub fn cargo(self) -> Result<Cargo> {
+        Cargo::new(self.package.as_deref(), self.manifest_path, self.target_dir)
+    }
+}
+
+#[derive(Parser)]
+pub struct BuildTargetArgs {
     #[clap(long, conflicts_with = "release")]
     debug: bool,
     #[clap(long, conflicts_with = "debug")]
@@ -305,9 +329,12 @@ pub struct BuildArgs {
     provisioning_profile: Option<PathBuf>,
 }
 
-impl BuildArgs {
+impl BuildTargetArgs {
     pub fn build_target(self) -> Result<BuildTarget> {
         let signer = if let Some(pem) = self.pem.as_ref() {
+            if !pem.exists() {
+                anyhow::bail!("pem file doesn't exist {}", pem.display());
+            }
             Some(Signer::from_path(&pem)?)
         } else {
             None
@@ -359,6 +386,14 @@ impl BuildArgs {
         let provisioning_profile =
             if self.provisioning_profile.is_some() || platform == Platform::Ios {
                 if self.provisioning_profile.is_some() && platform == Platform::Ios {
+                    if let Some(provisioning_profile) = self.provisioning_profile.as_ref() {
+                        if !provisioning_profile.exists() {
+                            anyhow::bail!(
+                                "provisioning profile doesn't exist {}",
+                                provisioning_profile.display()
+                            );
+                        }
+                    }
                     self.provisioning_profile
                 } else {
                     anyhow::bail!("--provisioning-profile is only valid for ios");
@@ -442,9 +477,10 @@ pub struct BuildEnv {
     name: String,
     build_target: BuildTarget,
     build_dir: PathBuf,
-    has_rust_code: bool,
     icon: Option<PathBuf>,
     target_file: PathBuf,
+    cargo: Cargo,
+    pubspec: PathBuf,
     android_manifest: Option<AndroidManifest>,
     appx_manifest: Option<AppxManifest>,
     info_plist: Option<InfoPlist>,
@@ -455,33 +491,26 @@ pub struct BuildEnv {
 
 impl BuildEnv {
     pub fn new(args: BuildArgs) -> Result<Self> {
-        let build_target = args.build_target()?;
-        let has_rust_code = Path::new("Cargo.toml").exists();
-        let build_dir = Path::new("target").join("x");
-        let flutter = if Path::new("pubspec.yaml").exists() {
+        let cargo = args.cargo.cargo()?;
+        let build_target = args.build_target.build_target()?;
+        let build_dir = cargo.target_dir().join("x");
+        let pubspec = cargo.root_dir().join("pubspec.yaml");
+        let flutter = if pubspec.exists() {
             Some(Flutter::from_env()?)
         } else {
             None
         };
         let config = if flutter.is_some() {
-            Config::parse("pubspec.yaml")?
+            Config::parse(&pubspec)?
         } else {
-            Config::parse("Cargo.toml")?
+            Config::parse(cargo.manifest())?
         };
         let android_sdk = if build_target.platform() == Platform::Android {
             Some(AndroidSdk::from_env()?)
         } else {
             None
         };
-        let android_ndk = if let Some(sdk) = android_sdk.as_ref() {
-            if has_rust_code {
-                Some(AndroidNdk::from_env(sdk)?)
-            } else {
-                None
-            }
-        } else {
-            None
-        };
+        let android_ndk = android_sdk.as_ref().map(AndroidNdk::from_env).transpose()?;
         let android_manifest = if let Some(sdk) = android_sdk.as_ref() {
             Some(config.android_manifest(&sdk)?)
         } else {
@@ -499,17 +528,18 @@ impl BuildEnv {
         } else {
             None
         };
-        let target_file = config.target_file(build_target.platform());
+        let target_file = config.target_file(cargo.root_dir(), build_target.platform());
         let icon = config
             .icon(build_target.format())
-            .map(|icon| icon.to_path_buf());
+            .map(|icon| cargo.root_dir().join(icon));
         let name = config.name;
         Ok(Self {
             name,
             build_target,
-            has_rust_code,
+            pubspec,
             target_file,
             icon,
+            cargo,
             flutter,
             android_sdk,
             android_ndk,
@@ -528,12 +558,16 @@ impl BuildEnv {
         &self.build_target
     }
 
-    pub fn has_rust_code(&self) -> bool {
-        self.has_rust_code
-    }
-
     pub fn has_dart_code(&self) -> bool {
         self.flutter.is_some()
+    }
+
+    pub fn pubspec(&self) -> &Path {
+        &self.pubspec
+    }
+
+    pub fn root_dir(&self) -> &Path {
+        self.cargo.root_dir()
     }
 
     pub fn build_dir(&self) -> &Path {
@@ -546,6 +580,10 @@ impl BuildEnv {
 
     pub fn icon(&self) -> Option<&Path> {
         self.icon.as_deref()
+    }
+
+    pub fn cargo(&self) -> &Cargo {
+        &self.cargo
     }
 
     pub fn flutter(&self) -> Option<&Flutter> {
@@ -586,8 +624,8 @@ impl BuildEnv {
             .android_jar(self.target_sdk_version())
     }
 
-    pub fn cargo(&self, target: CompileTarget) -> Result<Cargo> {
-        let mut cargo = Cargo::new(target)?;
+    pub fn cargo_build(&self, target: CompileTarget, target_dir: &Path) -> Result<CargoBuild> {
+        let mut cargo = self.cargo.build(target, target_dir)?;
         if let Some(ndk) = self.android_ndk() {
             cargo.use_ndk_tools(ndk, self.target_sdk_version())?;
         }
@@ -628,27 +666,12 @@ impl BuildEnv {
         Ok(cargo)
     }
 
-    pub fn maven(&self) -> Result<Maven> {
-        Maven::new(self.build_dir.join("maven"))
+    pub fn cargo_artefact(&self, target_dir: &Path, target: CompileTarget) -> Result<PathBuf> {
+        self.cargo
+            .artifact(target_dir, target, None, CrateType::Bin)
     }
 
-    pub fn cargo_artefact(&self, target: CompileTarget) -> Result<PathBuf> {
-        let target_dir = Path::new("target");
-        let arch_dir = if target.platform() == Platform::host()? && target.arch() == Arch::host()? {
-            target_dir.to_path_buf()
-        } else {
-            target_dir.join(target.rust_triple()?)
-        };
-        let opt_dir = arch_dir.join(target.opt().to_string());
-        let bin_name = if target.platform() == Platform::Windows {
-            format!("{}.exe", self.name())
-        } else {
-            self.name.clone()
-        };
-        let bin_path = opt_dir.join(bin_name);
-        if !bin_path.exists() {
-            anyhow::bail!("failed to locate bin {}", bin_path.display());
-        }
-        Ok(bin_path)
+    pub fn maven(&self) -> Result<Maven> {
+        Maven::new(self.build_dir.join("maven"))
     }
 }

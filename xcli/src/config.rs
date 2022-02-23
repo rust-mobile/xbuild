@@ -81,12 +81,12 @@ impl Config {
         self.generic.icon.as_deref()
     }
 
-    pub fn target_file(&self, platform: Platform) -> PathBuf {
-        let file = Path::new("lib").join(format!("{}.dart", platform));
+    pub fn target_file(&self, path: &Path, platform: Platform) -> PathBuf {
+        let file = path.join("lib").join(format!("{}.dart", platform));
         if file.exists() {
             file
         } else {
-            Path::new("lib").join("main.dart")
+            path.join("lib").join("main.dart")
         }
     }
 

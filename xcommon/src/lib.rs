@@ -371,7 +371,14 @@ pub fn copy_dir_all(source: &Path, dest: &Path) -> Result<()> {
             std::fs::copy(&source, &dest)?;
         } else if file_type.is_symlink() {
             let target = std::fs::read_link(&source)?;
+            #[cfg(unix)]
             std::os::unix::fs::symlink(target, dest)?;
+            #[cfg(windows)]
+            if dest.is_dir() {
+                std::os::windows::fs::symlink_dir(target, dest)?;
+            } else {
+                std::os::windows::fs::symlink_file(target, dest)?;
+            }
         }
     }
     Ok(())

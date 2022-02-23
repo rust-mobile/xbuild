@@ -4,28 +4,121 @@ use anyhow::Result;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+mod artifact;
+mod config;
+mod manifest;
 pub mod readelf;
+mod utils;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Tool {
-    Cc,
-    Cxx,
-    Linker,
-    Ar,
+pub use artifact::{Artifact, CrateType};
+
+pub struct Cargo {
+    package: String,
+    manifest: PathBuf,
+    target_dir: PathBuf,
 }
 
-impl std::fmt::Display for Tool {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Cc => write!(f, "CC"),
-            Self::Cxx => write!(f, "CXX"),
-            Self::Linker => write!(f, "LINKER"),
-            Self::Ar => write!(f, "AR"),
+impl Cargo {
+    pub fn new(
+        package: Option<&str>,
+        manifest_path: Option<PathBuf>,
+        target_dir: Option<PathBuf>,
+    ) -> Result<Self> {
+        let (manifest, package) = utils::find_package(
+            &manifest_path.unwrap_or_else(|| std::env::current_dir().unwrap()),
+            package.as_ref().map(|s| &**s),
+        )?;
+        let root_dir = manifest.parent().unwrap();
+        let target_dir = target_dir
+            .or_else(|| {
+                std::env::var_os("CARGO_BUILD_TARGET_DIR")
+                    .or_else(|| std::env::var_os("CARGO_TARGET_DIR"))
+                    .map(|os_str| os_str.into())
+            })
+            .map(|target_dir| {
+                if target_dir.is_relative() {
+                    std::env::current_dir().unwrap().join(target_dir)
+                } else {
+                    target_dir
+                }
+            });
+        let target_dir = target_dir.unwrap_or_else(|| {
+            utils::find_workspace(&manifest, &package)
+                .unwrap()
+                .unwrap_or_else(|| manifest.clone())
+                .parent()
+                .unwrap()
+                .join(utils::get_target_dir_name(&root_dir).unwrap())
+        });
+        Ok(Self {
+            package,
+            manifest,
+            target_dir,
+        })
+    }
+
+    pub fn target_dir(&self) -> &Path {
+        &self.target_dir
+    }
+
+    pub fn package(&self) -> &str {
+        &self.package
+    }
+
+    pub fn manifest(&self) -> &Path {
+        &self.manifest
+    }
+
+    pub fn root_dir(&self) -> &Path {
+        self.manifest.parent().unwrap()
+    }
+
+    pub fn examples(&self) -> Result<Vec<Artifact>> {
+        let mut artifacts = vec![];
+        for file in utils::list_rust_files(&self.root_dir().join("examples"))? {
+            artifacts.push(Artifact::Example(file));
         }
+        Ok(artifacts)
+    }
+
+    pub fn bins(&self) -> Result<Vec<Artifact>> {
+        let mut artifacts = vec![];
+        for file in utils::list_rust_files(&self.root_dir().join("src").join("bin"))? {
+            artifacts.push(Artifact::Root(file));
+        }
+        Ok(artifacts)
+    }
+
+    pub fn build(&self, target: CompileTarget, target_dir: &Path) -> Result<CargoBuild> {
+        CargoBuild::new(target, self.root_dir(), target_dir)
+    }
+
+    pub fn artifact(
+        &self,
+        target_dir: &Path,
+        target: CompileTarget,
+        artifact: Option<Artifact>,
+        ty: CrateType,
+    ) -> Result<PathBuf> {
+        let arch_dir = if target.platform() == Platform::host()? && target.arch() == Arch::host()? {
+            target_dir.to_path_buf()
+        } else {
+            target_dir.join(target.rust_triple()?)
+        };
+        let opt_dir = arch_dir.join(target.opt().to_string());
+        let artifact = artifact.unwrap_or_else(|| Artifact::Root(self.package.clone()));
+        let triple = target.rust_triple()?;
+        let bin_path = opt_dir
+            .join(artifact.as_ref())
+            .join(artifact.file_name(ty, triple));
+        if !bin_path.exists() {
+            anyhow::bail!("failed to locate bin {}", bin_path.display());
+        }
+        Ok(bin_path)
     }
 }
 
-pub struct Cargo {
+pub struct CargoBuild {
     cmd: Command,
     target: CompileTarget,
     triple: Option<&'static str>,
@@ -33,15 +126,17 @@ pub struct Cargo {
     rust_flags: String,
 }
 
-impl Cargo {
-    pub fn new(target: CompileTarget) -> Result<Self> {
+impl CargoBuild {
+    fn new(target: CompileTarget, root_dir: &Path, target_dir: &Path) -> Result<Self> {
         let triple = if target.platform() != Platform::host()? || target.arch() != Arch::host()? {
             Some(target.rust_triple()?)
         } else {
             None
         };
         let mut cmd = Command::new("cargo");
+        cmd.current_dir(root_dir);
         cmd.arg("build");
+        cmd.arg("--target-dir").arg(target_dir);
         if target.opt() == Opt::Release {
             cmd.arg("--release");
         }
@@ -195,7 +290,7 @@ impl Cargo {
         self.add_link_arg(&format!("-fuse-ld={}", name));
     }
 
-    pub fn build(&mut self) -> Result<()> {
+    pub fn exec(mut self) -> Result<()> {
         self.cargo_target_env("RUSTFLAGS", &self.rust_flags.clone());
         self.cc_triple_env("CFLAGS", &self.c_flags.clone());
         self.cc_triple_env("CXXFLAGS", &self.c_flags.clone());
@@ -241,5 +336,24 @@ impl Cargo {
             }
         }
         Ok(paths)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Tool {
+    Cc,
+    Cxx,
+    Linker,
+    Ar,
+}
+
+impl std::fmt::Display for Tool {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Cc => write!(f, "CC"),
+            Self::Cxx => write!(f, "CXX"),
+            Self::Linker => write!(f, "LINKER"),
+            Self::Ar => write!(f, "AR"),
+        }
     }
 }

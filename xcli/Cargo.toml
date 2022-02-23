@@ -24,6 +24,7 @@ xappimage = { version = "0.1.0", path = "../appimage" }
 xcommon = { version = "0.1.0", path = "../xcommon" }
 xmsix = { version = "0.1.0", path = "../msix" }
 zstd = "0.10.0"
+glob = "0.3.0"
 
 [[bin]]
 name = "x"

@@ -3,7 +3,7 @@ on:
     types:
     - created
 
-name: release xcross
+name: sdk
 
 jobs:
   # android requires at least d8 and adb to be useful and since it's widely available we

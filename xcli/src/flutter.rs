@@ -70,8 +70,12 @@ impl Flutter {
         Ok(path)
     }
 
-    pub fn pub_get(&self) -> Result<()> {
-        let status = Command::new("flutter").arg("pub").arg("get").status()?;
+    pub fn pub_get(&self, root_dir: &Path) -> Result<()> {
+        let status = Command::new("flutter")
+            .current_dir(root_dir)
+            .arg("pub")
+            .arg("get")
+            .status()?;
         if !status.success() {
             anyhow::bail!("flutter pub get exited with status {:?}", status);
         }
@@ -91,7 +95,12 @@ impl Flutter {
         Ok(())
     }
 
-    pub fn build_flutter_assets(&self, flutter_assets: &Path, depfile: &Path) -> Result<()> {
+    pub fn build_flutter_assets(
+        &self,
+        root_dir: &Path,
+        flutter_assets: &Path,
+        depfile: &Path,
+    ) -> Result<()> {
         // in release mode only the assets are copied. this means that the result
         // should be platform independent.
         let host = CompileTarget::new(Platform::host()?, Arch::host()?, Opt::Release);
@@ -107,6 +116,7 @@ impl Flutter {
             ),
         };
         let status = Command::new("flutter")
+            .current_dir(root_dir)
             .arg("assemble")
             .arg("--no-version-check")
             .arg("--suppress-analytics")
@@ -147,13 +157,15 @@ impl Flutter {
 
     pub fn kernel_blob_bin(
         &self,
+        root_dir: &Path,
         target_file: &Path,
         output: &Path,
         depfile: &Path,
         opt: Opt,
     ) -> Result<()> {
         let mut cmd = Command::new(self.path.join("bin").join("dart"));
-        cmd.arg(self.host_file(Path::new("frontend_server.dart.snapshot"))?)
+        cmd.current_dir(root_dir)
+            .arg(self.host_file(Path::new("frontend_server.dart.snapshot"))?)
             .arg("--sdk-root")
             .arg(
                 self.path
@@ -194,6 +206,7 @@ impl Flutter {
 
     pub fn aot_snapshot(
         &self,
+        root_dir: &Path,
         kernel_blob_bin: &Path,
         snapshot: &Path,
         target: CompileTarget,
@@ -207,6 +220,7 @@ impl Flutter {
             _ => unimplemented!(),
         };
         let mut cmd = Command::new(gen_snapshot);
+        cmd.current_dir(root_dir);
         if target.platform() == Platform::Ios || target.platform() == Platform::Macos {
             cmd.arg("--snapshot_kind=app-aot-assembly")
                 .arg(format!("--assembly={}", snapshot.display()));
