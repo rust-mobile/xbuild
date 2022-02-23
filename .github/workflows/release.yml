@@ -1,0 +1,57 @@
+on:
+  release:
+    types:
+    - created
+
+name: release xcross
+
+jobs:
+  # android requires at least d8 and adb to be useful and since it's widely available we
+  # don't have to repackage it
+  #android:
+  #  runs-on: macos-11
+  #  steps:
+  #  - run: mkdir -p xcross/android
+  #  - run: ls /Users/runner/Library/Android/sdk/ndk
+  #  - run: cp -R /Users/runner/Library/Android/sdk/ndk/23.1.7779620/toolchains/llvm/prebuilt/darwin-x86_64/sysroot xcross/android
+  #  - run: cp -R /Users/runner/Library/Android/sdk/ndk/23.1.7779620/toolchains/llvm/prebuilt/darwin-x86_64/lib64/clang/12.0.8 xcross/android/clang
+  #  - run: echo "INPUT(-lunwind)" > xcross/android/clang/lib/linux/aarch64/libgcc.a
+
+  macos:
+    runs-on: macos-11
+    steps:
+    - run: ls /Applications/Xcode*
+    - run: cp -R $SDK_PATH .
+      env:
+        SDK_PATH: /Applications/Xcode_13.2.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
+    - run: gtar --zstd -cf MacOSX.sdk.tar.zst MacOSX.sdk
+    - run: gh release upload $TAG MacOSX.sdk.tar.zst -R cloudpeers/xcross
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        TAG: ${{ github.event.release.tag_name }}
+
+  ios:
+    runs-on: macos-11
+    steps:
+    - run: ls /Applications/Xcode*
+    - run: cp -R $SDK_PATH .
+      env:
+        SDK_PATH: /Applications/Xcode_13.2.1.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk
+    - run: gtar --zstd -cf iPhoneOS.sdk.tar.zst iPhoneOS.sdk
+    - run: gh release upload $TAG iPhoneOS.sdk.tar.zst -R cloudpeers/xcross
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        TAG: ${{ github.event.release.tag_name }}
+
+  windows:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Install rust toolchain
+      uses: hecrj/setup-rust-action@v1
+    - run: cargo install xwin
+    - run: xwin --accept-license yes splat --output Windows.sdk
+    - run: tar --zstd -cf Windows.sdk.tar.zst Windows.sdk
+    - run: gh release upload $TAG Windows.sdk.tar.zst -R cloudpeers/xcross
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        TAG: ${{ github.event.release.tag_name }}

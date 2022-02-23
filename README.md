@@ -1,4 +1,4 @@
-# cross
+# x
 
 Cross is a build tool for rust and rust/flutter projects with support for cross compiling debug
 builds and packaging/publishing for all major stores.
@@ -23,5 +23,3 @@ Kotlin/Java or integrate with existing Kotlin/Java code you likely need a differ
 
 Currently not all manifest features are supported yet. If something is missing please open an
 issue or PR.
-
-### Linux
