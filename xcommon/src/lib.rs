@@ -6,11 +6,11 @@ use image::{DynamicImage, GenericImageView, ImageOutputFormat, RgbaImage};
 use rsa::pkcs8::FromPrivateKey;
 use rsa::{Hash, PaddingScheme, RsaPrivateKey, RsaPublicKey};
 use sha2::{Digest, Sha256};
-use std::fs::{File, OpenOptions};
+use std::fs::{File, OpenOptions, Permissions};
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use zip::write::FileOptions;
-use zip::{CompressionMethod, ZipWriter};
+use zip::{CompressionMethod, ZipArchive, ZipWriter};
 
 pub use rasn_pkix::Certificate;
 pub use zip::read::ZipFile;
@@ -371,15 +371,20 @@ pub fn copy_dir_all(source: &Path, dest: &Path) -> Result<()> {
             std::fs::copy(&source, &dest)?;
         } else if file_type.is_symlink() {
             let target = std::fs::read_link(&source)?;
-            #[cfg(unix)]
-            std::os::unix::fs::symlink(target, dest)?;
-            #[cfg(windows)]
-            if dest.is_dir() {
-                std::os::windows::fs::symlink_dir(target, dest)?;
-            } else {
-                std::os::windows::fs::symlink_file(target, dest)?;
-            }
+            symlink(&target, &dest)?;
         }
+    }
+    Ok(())
+}
+
+pub fn symlink(target: &Path, dest: &Path) -> Result<()> {
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(target, dest)?;
+    #[cfg(windows)]
+    if dest.is_dir() {
+        std::os::windows::fs::symlink_dir(target, dest)?;
+    } else {
+        std::os::windows::fs::symlink_file(target, dest)?;
     }
     Ok(())
 }
@@ -394,6 +399,57 @@ pub fn stamp_file(file: &Path, stamp: &Path) -> Result<bool> {
     let stamp_time = File::create(stamp)?.metadata()?.modified()?;
     let file_time = File::open(file)?.metadata()?.modified()?;
     Ok(!stamp_exists || file_time > stamp_time)
+}
+
+fn get_symlink_source(entry: &mut ZipFile<'_>) -> Result<Option<PathBuf>> {
+    if let Some(mode) = entry.unix_mode() {
+        const S_IFLNK: u32 = 0o120000; // symbolic link
+        if mode & S_IFLNK == S_IFLNK {
+            let mut contents = Vec::new();
+            entry.read_to_end(&mut contents)?;
+            let contents = Path::new(std::str::from_utf8(&contents)?);
+            return Ok(Some(contents.into()));
+        }
+    }
+    Ok(None)
+}
+
+pub fn extract_zip(archive: &Path, directory: &Path) -> Result<()> {
+    let mut archive = ZipArchive::new(File::open(archive)?)?;
+    for i in 0..archive.len() {
+        let mut file = archive.by_index(i)?;
+        let filepath = file
+            .enclosed_name()
+            .ok_or_else(|| anyhow::anyhow!("Invalid file path"))?;
+
+        let outpath = directory.join(filepath);
+
+        if file.name().ends_with('/') {
+            std::fs::create_dir_all(&outpath)?;
+        } else {
+            if let Some(p) = outpath.parent() {
+                if !p.exists() {
+                    std::fs::create_dir_all(&p)?;
+                }
+            }
+            if let Some(target) = get_symlink_source(&mut file)? {
+                symlink(&target, &outpath)?;
+            } else {
+                let mut outfile = File::create(&outpath)?;
+                std::io::copy(&mut file, &mut outfile)?;
+
+                // Get and Set permissions
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    if let Some(mode) = file.unix_mode() {
+                        std::fs::set_permissions(&outpath, Permissions::from_mode(mode))?;
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

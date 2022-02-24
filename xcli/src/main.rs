@@ -73,7 +73,7 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
         let windows_sdk = env.build_dir().join("Windows.sdk");
         if !windows_sdk.exists() {
             println!("downloading windows sdk");
-            xcli::github::download_tar_zst(
+            xcli::download::github_release_tar_zst(
                 env.build_dir(),
                 "cloudpeers",
                 "x",
@@ -87,7 +87,7 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
         let macos_sdk = env.build_dir().join("MacOSX.sdk");
         if !macos_sdk.exists() {
             println!("downloading macos sdk");
-            xcli::github::download_tar_zst(
+            xcli::download::github_release_tar_zst(
                 env.build_dir(),
                 "cloudpeers",
                 "x",
@@ -101,7 +101,7 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
         let ios_sdk = env.build_dir().join("iPhoneOS.sdk");
         if !ios_sdk.exists() {
             println!("downloading ios sdk");
-            xcli::github::download_tar_zst(
+            xcli::download::github_release_tar_zst(
                 env.build_dir(),
                 "cloudpeers",
                 "x",
@@ -112,6 +112,14 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
     }
 
     if let Some(flutter) = env.flutter() {
+        let engine_version = flutter.engine_version()?;
+        for target in env.target().compile_targets() {
+            let engine_dir = flutter.engine_dir(target)?;
+            if !engine_dir.exists() {
+                println!("downloading flutter engine for {}", target);
+                xcli::download::flutter_engine(&engine_dir, &engine_version, target)?;
+            }
+        }
         if !env
             .root_dir()
             .join(".dart_tool")
@@ -126,10 +134,6 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
             &flutter.engine_version_path()?,
             &platform_dir.join("engine.version.stamp"),
         )?;
-        if engine_version_changed {
-            println!("precaching flutter engine");
-            flutter.precache(env.target().platform())?;
-        }
         if env.target().platform() == Platform::Android {
             if engine_version_changed || !platform_dir.join("classes.dex").exists() {
                 println!("building classes.dex");

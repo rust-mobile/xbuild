@@ -16,8 +16,8 @@ pub mod android;
 pub mod cargo;
 pub mod config;
 pub mod devices;
+pub mod download;
 pub mod flutter;
-pub mod github;
 pub mod maven;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -496,7 +496,7 @@ impl BuildEnv {
         let build_dir = cargo.target_dir().join("x");
         let pubspec = cargo.root_dir().join("pubspec.yaml");
         let flutter = if pubspec.exists() {
-            Some(Flutter::from_env()?)
+            Some(Flutter::new(build_dir.join("Flutter.sdk"))?)
         } else {
             None
         };

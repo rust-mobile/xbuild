@@ -5,17 +5,18 @@ use std::process::Command;
 
 pub struct Flutter {
     path: PathBuf,
+    engine: PathBuf,
 }
 
 impl Flutter {
-    pub fn from_env() -> Result<Self> {
+    pub fn new(engine: PathBuf) -> Result<Self> {
         let path = dunce::canonicalize(which::which("flutter")?)?
             .parent()
             .unwrap()
             .parent()
             .unwrap()
             .to_path_buf();
-        Ok(Self { path })
+        Ok(Self { path, engine })
     }
 
     pub fn engine_version_path(&self) -> Result<PathBuf> {
@@ -37,36 +38,11 @@ impl Flutter {
     }
 
     pub fn engine_dir(&self, target: CompileTarget) -> Result<PathBuf> {
-        let platform = if target.platform() == Platform::Macos {
-            "darwin".to_string()
-        } else {
-            target.platform().to_string()
-        };
-        let platform_arch = if target.platform() == Platform::Ios {
-            format!("{}", platform)
-        } else {
-            format!("{}-{}", platform, target.arch())
-        };
-        let name = if target.opt() == Opt::Debug {
-            platform_arch
-        } else {
-            format!("{}-{}", platform_arch, target.opt())
-        };
-        let path = self
-            .path
-            .join("bin")
-            .join("cache")
-            .join("artifacts")
-            .join("engine")
-            .join(name);
-        if !path.exists() {
-            anyhow::bail!(
-                "failed to get engine dir for {} {} {}",
-                target.platform(),
-                target.arch(),
-                target.opt()
-            );
-        }
+        let path = self.engine
+            .join(self.engine_version()?)
+            .join(target.opt().to_string())
+            .join(target.platform().to_string())
+            .join(target.arch().to_string());
         Ok(path)
     }
 
@@ -75,22 +51,10 @@ impl Flutter {
             .current_dir(root_dir)
             .arg("pub")
             .arg("get")
+            .arg("--suppress-analytics")
             .status()?;
         if !status.success() {
             anyhow::bail!("flutter pub get exited with status {:?}", status);
-        }
-        Ok(())
-    }
-
-    pub fn precache(&self, platform: Platform) -> Result<()> {
-        let status = Command::new("flutter")
-            .arg("precache")
-            .arg("-v")
-            .arg("--suppress-analytics")
-            .arg(format!("--{}", platform))
-            .status()?;
-        if !status.success() {
-            anyhow::bail!("flutter precache exited with code {}", status);
         }
         Ok(())
     }
