@@ -169,11 +169,12 @@ impl DependencyProvider<Package, Version> for Maven {
     ) -> Result<Dependencies<Package, Version>, Box<dyn Error>> {
         //println!("get dependencies {} {}", package, version);
         let pom = self.pom(Artifact { package, version }).unwrap();
-        let deps = pom.dependencies()
-                .iter()
-                .filter(|dep| dep.scope().is_none() || dep.scope() == Some("compile"))
-                .map(|dep| Ok((dep.package(), dep.range().unwrap())))
-                .collect::<Result<_>>()?;
+        let deps = pom
+            .dependencies()
+            .iter()
+            .filter(|dep| dep.scope().is_none() || dep.scope() == Some("compile"))
+            .map(|dep| Ok((dep.package(), dep.range().unwrap())))
+            .collect::<Result<_>>()?;
         log::debug!("{} {} has deps {:?}", package, version, deps);
         Ok(Dependencies::Known(deps))
     }
