@@ -38,7 +38,8 @@ impl Flutter {
     }
 
     pub fn engine_dir(&self, target: CompileTarget) -> Result<PathBuf> {
-        let path = self.engine
+        let path = self
+            .engine
             .join(self.engine_version()?)
             .join(target.opt().to_string())
             .join(target.platform().to_string())

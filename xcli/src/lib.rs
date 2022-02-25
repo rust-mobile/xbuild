@@ -672,6 +672,10 @@ impl BuildEnv {
     }
 
     pub fn maven(&self) -> Result<Maven> {
-        Maven::new(self.build_dir.join("maven"))
+        let mut maven = Maven::new(self.build_dir.join("maven"))?;
+        maven.add_repository(crate::maven::GOOGLE);
+        maven.add_repository(crate::maven::FLUTTER);
+        maven.add_repository(crate::maven::CENTRAL);
+        Ok(maven)
     }
 }

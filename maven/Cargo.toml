@@ -1,0 +1,12 @@
+[package]
+name = "maven"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.55"
+log = "0.4.14"
+pubgrub = "0.2.1"
+quick-xml = { version = "0.23.0-alpha2", features = ["serialize"] }
+reqwest = { version = "0.11.9", features = ["blocking"] }
+serde = { version = "1.0.136", features = ["derive"] }

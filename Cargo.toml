@@ -4,6 +4,7 @@ members = [
     "appbundle",
     "appimage",
     "examples/flutter",
+    "maven",
     "msix",
     "xcli",
     "xcommon",

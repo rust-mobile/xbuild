@@ -10,7 +10,7 @@ use xapk::Apk;
 use xappimage::AppImage;
 use xcli::devices::Device;
 use xcli::flutter::Flutter;
-use xcli::maven::Dependency;
+use xcli::maven::{FlutterEmbedding, FlutterEngine};
 use xcli::{BuildArgs, BuildEnv, CompileTarget, Format, Opt, Platform};
 use xcommon::ZipFileOptions;
 use xmsix::Msix;
@@ -23,6 +23,7 @@ struct Args {
 }
 
 fn main() -> Result<()> {
+    env_logger::init();
     let args = Args::parse();
     args.command.run()
 }
@@ -255,9 +256,10 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
                 let engine_version = flutter.engine_version()?;
                 for target in env.target().compile_targets() {
                     let abi = target.android_abi()?;
-                    let flutter_engine =
-                        Dependency::flutter_engine(abi, target.opt(), &engine_version);
-                    let flutter_jar = env.maven()?.package(&flutter_engine)?;
+                    let flutter_engine = FlutterEngine::new(abi, target.opt(), &engine_version);
+                    let flutter_jar = env
+                        .maven()?
+                        .package(&flutter_engine.package(), &flutter_engine.version())?;
                     let mut zip = ZipArchive::new(BufReader::new(File::open(flutter_jar)?))?;
                     let f = zip.by_name(&format!("lib/{}/libflutter.so", abi.android_abi()))?;
                     apk.add_zip_file(f)?;
@@ -462,8 +464,15 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
 fn build_classes_dex(env: &BuildEnv, flutter: &Flutter, platform_dir: &Path) -> Result<()> {
     let engine_version = flutter.engine_version()?;
     let android_jar = env.android_jar()?;
-    let flutter_embedding = Dependency::flutter_embedding(env.target().opt(), &engine_version);
-    let deps = env.maven()?.resolve(flutter_embedding)?;
+    let flutter_embedding = FlutterEmbedding::new(env.target().opt(), &engine_version);
+    let deps = env
+        .maven()?
+        .resolve(flutter_embedding.package(), flutter_embedding.version())?
+        .into_iter()
+        .filter(|path| {
+            path.extension() == Some("jar".as_ref()) || path.extension() == Some("aar".as_ref())
+        })
+        .collect::<Vec<_>>();
 
     // build GeneratedPluginRegistrant
     let plugins = platform_dir.join("GeneratedPluginRegistrant.java");
