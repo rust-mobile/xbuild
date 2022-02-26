@@ -11,7 +11,7 @@ use xappimage::AppImage;
 use xcli::devices::Device;
 use xcli::flutter::Flutter;
 use xcli::maven::{FlutterEmbedding, FlutterEngine};
-use xcli::{BuildArgs, BuildEnv, CompileTarget, Format, Opt, Platform};
+use xcli::{Arch, BuildArgs, BuildEnv, CompileTarget, Format, Opt, Platform};
 use xcommon::ZipFileOptions;
 use xmsix::Msix;
 
@@ -114,7 +114,8 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
 
     if let Some(flutter) = env.flutter() {
         let engine_version = flutter.engine_version()?;
-        for target in env.target().compile_targets() {
+        let host = CompileTarget::new(Platform::host()?, Arch::host()?, Opt::Debug);
+        for target in env.target().compile_targets().chain(std::iter::once(host)) {
             let engine_dir = flutter.engine_dir(target)?;
             if !engine_dir.exists() {
                 println!("downloading flutter engine for {}", target);
