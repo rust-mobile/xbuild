@@ -58,6 +58,7 @@ impl AppImage {
             .ok_or_else(|| anyhow::anyhow!("unsupported extension"))?;
         let name = format!("{}.{}", self.name, ext);
         self.add_file(path, Path::new(&name))?;
+        #[cfg(unix)]
         std::os::unix::fs::symlink(name, self.appdir.join(".DirIcon"))?;
         Ok(())
     }
