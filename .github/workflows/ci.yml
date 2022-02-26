@@ -142,10 +142,10 @@ jobs:
     - uses: actions/download-artifact@v2
       with:
         name: ubuntu-latest-x
-    - uses: egor-tensin/setup-clang@v1
+    - uses: KyleMayes/install-llvm-action@v1
       with:
         version: 13
-        cc: 1
+    - run: sudo ln -s llvm-ar-13 /usr/bin/llvm-ar
     - uses: hecrj/setup-rust-action@v1
       with:
         targets: x86_64-apple-darwin
@@ -227,12 +227,11 @@ jobs:
     - uses: actions/download-artifact@v2
       with:
         name: ubuntu-latest-x
-    - uses: egor-tensin/setup-clang@v1
+    - uses: KyleMayes/install-llvm-action@v1
       with:
         version: 13
-        cc: 1
-    - run: ln -s llvm-ar-13 /usr/bin/llvm-lib
-    - run: ln -s lld-link-13 /usr/bin/lld-link
+    - run: sudo ln -s llvm-ar-13 /usr/bin/llvm-lib
+    - run: sudo ln -s lld-link-13 /usr/bin/lld-link
     - uses: hecrj/setup-rust-action@v1
       with:
         targets: x86_64-pc-windows-msvc
