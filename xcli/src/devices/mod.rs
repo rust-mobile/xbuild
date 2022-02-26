@@ -4,6 +4,7 @@ use crate::devices::imd::IMobileDevice;
 use crate::{Arch, BuildEnv, Platform};
 use anyhow::Result;
 use std::path::Path;
+use std::process::Child;
 
 mod adb;
 mod host;
@@ -115,10 +116,53 @@ impl Device {
     }
 
     pub fn run(&self, path: &Path, env: &BuildEnv, attach: bool) -> Result<()> {
-        match &self.backend {
+        let run = match &self.backend {
             Backend::Adb(adb) => adb.run(&self.id, path, env, attach),
-            Backend::Host(host) => host.run(path, env, attach),
+            Backend::Host(host) => host.run(path, attach),
             Backend::Imd(imd) => imd.run(&self.id, path, env, attach),
+        }?;
+        if let Some(url) = run.url {
+            std::thread::spawn(run.logger);
+            self.attach(&url, env.root_dir(), env.target_file())?;
+        } else {
+            (run.logger)();
+        }
+        Ok(())
+    }
+
+    pub fn attach(&self, url: &str, root_dir: &Path, target: &Path) -> Result<()> {
+        match &self.backend {
+            Backend::Adb(adb) => adb.attach(&self.id, url, root_dir, target),
+            Backend::Host(host) => host.attach(url, root_dir, target),
+            Backend::Imd(imd) => imd.attach(&self.id, url, root_dir, target),
         }
     }
+
+    pub fn xrun_host(&self, path: &Path, attach: bool) -> Result<Run> {
+        if let Backend::Host(host) = &self.backend {
+            host.run(path, attach)
+        } else {
+            anyhow::bail!("not host");
+        }
+    }
+
+    pub fn xrun_adb(
+        &self,
+        path: &Path,
+        package: &str,
+        activity: &str,
+        attach: bool,
+    ) -> Result<Run> {
+        if let Backend::Adb(adb) = &self.backend {
+            adb.xrun(&self.id, path, package, activity, attach)
+        } else {
+            anyhow::bail!("not adb");
+        }
+    }
+}
+
+pub struct Run {
+    pub url: Option<String>,
+    pub logger: Box<dyn FnOnce() + Send>,
+    pub child: Option<Child>,
 }

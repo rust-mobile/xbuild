@@ -1,4 +1,4 @@
-name: todoapp
+name: helloworld
 description: A new Flutter project.
 
 # The following line prevents the package from being accidentally published to
@@ -120,7 +120,7 @@ x:
           value: 2
   appbundle:
     info:
-      name: todoapp
+      name: helloworld
       #bundle_identifier: com.example.helloworld
       bundle_identifier: com.cloudpeer.todoapp
   msix:

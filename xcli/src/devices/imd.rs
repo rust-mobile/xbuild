@@ -1,4 +1,4 @@
-use crate::devices::{Backend, Device};
+use crate::devices::{Backend, Device, Run};
 use crate::{Arch, BuildEnv, Platform};
 use anyhow::Result;
 use std::path::{Path, PathBuf};
@@ -54,10 +54,24 @@ impl IMobileDevice {
         path: &Path,
         _env: &BuildEnv,
         _flutter_attach: bool,
-    ) -> Result<()> {
+    ) -> Result<Run> {
         // TODO: stop, start, log, attach
         self.install(device, path)?;
-        Ok(())
+        Ok(Run {
+            url: None,
+            logger: Box::new(|| loop {}),
+            child: None,
+        })
+    }
+
+    pub fn attach(
+        &self,
+        _device: &str,
+        _url: &str,
+        _root_dir: &Path,
+        _target: &Path,
+    ) -> Result<()> {
+        todo!()
     }
 
     pub fn devices(&self, devices: &mut Vec<Device>) -> Result<()> {

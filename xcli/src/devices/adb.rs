@@ -1,4 +1,4 @@
-use crate::devices::{Backend, BuildEnv, Device};
+use crate::devices::{Backend, BuildEnv, Device, Run};
 use crate::{Arch, Platform};
 use anyhow::Result;
 use std::io::{BufRead, BufReader};
@@ -176,17 +176,28 @@ impl Adb {
         path: &Path,
         env: &BuildEnv,
         flutter_attach: bool,
-    ) -> Result<()> {
+    ) -> Result<Run> {
         let manifest = env.android_manifest().unwrap();
         let package = &manifest.package;
         let activity = &manifest.application.activity.name;
+        self.xrun(device, path, package, activity, flutter_attach)
+    }
+
+    pub fn xrun(
+        &self,
+        device: &str,
+        path: &Path,
+        package: &str,
+        activity: &str,
+        flutter_attach: bool,
+    ) -> Result<Run> {
         self.stop(device, package)?;
         self.install(device, path)?;
         let last_timestamp = self.logcat_last_timestamp(device)?;
         self.start(device, package, activity)?;
         let pid = self.pidof(device, package)?;
         let mut logcat = self.logcat(device, pid, &last_timestamp)?;
-        if flutter_attach {
+        let url = if flutter_attach {
             let url = loop {
                 if let Some(line) = logcat.next() {
                     if let Some((_, url)) = line.rsplit_once(' ') {
@@ -197,34 +208,43 @@ impl Adb {
                     println!("{}", line);
                 }
             };
-            let port = url
-                .strip_prefix("http://127.0.0.1:")
-                .unwrap()
-                .split_once('/')
-                .unwrap()
-                .0
-                .parse()?;
-            let port = self.forward(device, port)?;
-            println!("attaching to {} {}", url, port);
-            std::thread::spawn(move || {
+            Some(url)
+        } else {
+            None
+        };
+        Ok(Run {
+            url,
+            logger: Box::new(move || {
                 for line in logcat {
                     println!("{}", line);
                 }
-            });
-            Command::new("flutter")
-                .arg("attach")
-                .arg("--device-id")
-                .arg(device)
-                .arg("--debug-url")
-                .arg(url)
-                .arg("--host-vmservice-port")
-                .arg(port.to_string())
-                .status()?;
-        } else {
-            for line in logcat {
-                println!("{}", line);
-            }
-        }
+            }),
+            child: None,
+        })
+    }
+
+    pub fn attach(&self, device: &str, url: &str, root_dir: &Path, target: &Path) -> Result<()> {
+        let port = url
+            .strip_prefix("http://127.0.0.1:")
+            .unwrap()
+            .split_once('/')
+            .unwrap()
+            .0
+            .parse()?;
+        let port = self.forward(device, port)?;
+        println!("attaching to {} {}", url, port);
+        Command::new("flutter")
+            .current_dir(root_dir)
+            .arg("attach")
+            .arg("--device-id")
+            .arg(device)
+            .arg("--debug-url")
+            .arg(url)
+            .arg("--host-vmservice-port")
+            .arg(port.to_string())
+            .arg("--target")
+            .arg(target)
+            .status()?;
         Ok(())
     }
 
