@@ -15,10 +15,10 @@ pub struct IMobileDevice {
 impl IMobileDevice {
     pub fn which() -> Result<Self> {
         Ok(Self {
-            idevice_id: which::which("idevice_id")?,
-            ideviceinfo: which::which("ideviceinfo")?,
-            ideviceinstaller: which::which("ideviceinstaller")?,
-            idevicesyslog: which::which("idevicesyslog")?,
+            idevice_id: which::which(exe!("idevice_id"))?,
+            ideviceinfo: which::which(exe!("ideviceinfo"))?,
+            ideviceinstaller: which::which(exe!("ideviceinstaller"))?,
+            idevicesyslog: which::which(exe!("idevicesyslog"))?,
         })
     }
 

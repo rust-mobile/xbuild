@@ -12,6 +12,17 @@ use xapk::AndroidManifest;
 use xcommon::Signer;
 use xmsix::AppxManifest;
 
+#[macro_export]
+macro_rules! exe {
+    ($name:expr) => {
+        if cfg!(target_os = "windows") {
+            concat!($name, ".exe")
+        } else {
+            $name
+        }
+    };
+}
+
 pub mod android;
 pub mod cargo;
 pub mod config;
@@ -654,11 +665,9 @@ impl BuildEnv {
                 }
                 Platform::Macos => {
                     cargo.add_framework_dir(&flutter.engine_dir(target)?);
-                    cargo.link_framework("FlutterMacOS");
                 }
                 Platform::Windows => {
                     cargo.add_lib_dir(&flutter.engine_dir(target)?);
-                    cargo.link_lib("flutter_windows.dll");
                 }
                 _ => {}
             }
