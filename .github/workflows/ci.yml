@@ -17,86 +17,103 @@ jobs:
     - run: cargo fmt --all -- --check
     #- run: cargo clippy --workspace --examples --tests --all-features -- -D warnings
 
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        host: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.host }}
+  #
+  # Build x for all platforms
+  #
+
+  build-ubuntu-latest:
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
     - uses: hecrj/setup-rust-action@v1
     - run: cargo install --path xcli --root .
     - uses: actions/upload-artifact@v2
       with:
-        name: ${{ matrix.host }}-x
+        name: ubuntu-latest-x
         path: bin/x
     - uses: actions/upload-artifact@v2
       with:
-        name: ${{ matrix.host }}-xrun
+        name: ubuntu-latest-xrun
         path: bin/xrun
 
+  build-macos-latest:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: hecrj/setup-rust-action@v1
+    - run: cargo install --path xcli --root .
+    - uses: actions/upload-artifact@v2
+      with:
+        name: macos-latest-x
+        path: bin/x
+    - uses: actions/upload-artifact@v2
+      with:
+        name: macos-latest-xrun
+        path: bin/xrun
+
+  build-windows-latest:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: hecrj/setup-rust-action@v1
+    - run: cargo install --path xcli --root .
+    - uses: actions/upload-artifact@v2
+      with:
+        name: windows-latest-x
+        path: bin/x.exe
+    - uses: actions/upload-artifact@v2
+      with:
+        name: windows-latest-xrun
+        path: bin/xrun.exe
+
   #
-  # Linux
+  # Build test projects for linux-x64-debug
   #
 
-  build-linux-x64-debug:
-    needs: build
+  build-ubuntu-latest-linux-x64-debug:
     strategy:
       fail-fast: false
       matrix:
-        host: [ubuntu-latest]
         artifact: [helloworld]
-    runs-on: ${{ matrix.host }}
+    runs-on: ubuntu-latest
+    needs: build-ubuntu-latest
     steps:
     - uses: actions/checkout@v2
     - uses: actions/download-artifact@v2
       with:
-        name: ${{ matrix.host }}-x
+        name: ubuntu-latest-x
     - run: sudo apt-get update && sudo apt-get install libgtk-3-dev
     - uses: hecrj/setup-rust-action@v1
       with:
         targets: x86_64-unknown-linux-gnu
     - uses: subosito/flutter-action@v1
     - run: chmod +x ./x
-    - run: ./x build -p ${{ matrix.artifact }} --platform linux --arch x64
+    - run: ./x -p ${{ matrix.artifact }} --platform linux --arch x64
+    - run: tar --zstd -cf ${{ matrix.artifact }}.AppDir.tar.zst target/x/debug/linux/x64/${{ matrix.artifact }}.AppDir
     - uses: actions/upload-artifact@v2
       with:
-        name: ${{ matrix.host }}-linux-x64-debug-${{ matrix.artifact }}
-        path: target/x/debug/linux/x64/${{ matrix.artifact }}.AppDir
+        name: ubuntu-latest-linux-x64-debug-${{ matrix.artifact }}
+        path: ${{ matrix.artifact }}.AppDir.tar.zst
 
-  run-linux-x64-debug:
-    needs: build-linux-x64-debug
+  # TODO: build-macos-latest-linux-x64-debug
+  # TODO: build-windows-latest-linux-x64-debug
+
+  #
+  # Build test projects for linux-x64-release
+  #
+
+  build-ubuntu-latest-linux-x64-release:
     strategy:
       fail-fast: false
       matrix:
-        host: [ubuntu-latest]
         artifact: [helloworld]
     runs-on: ubuntu-latest
-    steps:
-    - uses: actions/download-artifact@v2
-      with:
-        name: ${{ matrix.host }}-linux-x64-debug-${{ matrix.artifact }}
-    - uses: actions/download-artifact@v2
-      with:
-        name: ${{ matrix.host }}-xrun
-    - run: chmod +x ./xrun
-    - run: ls -R
-    - run: ./xrun --path ${{ matrix.artifact }}.AppDir/AppRun
-
-  build-linux-x64-release:
-    needs: build
-    strategy:
-      fail-fast: false
-      matrix:
-        host: [ubuntu-latest]
-        artifact: [helloworld]
-    runs-on: ${{ matrix.host }}
+    needs: build-ubuntu-latest
     steps:
     - uses: actions/checkout@v2
     - uses: actions/download-artifact@v2
       with:
-        name: ${{ matrix.host }}-x
+        name: ubuntu-latest-x
     - run: sudo apt-get update && sudo apt-get install libgtk-3-dev squashfs-tools
     - uses: hecrj/setup-rust-action@v1
       with:
@@ -106,91 +123,106 @@ jobs:
     - run: ./x build -p ${{ matrix.artifact }} --platform linux --arch x64 --release
     - uses: actions/upload-artifact@v2
       with:
-        name: ${{ matrix.host }}-linux-x64-release-${{ matrix.artifact }}
+        name: ubuntu-latest-linux-x64-release-${{ matrix.artifact }}
         path: target/x/release/linux/x64/${{ matrix.artifact }}.AppImage
 
-  run-linux-x64-release:
-    needs: build-linux-x64-release
+  #
+  # Build test projects for macos-x64-debug
+  #
+
+  build-ubuntu-latest-macos-x64-debug:
     strategy:
       fail-fast: false
       matrix:
-        host: [ubuntu-latest]
         artifact: [helloworld]
     runs-on: ubuntu-latest
-    steps:
-    - uses: actions/download-artifact@v2
-      with:
-        name: ${{ matrix.host }}-linux-x64-release-${{ matrix.artifact }}
-    - uses: actions/download-artifact@v2
-      with:
-        name: ${{ matrix.host }}-xrun
-    - run: chmod +x ./xrun
-    - run: ./xrun --path ${{ matrix.artifact }}.AppImage
-
-  #
-  # MacOS
-  #
-
-  build-macos-x64-debug:
-    needs: build
-    strategy:
-      fail-fast: false
-      matrix:
-        host: [ubuntu-latest]
-        artifact: [helloworld]
-    runs-on: ${{ matrix.host }}
+    needs: build-ubuntu-latest
     steps:
     - uses: actions/checkout@v2
     - uses: actions/download-artifact@v2
       with:
-        name: ${{ matrix.host }}-x
+        name: ubuntu-latest-x
     - uses: hecrj/setup-rust-action@v1
       with:
         targets: x86_64-apple-darwin
     - uses: subosito/flutter-action@v1
     - run: chmod +x ./x
     - run: ./x build -p ${{ matrix.artifact }} --platform macos --arch x64
+    - run: tar --zstd -cf ${{ matrix.artifact }}.app.tar.zst target/x/debug/macos/x64/${{ matrix.artifact }}.app
     - uses: actions/upload-artifact@v2
       with:
-        name: ${{ matrix.host }}-macos-x64-debug-${{ matrix.artifact }}
-        path: target/x/debug/macos/x64/${{ matrix.artifact }}.app
+        name: ubuntu-latest-macos-x64-debug-${{ matrix.artifact }}
+        path: ${{ matrix.artifact }}.app.tar.zst
 
-  run-macos-x64-debug:
-    needs: build-macos-x64-debug
+  build-macos-latest-macos-x64-debug:
     strategy:
       fail-fast: false
       matrix:
-        host: [ubuntu-latest]
         artifact: [helloworld]
     runs-on: macos-latest
-    steps:
-    - uses: actions/download-artifact@v2
-      with:
-        name: ${{ matrix.host }}-macos-x64-debug-${{ matrix.artifact }}
-    - uses: actions/download-artifact@v2
-      with:
-        name: ${{ matrix.host }}-xrun
-    - run: chmod +x ./xrun
-    - run: ./xrun --path ${{ matrix.artifact }}.app/Contents/MacOS/${{ matrix.artifact }}
-
-  # TODO: build-macos-x64-release
-
-  #
-  # Windows
-  #
-
-  build-windows-x64-debug:
-    needs: build
-    strategy:
-      fail-fast: false
-      matrix:
-        host: [ubuntu-latest]
-    runs-on: ${{ matrix.host }}
+    needs: build-macos-latest
     steps:
     - uses: actions/checkout@v2
     - uses: actions/download-artifact@v2
       with:
-        name: ${{ matrix.host }}-x
+        name: macos-latest-x
+    - uses: hecrj/setup-rust-action@v1
+      with:
+        targets: x86_64-apple-darwin
+    - uses: subosito/flutter-action@v1
+    - run: chmod +x ./x
+    - run: ./x build -p ${{ matrix.artifact }} --platform macos --arch x64
+    - run: gtar --zstd -cf ${{ matrix.artifact }}.app.tar.zst target/x/debug/macos/x64/${{ matrix.artifact }}.app
+    - uses: actions/upload-artifact@v2
+      with:
+        name: macos-latest-macos-x64-debug-${{ matrix.artifact }}
+        path: ${{ matrix.artifact }}.app.tar.zst
+
+  build-windows-latest-macos-x64-debug:
+    strategy:
+      fail-fast: false
+      matrix:
+        artifact: [helloworld]
+    runs-on: windows-latest
+    needs: build-windows-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/download-artifact@v2
+      with:
+        name: windows-latest-x
+    - uses: hecrj/setup-rust-action@v1
+      with:
+        targets: x86_64-apple-darwin
+    - uses: subosito/flutter-action@v1
+    - run: ./x.exe build -p ${{ matrix.artifact }} --platform macos --arch x64
+    - run: tar --zstd -cf ${{ matrix.artifact }}.app.tar.zst target/x/debug/macos/x64/${{ matrix.artifact }}.app
+    - uses: actions/upload-artifact@v2
+      with:
+        name: windows-latest-macos-x64-debug-${{ matrix.artifact }}
+        path: ${{ matrix.artifact }}.app.tar.zst
+
+  #
+  # Build test projects for macos-x64-release
+  #
+
+  # TODO: build-macos-latest-macos-x64-release
+
+  #
+  # Build test projects for windows-x64-debug
+  #
+
+  build-ubuntu-latest-windows-x64-debug:
+    strategy:
+      fail-fast: false
+      matrix:
+        artifact: [helloworld]
+    runs-on: ubuntu-latest
+    needs: build-ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/download-artifact@v2
+      with:
+        name: ubuntu-latest-x
     - uses: hecrj/setup-rust-action@v1
       with:
         targets: x86_64-pc-windows-msvc
@@ -199,24 +231,160 @@ jobs:
     - run: ./x build -p ${{ matrix.artifact }} --platform windows --arch x64
     - uses: actions/upload-artifact@v2
       with:
-        name: ${{ matrix.host }}-windows-x64-debug-${{ matrix.artifact }}
+        name: ubuntu-latest-windows-x64-debug-${{ matrix.artifact }}
         path: target/x/debug/windows/x64/${{ matrix.artifact }}.msix
 
-  #run-windows-x64-debug:
-  #  needs: build-windows-x64-debug
-  #  strategy:
-  #    fail-fast: false
-  #    matrix:
-  #      host: [ubuntu-latest]
-  #      artifact: [helloworld]
-  #  runs-on: windows-latest
-  #  steps:
-  #  - uses: actions/download-artifact@v2
-  #    with:
-  #      name: ${{ matrix.host }}-windows-x64-debug-${{ matrix.artifact }}
-  #  - uses: actions/download-artifact@v2
-  #    with:
-  #      name: ${{ matrix.host }}-xrun
-  #  - run: ./xrun --path ${{ matrix.artifact }}.app/Contents/MacOS/${{ matrix.artifact }}
+  build-macos-latest-windows-x64-debug:
+    strategy:
+      fail-fast: false
+      matrix:
+        artifact: [helloworld]
+    runs-on: macos-latest
+    needs: build-macos-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/download-artifact@v2
+      with:
+        name: macos-latest-x
+    - uses: hecrj/setup-rust-action@v1
+      with:
+        targets: x86_64-pc-windows-msvc
+    - uses: subosito/flutter-action@v1
+    - run: chmod +x ./x
+    - run: ./x build -p ${{ matrix.artifact }} --platform windows --arch x64
+    - uses: actions/upload-artifact@v2
+      with:
+        name: macos-latest-windows-x64-debug-${{ matrix.artifact }}
+        path: target/x/debug/windows/x64/${{ matrix.artifact }}.msix
 
-  # TODO: build-windows-x64-release
+  build-windows-latest-windows-x64-debug:
+    strategy:
+      fail-fast: false
+      matrix:
+        artifact: [helloworld]
+    runs-on: windows-latest
+    needs: build-windows-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/download-artifact@v2
+      with:
+        name: windows-latest-x
+    - uses: hecrj/setup-rust-action@v1
+      with:
+        targets: x86_64-pc-windows-msvc
+    - uses: subosito/flutter-action@v1
+    - run: chmod +x ./x
+    - run: ./x build -p ${{ matrix.artifact }} --platform windows --arch x64
+    - uses: actions/upload-artifact@v2
+      with:
+        name: windows-latest-windows-x64-debug-${{ matrix.artifact }}
+        path: target/x/debug/windows/x64/${{ matrix.artifact }}.msix
+
+  #
+  # Build test projects for windows-x64-debug
+  #
+
+  # TODO: build-windows-latest-windows-x64-release
+
+  #
+  # Run test projects on linux
+  #
+
+  run-linux-x64-debug:
+    strategy:
+      fail-fast: false
+      matrix:
+        task: [ubuntu-latest-linux-x64-debug]
+        artifact: [helloworld]
+    runs-on: ubuntu-latest
+    needs: [build-ubuntu-latest, build-ubuntu-latest-linux-x64-debug]
+    steps:
+    - uses: actions/download-artifact@v2
+      with:
+        name: ${{ matrix.task }}-${{ matrix.artifact }}
+    - uses: actions/download-artifact@v2
+      with:
+        name: ubuntu-latest-xrun
+    - run: chmod +x ./xrun
+    - run: tar --zstd -xf ${{ matrix.artifact }}.AppDir.tar.zst
+    - run: ./xrun --path ${{ matrix.artifact }}.AppDir/AppRun
+
+  run-linux-x64-release:
+    strategy:
+      fail-fast: false
+      matrix:
+        task: [ubuntu-latest-linux-x64-release]
+        artifact: [helloworld]
+    runs-on: ubuntu-latest
+    needs: [build-ubuntu-latest, build-ubuntu-latest-linux-x64-release]
+    steps:
+    - uses: actions/download-artifact@v2
+      with:
+        name: ${{ matrix.task }}-${{ matrix.artifact }}
+    - uses: actions/download-artifact@v2
+      with:
+        name: ubuntu-latest-xrun
+    - run: chmod +x ./xrun
+    - run: chmod +x ${{ matrix.artifact }}.AppImage
+    - run: ./xrun --path ${{ matrix.artifact }}.AppImage
+
+  #
+  # Run test projects on macos
+  #
+
+  run-macos-x64-debug:
+    strategy:
+      fail-fast: false
+      matrix:
+        task:
+        - ubuntu-latest-macos-x64-debug
+        - macos-latest-macos-x64-debug
+        - windows-latest-macos-x64-debug
+        artifact: [helloworld]
+    runs-on: macos-latest
+    if: ${{ always() }}
+    needs:
+    - build-macos-latest
+    - build-ubuntu-latest-macos-x64-debug
+    - build-macos-latest-macos-x64-debug
+    - build-windows-latest-macos-x64-debug
+    steps:
+    - uses: actions/download-artifact@v2
+      with:
+        name: ${{ matrix.task }}-${{ matrix.artifact }}
+    - uses: actions/download-artifact@v2
+      with:
+        name: macos-latest-xrun
+    - run: chmod +x ./xrun
+    - run: gtar --zstd -xf ${{ matrix.artifact }}.app.tar.zst
+    - run: ./xrun --path ${{ matrix.artifact }}.app/Contents/MacOS/${{ matrix.artifact }}
+
+  #
+  # Run test projects on windows
+  #
+
+  run-windows-x64-debug:
+    strategy:
+      fail-fast: false
+      matrix:
+        task:
+        - ubuntu-latest-windows-x64-debug
+        - macos-latest-windows-x64-debug
+        - windows-latest-windows-x64-debug
+        artifact: [helloworld]
+    runs-on: windows-latest
+    if: ${{ always() }}
+    needs:
+    - build-windows-latest
+    - build-ubuntu-latest-windows-x64-debug
+    - build-macos-latest-windows-x64-debug
+    - build-windows-latest-windows-x64-debug
+    steps:
+    - uses: actions/download-artifact@v2
+      with:
+        name: ${{ matrix.task }}-${{ matrix.artifact }}
+    - uses: actions/download-artifact@v2
+      with:
+        name: windows-latest-xrun
+    - run: 7z x ${{ matrix.artifact }}.msix
+    - run: ./xrun.exe --path ${{ matrix.artifact }}.exe
