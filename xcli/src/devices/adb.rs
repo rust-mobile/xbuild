@@ -10,7 +10,7 @@ pub struct Adb(PathBuf);
 
 impl Adb {
     pub fn which() -> Result<Self> {
-        Ok(Self(which::which("adb")?))
+        Ok(Self(which::which(exe!("adb"))?))
     }
 
     fn serials(&self) -> Result<Vec<String>> {

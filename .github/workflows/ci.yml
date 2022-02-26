@@ -227,6 +227,7 @@ jobs:
       with:
         targets: x86_64-pc-windows-msvc
     - uses: subosito/flutter-action@v1
+    - run: sudo ln -s /usr/bin/llvm-ar /usr/bin/llvm-lib
     - run: chmod +x ./x
     - run: ./x build -p ${{ matrix.artifact }} --platform windows --arch x64
     - uses: actions/upload-artifact@v2

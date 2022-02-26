@@ -36,7 +36,7 @@ fn member(manifest: &Path, members: &[String], package: &str) -> Result<Option<P
 }
 
 pub fn find_package(path: &Path, name: Option<&str>) -> Result<(PathBuf, String)> {
-    let path = dunce::canonicalize(path)?;
+    let path = std::fs::canonicalize(path)?;
     for manifest_path in path
         .ancestors()
         .map(|dir| dir.join("Cargo.toml"))
@@ -80,7 +80,7 @@ pub fn find_workspace(manifest: &Path, name: &str) -> Result<Option<PathBuf>> {
 
 /// Search for .cargo/config.toml file relative to the workspace root path.
 pub fn find_cargo_config(path: &Path) -> Result<Option<PathBuf>> {
-    let path = dunce::canonicalize(path)?;
+    let path = std::fs::canonicalize(path)?;
     Ok(path
         .ancestors()
         .map(|dir| dir.join(".cargo/config.toml"))
