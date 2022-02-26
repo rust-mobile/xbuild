@@ -31,6 +31,10 @@ jobs:
       with:
         name: ${{ matrix.host }}-x
         path: bin/x
+    - uses: actions/upload-artifact@v2
+      with:
+        name: ${{ matrix.host }}-xrun
+        path: bin/xrun
 
   build-linux-x64-debug:
     needs: build
@@ -38,6 +42,7 @@ jobs:
       fail-fast: false
       matrix:
         host: [ubuntu-latest]
+        artifact: [helloworld]
     runs-on: ${{ matrix.host }}
     steps:
     - uses: actions/checkout@v2
@@ -49,5 +54,27 @@ jobs:
       with:
         targets: x86_64-unknown-linux-gnu
     - uses: subosito/flutter-action@v1
-    - run: ls -R
-    - run: ./x build -p helloworld --platform linux --arch x64
+    - run: chmod +x ./x
+    - run: ./x build -p ${{ matrix.artifact }} --platform linux --arch x64
+    - uses: actions/upload-artifact@v2
+      with:
+        name: ${{ matrix.host }}-linux-x64-debug-${{ matrix.artifact }}
+        path: target/x/debug/linux/x64/${{ matrix.artifact }}.AppDir
+
+  run-linux-x64-debug:
+    needs: build-linux-x64-debug
+    strategy:
+      fail-fast: false
+      matrix:
+        host: [ubuntu-latest]
+        artifact: [helloworld]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/download-artifact@v2
+      with:
+        name: ${{ matrix.host }}-linux-x64-debug-${{ matrix.artifact }}
+    - uses: actions/download-artifact@v2
+      with:
+        name: ${{ matrix.host }}-xrun
+    - run: chmod +x ./xrun
+    - run: ./xrun --path ${{ matrix.artifact }}.AppDir/AppRun

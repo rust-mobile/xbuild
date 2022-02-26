@@ -1,4 +1,5 @@
-use crate::{Arch, BuildEnv, Platform};
+use crate::devices::Run;
+use crate::{Arch, Platform};
 use anyhow::Result;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
@@ -51,13 +52,13 @@ impl Host {
         }
     }
 
-    pub fn run(&self, path: &Path, _config: &BuildEnv, flutter_attach: bool) -> Result<()> {
+    pub fn run(&self, path: &Path, flutter_attach: bool) -> Result<Run> {
         let mut child = Command::new(path)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .spawn()?;
         let mut lines = BufReader::new(child.stdout.take().unwrap()).lines();
-        if flutter_attach {
+        let url = if flutter_attach {
             let url = loop {
                 if let Some(line) = lines.next() {
                     let line = line?;
@@ -70,27 +71,35 @@ impl Host {
                     println!("{}", line);
                 }
             };
-            println!("attaching to {}", url);
-            std::thread::spawn(move || {
+            Some(url)
+        } else {
+            None
+        };
+        Ok(Run {
+            url,
+            logger: Box::new(move || {
                 for line in lines {
                     if let Ok(line) = line {
                         println!("{}", line.trim());
                     }
                 }
-            });
-            Command::new("flutter")
-                .arg("attach")
-                .arg("--device-id")
-                .arg(self.platform()?.to_string())
-                .arg("--debug-url")
-                .arg(url)
-                .status()?;
-        } else {
-            for line in lines {
-                let line = line?;
-                println!("{}", line.trim());
-            }
-        }
+            }),
+            child: Some(child),
+        })
+    }
+
+    pub fn attach(&self, url: &str, root_dir: &Path, target: &Path) -> Result<()> {
+        println!("attaching to {}", url);
+        Command::new("flutter")
+            .current_dir(root_dir)
+            .arg("attach")
+            .arg("--device-id")
+            .arg(self.platform()?.to_string())
+            .arg("--debug-url")
+            .arg(url)
+            .arg("--target")
+            .arg(target)
+            .status()?;
         Ok(())
     }
 }
