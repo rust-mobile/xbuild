@@ -88,7 +88,7 @@ jobs:
         targets: x86_64-unknown-linux-gnu
     - uses: subosito/flutter-action@v1
     - run: chmod +x ./x
-    - run: ./x -p ${{ matrix.artifact }} --platform linux --arch x64
+    - run: ./x build -p ${{ matrix.artifact }} --platform linux --arch x64
     - run: tar --zstd -cf ${{ matrix.artifact }}.AppDir.tar.zst target/x/debug/linux/x64/${{ matrix.artifact }}.AppDir
     - uses: actions/upload-artifact@v2
       with:
