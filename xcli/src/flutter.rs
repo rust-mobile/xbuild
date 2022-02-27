@@ -48,14 +48,22 @@ impl Flutter {
     }
 
     pub fn dart(&self) -> Command {
-        Command::new(self.path.join("bin").join(exe!("dart")))
+        let path = self
+            .path
+            .join("bin")
+            .join("cache")
+            .join("dart-sdk")
+            .join("bin")
+            .join(exe!("dart"));
+        Command::new(path)
     }
 
     pub fn pub_get(&self, root_dir: &Path) -> Result<()> {
         let status = self
             .dart()
             .current_dir(root_dir)
-            .arg("pub")
+            .env("FLUTTER_ROOT", &self.path)
+            .arg("__deprecated_pub")
             .arg("get")
             .arg("--no-precompile")
             .status()?;

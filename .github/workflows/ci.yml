@@ -255,6 +255,11 @@ jobs:
     - uses: actions/download-artifact@v2
       with:
         name: macos-latest-x
+    - uses: KyleMayes/install-llvm-action@v1
+      with:
+        version: 13
+    - run: sudo ln -s llvm-ar-13 /usr/bin/llvm-lib
+    - run: sudo ln -s lld-link-13 /usr/bin/lld-link
     - uses: hecrj/setup-rust-action@v1
       with:
         targets: x86_64-pc-windows-msvc
