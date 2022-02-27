@@ -509,7 +509,10 @@ fn build_classes_dex(env: &BuildEnv, flutter: &Flutter, platform_dir: &Path) -> 
         .join("flutter")
         .join("plugins")
         .join("GeneratedPluginRegistrant.class");
-    let status = Command::new("d8")
+    let status = env
+        .android_sdk()
+        .unwrap()
+        .build_tool("d8")?
         .args(deps)
         .arg(plugins)
         .arg("--lib")

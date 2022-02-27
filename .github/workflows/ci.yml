@@ -361,6 +361,10 @@ jobs:
       with:
         name: ubuntu-latest-x
     - run: chmod +x ./x
+    - uses: actions/setup-java@v2
+      with:
+        distribution: temurin
+        java-version: 11
     - uses: hecrj/setup-rust-action@v1
       with:
         targets: aarch64-linux-android
@@ -385,6 +389,10 @@ jobs:
       with:
         name: macos-latest-x
     - run: chmod +x ./x
+    - uses: actions/setup-java@v2
+      with:
+        distribution: temurin
+        java-version: 11
     - uses: hecrj/setup-rust-action@v1
       with:
         targets: aarch64-linux-android
@@ -408,6 +416,10 @@ jobs:
     - uses: actions/download-artifact@v2
       with:
         name: windows-latest-x
+    - uses: actions/setup-java@v2
+      with:
+        distribution: temurin
+        java-version: 11
     - uses: hecrj/setup-rust-action@v1
       with:
         targets: aarch64-linux-android
