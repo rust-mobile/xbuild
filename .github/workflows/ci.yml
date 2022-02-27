@@ -96,6 +96,7 @@ jobs:
         path: ${{ matrix.artifact }}.AppDir.tar.zst
 
   # TODO: build-macos-latest-linux-x64-debug
+
   # TODO: build-windows-latest-linux-x64-debug
 
   #
@@ -209,7 +210,28 @@ jobs:
   # Build test projects for macos-x64-release
   #
 
-  # TODO: build-macos-latest-macos-x64-release
+  build-macos-latest-macos-x64-release:
+    strategy:
+      fail-fast: false
+      matrix:
+        artifact: [helloworld]
+    runs-on: macos-latest
+    needs: build-macos-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/download-artifact@v2
+      with:
+        name: macos-latest-x
+    - uses: hecrj/setup-rust-action@v1
+      with:
+        targets: x86_64-apple-darwin
+    - uses: subosito/flutter-action@v1
+    - run: chmod +x ./x
+    - run: ./x build -p ${{ matrix.artifact }} --platform macos --arch x64 --release
+    - uses: actions/upload-artifact@v2
+      with:
+        name: macos-latest-macos-x64-debug-${{ matrix.artifact }}
+        path: target/x/debug/macos/x64/${{ matrix.artifact }}.dmg
 
   #
   # Build test projects for windows-x64-debug
@@ -258,8 +280,9 @@ jobs:
     - uses: KyleMayes/install-llvm-action@v1
       with:
         version: 13
-    - run: sudo ln -s llvm-ar-13 /usr/bin/llvm-lib
-    - run: sudo ln -s lld-link-13 /usr/bin/lld-link
+    - run: sudo mkdir -p /usr/local/bin
+    - run: sudo ln -s llvm-ar-13 /usr/local/bin/llvm-lib
+    - run: sudo ln -s lld-link-13 /usr/local/bin/lld-link
     - uses: hecrj/setup-rust-action@v1
       with:
         targets: x86_64-pc-windows-msvc
@@ -295,7 +318,111 @@ jobs:
         path: target/x/debug/windows/x64/${{ matrix.artifact }}.msix
 
   #
-  # Build test projects for windows-x64-debug
+  # Build test projects for windows-x64-release
   #
 
-  # TODO: build-windows-latest-windows-x64-release
+  build-windows-latest-windows-x64-release:
+    strategy:
+      fail-fast: false
+      matrix:
+        artifact: [helloworld]
+    runs-on: windows-latest
+    needs: build-windows-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/download-artifact@v2
+      with:
+        name: windows-latest-x
+    - uses: hecrj/setup-rust-action@v1
+      with:
+        targets: x86_64-pc-windows-msvc
+    - uses: subosito/flutter-action@v1
+    - run: chmod +x ./x
+    - run: ./x build -p ${{ matrix.artifact }} --platform windows --arch x64 --release
+    - uses: actions/upload-artifact@v2
+      with:
+        name: windows-latest-windows-x64-debug-${{ matrix.artifact }}
+        path: target/x/debug/windows/x64/${{ matrix.artifact }}.msix
+
+  #
+  # Buld test projects for android-arm64
+  #
+
+  build-ubuntu-latest-android-arm64:
+    strategy:
+      fail-fast: false
+      matrix:
+        artifact: [helloworld]
+        opt: [debug, release]
+    runs-on: ubuntu-latest
+    needs: build-ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/download-artifact@v2
+      with:
+        name: ubuntu-latest-x
+    - uses: hecrj/setup-rust-action@v1
+      with:
+        targets: aarch64-linux-android
+    - uses: subosito/flutter-action@v1
+    - run: ./x build -p ${{ matrix.artifact }} --platform android --arch arm64 --${{ matrix.opt }}
+    - uses: actions/upload-artifact@v2
+      with:
+        name: ubuntu-latest-android-arm64-${{ matrix.opt }}-${{ matrix.artifact }}
+        path: target/x/${{ matrix.opt }}/android/arm64/${{ matrix.artifact }}.apk
+
+  build-macos-latest-android-arm64:
+    strategy:
+      fail-fast: false
+      matrix:
+        artifact: [helloworld]
+        opt: [debug, release]
+    runs-on: macos-latest
+    needs: build-macos-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/download-artifact@v2
+      with:
+        name: ubuntu-latest-x
+    - uses: hecrj/setup-rust-action@v1
+      with:
+        targets: aarch64-linux-android
+    - uses: subosito/flutter-action@v1
+    - run: ./x build -p ${{ matrix.artifact }} --platform android --arch arm64 --${{ matrix.opt }}
+    - uses: actions/upload-artifact@v2
+      with:
+        name: macos-latest-android-arm64-${{ matrix.opt }}-${{ matrix.artifact }}
+        path: target/x/${{ matrix.opt }}/android/arm64/${{ matrix.artifact }}.apk
+
+  build-windows-latest-android-arm64:
+    strategy:
+      fail-fast: false
+      matrix:
+        artifact: [helloworld]
+        opt: [debug, release]
+    runs-on: windows-latest
+    needs: build-windows-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/download-artifact@v2
+      with:
+        name: windows-latest-x
+    - uses: hecrj/setup-rust-action@v1
+      with:
+        targets: aarch64-linux-android
+    - uses: subosito/flutter-action@v1
+    - run: ./x build -p ${{ matrix.artifact }} --platform android --arch arm64 --${{ matrix.opt }}
+    - uses: actions/upload-artifact@v2
+      with:
+        name: windows-latest-android-arm64-${{ matrix.opt }}-${{ matrix.artifact }}
+        path: target/x/${{ matrix.opt }}/android/arm64/${{ matrix.artifact }}.apk
+
+  #
+  # Buld test projects for android-arm64
+  #
+
+  # TODO: build-ubuntu-latest-ios-arm64
+
+  # TODO: build-macos-latest-ios-arm64
+
+  # TODO: build-windows-latest-ios-arm64
