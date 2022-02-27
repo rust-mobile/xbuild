@@ -235,7 +235,7 @@ jobs:
     - uses: actions/upload-artifact@v2
       with:
         name: macos-latest-macos-x64-release-${{ matrix.artifact }}
-        path: target/x/debug/macos/x64/${{ matrix.artifact }}.dmg
+        path: target/x/release/macos/x64/${{ matrix.artifact }}.dmg
 
   #
   # Build test projects for windows-x64-debug
