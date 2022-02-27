@@ -59,9 +59,7 @@ impl Flutter {
     }
 
     pub fn flutter(&self) -> Command {
-        let path = self
-            .path
-            .join("bin");
+        let path = self.path.join("bin");
         if cfg!(windows) {
             Command::new(path.join("flutter.bat"))
         } else {
@@ -155,7 +153,7 @@ impl Flutter {
     ) -> Result<()> {
         let mut cmd = self.dart();
         cmd.current_dir(root_dir)
-            .arg(self.host_file(Path::new("frontend_server.dart.snapshot"))?)
+            .arg(self.host_file(Path::new(exe!("frontend_server.dart.snapshot")))?)
             .arg("--sdk-root")
             .arg(
                 self.path
