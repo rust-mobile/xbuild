@@ -337,12 +337,11 @@ jobs:
       with:
         targets: x86_64-pc-windows-msvc
     - uses: subosito/flutter-action@v1
-    - run: chmod +x ./x
     - run: ./x build -p ${{ matrix.artifact }} --platform windows --arch x64 --release
     - uses: actions/upload-artifact@v2
       with:
-        name: windows-latest-windows-x64-debug-${{ matrix.artifact }}
-        path: target/x/debug/windows/x64/${{ matrix.artifact }}.msix
+        name: windows-latest-windows-x64-release-${{ matrix.artifact }}
+        path: target/x/release/windows/x64/${{ matrix.artifact }}.msix
 
   #
   # Buld test projects for android-arm64
@@ -361,6 +360,7 @@ jobs:
     - uses: actions/download-artifact@v2
       with:
         name: ubuntu-latest-x
+    - run: chmod +x ./x
     - uses: hecrj/setup-rust-action@v1
       with:
         targets: aarch64-linux-android
@@ -383,7 +383,8 @@ jobs:
     - uses: actions/checkout@v2
     - uses: actions/download-artifact@v2
       with:
-        name: ubuntu-latest-x
+        name: macos-latest-x
+    - run: chmod +x ./x
     - uses: hecrj/setup-rust-action@v1
       with:
         targets: aarch64-linux-android
