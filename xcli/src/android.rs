@@ -77,7 +77,7 @@ impl AndroidSdk {
         if !path.exists() {
             anyhow::bail!("build tool {} not found.", tool);
         }
-        Ok(Command::new(std::fs::canonicalize(path)?))
+        Ok(Command::new(dunce::canonicalize(path)?))
     }
 
     pub fn platform_tool(&self, tool: &str) -> Result<Command> {
@@ -85,7 +85,7 @@ impl AndroidSdk {
         if !path.exists() {
             anyhow::bail!("platform tool {} not found.", tool);
         }
-        Ok(Command::new(std::fs::canonicalize(path)?))
+        Ok(Command::new(dunce::canonicalize(path)?))
     }
 
     pub fn highest_supported_platform(&self) -> u32 {

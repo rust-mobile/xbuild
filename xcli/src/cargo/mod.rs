@@ -163,7 +163,7 @@ impl CargoBuild {
     }
 
     pub fn use_xwin(&mut self, path: &Path) -> Result<()> {
-        let path = path.canonicalize()?;
+        let path = dunce::canonicalize(path)?;
         self.cfg_tool(Tool::Cc, "clang");
         self.cfg_tool(Tool::Cxx, "clang++");
         self.cfg_tool(Tool::Ar, "llvm-lib");
@@ -181,7 +181,7 @@ impl CargoBuild {
     }
 
     pub fn use_macos_sdk(&mut self, path: &Path, minimum_version: &str) -> Result<()> {
-        let path = path.canonicalize()?;
+        let path = dunce::canonicalize(path)?;
         self.cfg_tool(Tool::Cc, "clang");
         self.cfg_tool(Tool::Cxx, "clang++");
         self.cfg_tool(Tool::Ar, "llvm-ar");

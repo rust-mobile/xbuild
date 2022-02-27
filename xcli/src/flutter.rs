@@ -10,7 +10,7 @@ pub struct Flutter {
 
 impl Flutter {
     pub fn new(engine: PathBuf) -> Result<Self> {
-        let path = std::fs::canonicalize(which::which(exe!("flutter"))?)?
+        let path = dunce::canonicalize(which::which(exe!("flutter"))?)?
             .parent()
             .unwrap()
             .parent()
