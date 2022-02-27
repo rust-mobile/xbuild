@@ -7,12 +7,13 @@ edition = "2021"
 appbundle = { version = "0.1.0", path = "../appbundle" }
 anyhow = "1.0.53"
 clap = { version = "3.0.13", features = ["derive"] }
+env_logger = "0.9.0"
 glob = "0.3.0"
 maven = { version = "0.1.0", path = "../maven" }
 reqwest = { version = "0.11.9", features = ["blocking"] }
 serde = { version = "1.0.136", features = ["derive"] }
 serde_yaml = "0.8.23"
-tar = "0.4.38"
+tar = { git = "https://github.com/dvc94ch/tar-rs", branch = "append-entry" }
 toml = "0.5.8"
 which = "4.2.4"
 xapk = { version = "0.1.0", path = "../apk" }
@@ -20,7 +21,6 @@ xappimage = { version = "0.1.0", path = "../appimage" }
 xcommon = { version = "0.1.0", path = "../xcommon" }
 xmsix = { version = "0.1.0", path = "../msix" }
 zstd = "0.10.0"
-env_logger = "0.9.0"
 
 [[bin]]
 name = "x"

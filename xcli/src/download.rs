@@ -3,7 +3,7 @@ use anyhow::Result;
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::Path;
-use tar::Archive;
+use tar::{Archive, Builder, EntryType};
 use zstd::Decoder;
 
 pub fn github_release_tar_zst(
@@ -12,6 +12,7 @@ pub fn github_release_tar_zst(
     repo: &str,
     version: &str,
     artifact: &str,
+    no_symlinks: bool,
 ) -> Result<()> {
     let url = format!(
         "https://github.com/{}/{}/releases/download/{}/{}",
@@ -22,7 +23,21 @@ pub fn github_release_tar_zst(
     if !resp.status().is_success() {
         anyhow::bail!("GET {} returned status code {}", url, resp.status());
     }
-    Archive::new(Decoder::new(resp)?).unpack(out)?;
+    let mut archive = Archive::new(Decoder::new(resp)?);
+    if no_symlinks {
+        let mut buf = vec![];
+        let mut builder = Builder::new(&mut buf);
+        for entry in archive.entries()? {
+            let entry = entry?;
+            if entry.header().entry_type() != EntryType::Symlink {
+                builder.append_entry(entry)?;
+            }
+        }
+        builder.into_inner()?;
+        Archive::new(&*buf).unpack(out)?;
+    } else {
+        archive.unpack(out)?;
+    }
     Ok(())
 }
 
