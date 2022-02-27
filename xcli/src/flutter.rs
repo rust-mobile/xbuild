@@ -58,6 +58,17 @@ impl Flutter {
         Command::new(path)
     }
 
+    pub fn flutter(&self) -> Command {
+        let path = self
+            .path
+            .join("bin");
+        if cfg!(windows) {
+            Command::new(path.join("flutter.bat"))
+        } else {
+            Command::new(path.join("flutter"))
+        }
+    }
+
     pub fn pub_get(&self, root_dir: &Path) -> Result<()> {
         let status = self
             .dart()
@@ -93,7 +104,8 @@ impl Flutter {
                 host.arch(),
             ),
         };
-        let status = Command::new("flutter")
+        let status = self
+            .flutter()
             .current_dir(root_dir)
             .arg("assemble")
             .arg("--no-version-check")
