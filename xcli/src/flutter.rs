@@ -47,15 +47,20 @@ impl Flutter {
         Ok(path)
     }
 
+    pub fn dart(&self) -> Command {
+        Command::new(self.path.join("bin").join(exe!("dart")))
+    }
+
     pub fn pub_get(&self, root_dir: &Path) -> Result<()> {
-        let status = Command::new("flutter")
+        let status = self
+            .dart()
             .current_dir(root_dir)
             .arg("pub")
             .arg("get")
-            .arg("--suppress-analytics")
+            .arg("--no-precompile")
             .status()?;
         if !status.success() {
-            anyhow::bail!("flutter pub get exited with status {:?}", status);
+            anyhow::bail!("dart pub get exited with status {:?}", status);
         }
         Ok(())
     }
@@ -128,7 +133,7 @@ impl Flutter {
         depfile: &Path,
         opt: Opt,
     ) -> Result<()> {
-        let mut cmd = Command::new(self.path.join("bin").join("dart"));
+        let mut cmd = self.dart();
         cmd.current_dir(root_dir)
             .arg(self.host_file(Path::new("frontend_server.dart.snapshot"))?)
             .arg("--sdk-root")

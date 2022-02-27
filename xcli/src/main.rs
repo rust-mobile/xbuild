@@ -74,12 +74,14 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
         let windows_sdk = env.build_dir().join("Windows.sdk");
         if !windows_sdk.exists() {
             println!("downloading windows sdk");
+            let no_symlinks = !cfg!(target_os = "linux");
             xcli::download::github_release_tar_zst(
                 env.build_dir(),
                 "cloudpeers",
                 "x",
                 "v0.1.0+1",
                 "Windows.sdk.tar.zst",
+                no_symlinks,
             )?;
         }
     }
@@ -94,6 +96,7 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
                 "x",
                 "v0.1.0+1",
                 "MacOSX.sdk.tar.zst",
+                false,
             )?;
         }
     }
@@ -108,6 +111,7 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
                 "x",
                 "v0.1.0+1",
                 "iPhoneOS.sdk.tar.zst",
+                false,
             )?;
         }
     }
