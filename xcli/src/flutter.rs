@@ -189,14 +189,7 @@ impl Flutter {
         snapshot: &Path,
         target: CompileTarget,
     ) -> Result<()> {
-        let gen_snapshot = match target.platform() {
-            Platform::Linux => self.engine_dir(target)?.join("gen_snapshot"),
-            Platform::Android => self
-                .engine_dir(target)?
-                .join("linux-x64")
-                .join("gen_snapshot"),
-            _ => unimplemented!(),
-        };
+        let gen_snapshot = self.engine_dir(target)?.join(exe!("gen_snapshot"));
         let mut cmd = Command::new(gen_snapshot);
         cmd.current_dir(root_dir);
         if target.platform() == Platform::Ios || target.platform() == Platform::Macos {

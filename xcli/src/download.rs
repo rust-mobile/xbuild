@@ -83,10 +83,16 @@ pub fn flutter_engine(engine_dir: &Path, engine: &str, target: CompileTarget) ->
         }
         (Platform::Android, arch, Opt::Release) => {
             artifacts.push(format!("android-{}-release/artifacts.zip", arch));
+            let host = Platform::host()?;
+            let platform = if host == Platform::Macos {
+                "darwin".to_string()
+            } else {
+                host.to_string()
+            };
             artifacts.push(format!(
                 "android-{}-release/{}-{}.zip",
                 arch,
-                Platform::host()?,
+                &platform,
                 Arch::host()?
             ));
         }
