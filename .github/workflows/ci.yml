@@ -94,7 +94,7 @@ jobs:
     - uses: actions/upload-artifact@v2
       with:
         name: ubuntu-latest-linux-x64-debug-${{ matrix.artifact }}
-        path: ${{ matrix.artifact }}.AppDir.tar.zst
+        path: target/x/debug/linux/x64/${{ matrix.artifact }}.AppDir.tar.zst
 
   # TODO: build-macos-latest-linux-x64-debug
 
@@ -159,7 +159,7 @@ jobs:
     - uses: actions/upload-artifact@v2
       with:
         name: ubuntu-latest-macos-x64-debug-${{ matrix.artifact }}
-        path: ${{ matrix.artifact }}.app.tar.zst
+        path: target/x/debug/macos/x64/${{ matrix.artifact }}.app.tar.zst
 
   build-macos-latest-macos-x64-debug:
     strategy:
@@ -184,7 +184,7 @@ jobs:
     - uses: actions/upload-artifact@v2
       with:
         name: macos-latest-macos-x64-debug-${{ matrix.artifact }}
-        path: ${{ matrix.artifact }}.app.tar.zst
+        path: target/x/debug/macos/x64/${{ matrix.artifact }}.app.tar.zst
 
   build-windows-latest-macos-x64-debug:
     strategy:
@@ -208,7 +208,7 @@ jobs:
     - uses: actions/upload-artifact@v2
       with:
         name: windows-latest-macos-x64-debug-${{ matrix.artifact }}
-        path: ${{ matrix.artifact }}.app.tar.zst
+        path: target/x/debug/macos/x64/${{ matrix.artifact }}.app.tar.zst
 
   #
   # Build test projects for macos-x64-release
@@ -575,7 +575,7 @@ jobs:
       matrix:
         task:
         - windows-latest-windows-x64-release
-      artifact: [helloworld]
+        artifact: [helloworld]
     runs-on: windows-latest
     needs:
     - build-windows-latest
