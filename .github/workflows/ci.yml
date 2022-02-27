@@ -234,7 +234,7 @@ jobs:
     - run: ./x build -p ${{ matrix.artifact }} --platform macos --arch x64 --release
     - uses: actions/upload-artifact@v2
       with:
-        name: macos-latest-macos-x64-debug-${{ matrix.artifact }}
+        name: macos-latest-macos-x64-release-${{ matrix.artifact }}
         path: target/x/debug/macos/x64/${{ matrix.artifact }}.dmg
 
   #
@@ -314,7 +314,6 @@ jobs:
       with:
         targets: x86_64-pc-windows-msvc
     - uses: subosito/flutter-action@v1
-    - run: chmod +x ./x
     - run: ./x build -p ${{ matrix.artifact }} --platform windows --arch x64
     - uses: actions/upload-artifact@v2
       with:
@@ -485,7 +484,8 @@ jobs:
         name: ubuntu-latest-xrun
     - run: chmod +x ./xrun
     - run: chmod +x ${{ matrix.artifact }}.AppImage
-    - run: ./xrun --path ${{ matrix.artifact }}.AppImage
+    - run: ls -R
+    - run: ./xrun --path ./${{ matrix.artifact }}.AppImage
 
   #
   # Run test projects on macos
