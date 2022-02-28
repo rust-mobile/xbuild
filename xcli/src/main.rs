@@ -11,7 +11,7 @@ use xappimage::AppImage;
 use xcli::devices::Device;
 use xcli::flutter::Flutter;
 use xcli::maven::{FlutterEmbedding, FlutterEngine};
-use xcli::{Arch, BuildArgs, BuildEnv, CompileTarget, Format, Opt, Platform};
+use xcli::{exe, Arch, BuildArgs, BuildEnv, CompileTarget, Format, Opt, Platform};
 use xcommon::ZipFileOptions;
 use xmsix::Msix;
 
@@ -513,7 +513,7 @@ fn build_classes_dex(env: &BuildEnv, flutter: &Flutter, platform_dir: &Path) -> 
     let status = env
         .android_sdk()
         .unwrap()
-        .build_tool("d8")?
+        .build_tool(exe!("d8"))?
         .args(deps)
         .arg(plugins)
         .arg("--lib")
