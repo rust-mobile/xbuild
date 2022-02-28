@@ -465,6 +465,7 @@ jobs:
         name: ubuntu-latest-xrun
     - run: chmod +x ./xrun
     - run: tar --zstd -xf ${{ matrix.artifact }}.AppDir.tar.zst
+    - run: sudo apt-get update && sudo apt-get install libgtk-3-dev
     - run: ./xrun --path ${{ matrix.artifact }}.AppDir/AppRun
 
   run-linux-x64-release:
@@ -484,7 +485,7 @@ jobs:
         name: ubuntu-latest-xrun
     - run: chmod +x ./xrun
     - run: chmod +x ${{ matrix.artifact }}.AppImage
-    - run: ls -R
+    - run: sudo apt-get update && sudo apt-get install libgtk-3-dev
     - run: ./xrun --path ./${{ matrix.artifact }}.AppImage
 
   #
@@ -579,7 +580,7 @@ jobs:
     runs-on: windows-latest
     needs:
     - build-windows-latest
-    - build-windows-latest-windows-x64-debug
+    - build-windows-latest-windows-x64-release
     steps:
     - uses: actions/download-artifact@v2
       with:

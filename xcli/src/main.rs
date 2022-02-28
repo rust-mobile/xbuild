@@ -485,12 +485,13 @@ fn build_classes_dex(env: &BuildEnv, flutter: &Flutter, platform_dir: &Path) -> 
         &plugins,
         include_bytes!("../assets/GeneratedPluginRegistrant.java"),
     )?;
+    let separator = if cfg!(windows) { ";" } else { ":" };
     let classpath = deps
         .iter()
         .chain(std::iter::once(&android_jar))
         .map(|d| d.display().to_string())
         .collect::<Vec<_>>()
-        .join(":");
+        .join(separator);
     let java = platform_dir.join("java");
     let status = Command::new("javac")
         .arg("--class-path")
