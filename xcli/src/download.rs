@@ -43,27 +43,39 @@ pub fn github_release_tar_zst(
 
 pub fn flutter_engine(engine_dir: &Path, engine: &str, target: CompileTarget) -> Result<()> {
     let mut artifacts = Vec::with_capacity(4);
+    if target.platform() == Platform::host()?
+        && target.arch() == Arch::host()?
+        && target.opt() == Opt::Debug
+    {
+        artifacts.push("flutter_patched_sdk.zip".to_string());
+        artifacts.push("flutter_patched_sdk_product.zip".to_string());
+        if target.platform() != Platform::Macos {
+            artifacts.push(format!(
+                "{}-{}/artifacts.zip",
+                target.platform(),
+                target.arch()
+            ));
+        } else {
+            artifacts.push(format!("darwin-{}/artifacts.zip", target.arch()));
+        }
+    }
     match (target.platform(), target.arch(), target.opt()) {
         (Platform::Linux, arch, Opt::Debug) => {
-            artifacts.push(format!("linux-{}/artifacts.zip", arch));
             artifacts.push(format!(
                 "linux-{arch}/linux-{arch}-flutter-gtk.zip",
                 arch = arch
             ));
         }
         (Platform::Linux, arch, Opt::Release) => {
-            artifacts.push(format!("linux-{}/artifacts.zip", arch));
             artifacts.push(format!(
                 "linux-{arch}-release/linux-{arch}-flutter-gtk.zip",
                 arch = arch
             ));
         }
         (Platform::Macos, arch, Opt::Debug) => {
-            artifacts.push(format!("darwin-{}/artifacts.zip", arch));
             artifacts.push(format!("darwin-{}/FlutterMacOS.framework.zip", arch));
         }
         (Platform::Macos, arch, Opt::Release) => {
-            artifacts.push(format!("darwin-{}/artifacts.zip", arch));
             artifacts.push(format!("darwin-{}/FlutterMacOS.framework.zip", arch));
         }
         (Platform::Windows, arch, Opt::Debug) => {
@@ -78,11 +90,8 @@ pub fn flutter_engine(engine_dir: &Path, engine: &str, target: CompileTarget) ->
                 arch = arch
             ));
         }
-        (Platform::Android, arch, Opt::Debug) => {
-            artifacts.push(format!("android-{}/artifacts.zip", arch));
-        }
+        (Platform::Android, _, Opt::Debug) => {}
         (Platform::Android, arch, Opt::Release) => {
-            artifacts.push(format!("android-{}-release/artifacts.zip", arch));
             let host = Platform::host()?;
             let platform = if host == Platform::Macos {
                 "darwin".to_string()

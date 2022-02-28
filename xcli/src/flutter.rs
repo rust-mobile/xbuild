@@ -153,17 +153,7 @@ impl Flutter {
     ) -> Result<()> {
         let mut cmd = self.dart();
         cmd.current_dir(root_dir)
-            .arg(self.host_file(Path::new(exe!("frontend_server.dart.snapshot")))?)
-            .arg("--sdk-root")
-            .arg(
-                self.path
-                    .join("bin")
-                    .join("cache")
-                    .join("artifacts")
-                    .join("engine")
-                    .join("common")
-                    .join("flutter_patched_sdk"),
-            )
+            .arg(self.host_file(Path::new("frontend_server.dart.snapshot"))?)
             .arg("--target=flutter")
             .arg("--no-print-incremental-dependencies")
             .arg("--packages")
@@ -174,13 +164,17 @@ impl Flutter {
             .arg(depfile);
         match opt {
             Opt::Release => {
-                cmd.arg("-Ddart.vm.profile=false")
+                cmd.arg("--sdk-root")
+                    .arg(self.host_file(Path::new("flutter_patched_sdk_product"))?)
+                    .arg("-Ddart.vm.profile=false")
                     .arg("-Ddart.vm.product=true")
                     .arg("--aot")
                     .arg("--tfa");
             }
             Opt::Debug => {
-                cmd.arg("-Ddart.vm.profile=false")
+                cmd.arg("--sdk-root")
+                    .arg(self.host_file(Path::new("flutter_patched_sdk"))?)
+                    .arg("-Ddart.vm.profile=false")
                     .arg("-Ddart.vm.product=true")
                     .arg("--track-widget-creation");
             }
