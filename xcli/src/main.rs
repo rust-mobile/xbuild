@@ -10,8 +10,8 @@ use xapk::Apk;
 use xappimage::AppImage;
 use xcli::devices::Device;
 use xcli::flutter::Flutter;
-use xcli::maven::{FlutterEmbedding, FlutterEngine};
-use xcli::{exe, Arch, BuildArgs, BuildEnv, CompileTarget, Format, Opt, Platform};
+use xcli::maven::{FlutterEmbedding, FlutterEngine, R8};
+use xcli::{Arch, BuildArgs, BuildEnv, CompileTarget, Format, Opt, Platform};
 use xcommon::ZipFileOptions;
 use xmsix::Msix;
 
@@ -148,7 +148,7 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
         if env.target().platform() == Platform::Android {
             if engine_version_changed || !platform_dir.join("classes.dex").exists() {
                 println!("building classes.dex");
-                build_classes_dex(&env, &flutter, &platform_dir)?;
+                build_classes_dex(&env, &flutter, &platform_dir, env.target().opt())?;
             }
         }
         println!("building flutter_assets");
@@ -471,7 +471,12 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
     Ok(())
 }
 
-fn build_classes_dex(env: &BuildEnv, flutter: &Flutter, platform_dir: &Path) -> Result<()> {
+fn build_classes_dex(
+    env: &BuildEnv,
+    flutter: &Flutter,
+    platform_dir: &Path,
+    opt: Opt,
+) -> Result<()> {
     let engine_version = flutter.engine_version()?;
     let android_jar = env.android_jar()?;
     let flutter_embedding = FlutterEmbedding::new(env.target().opt(), &engine_version);
@@ -483,6 +488,8 @@ fn build_classes_dex(env: &BuildEnv, flutter: &Flutter, platform_dir: &Path) -> 
             path.extension() == Some("jar".as_ref()) || path.extension() == Some("aar".as_ref())
         })
         .collect::<Vec<_>>();
+    let r8 = R8::new(3, 1, 51);
+    let r8 = env.maven()?.package(&r8.package(), &r8.version())?;
 
     // build GeneratedPluginRegistrant
     let plugins = platform_dir.join("GeneratedPluginRegistrant.java");
@@ -515,18 +522,20 @@ fn build_classes_dex(env: &BuildEnv, flutter: &Flutter, platform_dir: &Path) -> 
         .join("flutter")
         .join("plugins")
         .join("GeneratedPluginRegistrant.class");
-    let status = env
-        .android_sdk()
-        .unwrap()
-        .build_tool(exe!("d8"))?
+    let mut java = Command::new("java");
+    java.arg("-cp")
+        .arg(r8)
+        .arg("com.android.tools.r8.R8")
         .args(deps)
         .arg(plugins)
         .arg("--lib")
         .arg(android_jar)
         .arg("--output")
-        .arg(platform_dir)
-        .status()?;
-    if !status.success() {
+        .arg(platform_dir);
+    if opt == Opt::Release {
+        java.arg("--release");
+    }
+    if !java.status()?.success() {
         anyhow::bail!("d8 exited with nonzero exit code.");
     }
     Ok(())
