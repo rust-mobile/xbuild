@@ -32,6 +32,9 @@ impl Flutter {
     }
 
     pub fn engine_version(&self) -> Result<String> {
+        if let Ok(version) = std::env::var("FLUTTER_ENGINE_VERSION") {
+            return Ok(version);
+        }
         Ok(std::fs::read_to_string(self.engine_version_path()?)?
             .trim()
             .into())
