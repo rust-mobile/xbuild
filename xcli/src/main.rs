@@ -517,6 +517,8 @@ fn build_classes_dex(
     }
 
     // build classes.dex
+    let pg = platform_dir.join("proguard-rules.pro");
+    std::fs::write(&pg, include_bytes!("../assets/proguard-rules.pro"))?;
     let plugins = java
         .join("io")
         .join("flutter")
@@ -531,12 +533,14 @@ fn build_classes_dex(
         .arg("--lib")
         .arg(android_jar)
         .arg("--output")
-        .arg(platform_dir);
+        .arg(platform_dir)
+        .arg("--pg-conf")
+        .arg(pg);
     if opt == Opt::Release {
         java.arg("--release");
     }
     if !java.status()?.success() {
-        anyhow::bail!("d8 exited with nonzero exit code.");
+        anyhow::bail!("`{:?}` exited with nonzero exit code.", java);
     }
     Ok(())
 }

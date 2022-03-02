@@ -3,7 +3,7 @@ use anyhow::Result;
 use pubgrub::range::Range;
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize)]
+#[derive(Default, Deserialize, Serialize)]
 #[serde(rename = "project")]
 pub struct Pom {
     packaging: Option<String>,
@@ -96,7 +96,7 @@ mod tests {
                 </dependencies>
             </project>"#;
         let pom: Pom = quick_xml::de::from_str(pom)?;
-        let deps = pom.dependencies().collect::<Vec<_>>();
+        let deps = pom.dependencies();
         assert_eq!(deps.len(), 1);
         assert_eq!(deps[0].package().group, "group");
         assert_eq!(deps[0].package().name, "name");
@@ -111,7 +111,7 @@ mod tests {
                 <dependencies/>
             </project>"#;
         let pom: Pom = quick_xml::de::from_str(pom)?;
-        let deps = pom.dependencies().collect::<Vec<_>>();
+        let deps = pom.dependencies();
         assert!(deps.is_empty());
         Ok(())
     }

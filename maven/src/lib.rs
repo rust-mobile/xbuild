@@ -41,7 +41,7 @@ impl Maven {
     }
 
     pub fn resolve(&self, package: Package, version: Version) -> Result<Vec<PathBuf>> {
-        pubgrub::solver::resolve(self, package, version)
+        Ok(pubgrub::solver::resolve(self, package, version)
             .map_err(|err| {
                 if let PubGrubError::NoSolution(mut tree) = err {
                     tree.collapse_no_versions();
@@ -51,8 +51,29 @@ impl Maven {
                 }
             })?
             .into_iter()
-            .map(|(package, version)| self.package(&package, &version))
-            .collect()
+            .filter_map(
+                |(package, version)| match self.package(&package, &version) {
+                    Ok(path) => {
+                        if let Ok(metadata) = self.metadata(&package) {
+                            log::info!(
+                                "selected {} {} (latest {}) (release {})",
+                                package,
+                                version,
+                                metadata.latest(),
+                                metadata.release(),
+                            );
+                        } else {
+                            log::info!("selected {} {}", package, version,);
+                        }
+                        Some(path)
+                    }
+                    Err(err) => {
+                        log::info!("{}", err);
+                        None
+                    }
+                },
+            )
+            .collect())
     }
 
     pub fn package(&self, package: &Package, version: &Version) -> Result<PathBuf> {
@@ -67,6 +88,18 @@ impl Maven {
                 .versions()
                 .into_iter()
                 .filter_map(|version| Version::from_str(version).ok())
+                .filter(|version| {
+                    if let Some(suffix) = version.suffix.as_ref() {
+                        if suffix.starts_with("alpha")
+                            || suffix.starts_with("beta")
+                            || suffix.starts_with("RC")
+                            || suffix.starts_with("M")
+                        {
+                            return false;
+                        }
+                    }
+                    true
+                })
                 .filter(|version| range.contains(&version))
                 .rev()
                 .collect(),
@@ -99,10 +132,18 @@ impl Maven {
     }
 
     fn pom(&self, artifact: Artifact) -> Result<Pom> {
-        let path = self.artifact(artifact, "pom")?;
-        let s = std::fs::read_to_string(path)?;
-        let pom = quick_xml::de::from_str(&s).map_err(|err| anyhow::anyhow!("{}: {}", err, s))?;
-        Ok(pom)
+        match self.artifact(artifact, "pom") {
+            Ok(path) => {
+                let s = std::fs::read_to_string(path)?;
+                let pom =
+                    quick_xml::de::from_str(&s).map_err(|err| anyhow::anyhow!("{}: {}", err, s))?;
+                Ok(pom)
+            }
+            Err(err) => {
+                log::info!("{}", err);
+                Ok(Default::default())
+            }
+        }
     }
 
     fn artifact(&self, artifact: Artifact, ext: &str) -> Result<PathBuf> {
@@ -118,7 +159,7 @@ impl Maven {
                 }
             }
             if !downloaded {
-                anyhow::bail!("artifact not found {}", artifact);
+                anyhow::bail!("artifact not found {} {}", artifact, ext);
             }
         }
         Ok(path)
@@ -158,7 +199,7 @@ impl DependencyProvider<Package, Version> for Maven {
         }
         let (p, v) = selected.expect("non empty iterator");
         let v = v.into_iter().next();
-        log::debug!("chose {} {:?}", p.borrow(), v);
+        //log::debug!("chose {} {:?} (latest {}) (release {})", p.borrow(), v);
         Ok((p, v))
     }
 
@@ -172,10 +213,10 @@ impl DependencyProvider<Package, Version> for Maven {
         let deps = pom
             .dependencies()
             .iter()
-            .filter(|dep| dep.scope().is_none() || dep.scope() == Some("compile"))
-            .map(|dep| Ok((dep.package(), dep.range().unwrap())))
-            .collect::<Result<_>>()?;
-        log::debug!("{} {} has deps {:?}", package, version, deps);
+            .filter(|dep| dep.scope() != Some("test"))
+            .map(|dep| (dep.package(), dep.range().unwrap()))
+            .collect();
+        //log::debug!("{} {} has deps {:?}", package, version, deps);
         Ok(Dependencies::Known(deps))
     }
 }

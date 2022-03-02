@@ -63,7 +63,7 @@ impl Device {
             adb.devices(&mut devices)?;
         }
         if let Ok(imd) = IMobileDevice::which() {
-            imd.devices(&mut devices)?;
+            imd.devices(&mut devices).ok();
         }
         Ok(devices)
     }

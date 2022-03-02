@@ -11,6 +11,13 @@ pub struct Package {
 }
 
 impl Package {
+    pub fn new(group: &str, name: &str) -> Self {
+        Self {
+            group: group.into(),
+            name: name.into(),
+        }
+    }
+
     pub fn file_name(&self) -> String {
         format!("{}-{}.metadata.xml", self.group, self.name)
     }

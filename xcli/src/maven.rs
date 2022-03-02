@@ -1,8 +1,7 @@
 use crate::Opt;
-use maven::{Package, Version};
 use xapk::Target;
 
-pub use maven::Maven;
+pub use maven::{Maven, Package, Version};
 
 pub const GOOGLE: &'static str = "https://maven.google.com";
 pub const FLUTTER: &'static str = "http://download.flutter.io";
