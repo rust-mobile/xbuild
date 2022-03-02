@@ -82,6 +82,7 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
                 "v0.1.0+1",
                 "Windows.sdk.tar.zst",
                 no_symlinks,
+                false,
             )?;
         }
     }
@@ -90,6 +91,7 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
         let macos_sdk = env.build_dir().join("MacOSX.sdk");
         if !macos_sdk.exists() {
             println!("downloading macos sdk");
+            let no_colons = cfg!(target_os = "windows");
             xcli::download::github_release_tar_zst(
                 env.build_dir(),
                 "cloudpeers",
@@ -97,6 +99,7 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
                 "v0.1.0+1",
                 "MacOSX.sdk.tar.zst",
                 false,
+                no_colons,
             )?;
         }
     }
@@ -105,6 +108,7 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
         let ios_sdk = env.build_dir().join("iPhoneOS.sdk");
         if !ios_sdk.exists() {
             println!("downloading ios sdk");
+            let no_colons = cfg!(target_os = "windows");
             xcli::download::github_release_tar_zst(
                 env.build_dir(),
                 "cloudpeers",
@@ -112,6 +116,7 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
                 "v0.1.0+1",
                 "iPhoneOS.sdk.tar.zst",
                 false,
+                no_colons,
             )?;
         }
     }

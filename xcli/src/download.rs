@@ -6,6 +6,17 @@ use std::path::Path;
 use tar::{Archive, Builder, EntryType};
 use zstd::Decoder;
 
+/// Unpacks a github archive with some compatibility options.
+///
+/// no_symlinks:
+///   the windows sdk contains symlinks for case sensitive
+///   filesystems. on case sensitive file systems skip the
+///   symlinks
+///
+/// no_colons:
+///   the macos sdk contains man pages. man pages contain
+///   colons in the file names. on windows it's an invalid
+///   file name character, so we skip file names with colons.
 pub fn github_release_tar_zst(
     out: &Path,
     org: &str,
@@ -13,6 +24,7 @@ pub fn github_release_tar_zst(
     version: &str,
     artifact: &str,
     no_symlinks: bool,
+    no_colons: bool,
 ) -> Result<()> {
     let url = format!(
         "https://github.com/{}/{}/releases/download/{}/{}",
@@ -24,14 +36,18 @@ pub fn github_release_tar_zst(
         anyhow::bail!("GET {} returned status code {}", url, resp.status());
     }
     let mut archive = Archive::new(Decoder::new(resp)?);
-    if no_symlinks {
+    if no_symlinks || no_colons {
         let mut buf = vec![];
         let mut builder = Builder::new(&mut buf);
         for entry in archive.entries()? {
             let entry = entry?;
-            if entry.header().entry_type() != EntryType::Symlink {
-                builder.append_entry(entry)?;
+            if no_symlinks && entry.header().entry_type() == EntryType::Symlink {
+                continue;
             }
+            if no_colons && entry.header().path()?.to_str().unwrap().contains(':') {
+                continue;
+            }
+            builder.append_entry(entry)?;
         }
         builder.into_inner()?;
         Archive::new(&*buf).unpack(out)?;
