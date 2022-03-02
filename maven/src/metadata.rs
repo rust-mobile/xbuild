@@ -8,6 +8,14 @@ pub struct Metadata {
 }
 
 impl Metadata {
+    pub fn latest(&self) -> &str {
+        &self.versioning.latest
+    }
+
+    pub fn release(&self) -> &str {
+        &self.versioning.release
+    }
+
     pub fn versions(&self) -> &[String] {
         &self.versioning.versions.versions
     }
@@ -15,6 +23,8 @@ impl Metadata {
 
 #[derive(Deserialize, Serialize)]
 struct Versioning {
+    latest: String,
+    release: String,
     #[serde(rename = "$unflatten=versions")]
     versions: Versions,
 }
@@ -51,6 +61,8 @@ mod tests {
         assert_eq!(meta.versions().len(), 2);
         assert_eq!(meta.versions()[0], "a");
         assert_eq!(meta.versions()[1], "b");
+        assert_eq!(meta.latest(), "b");
+        assert_eq!(meta.release(), "b");
         Ok(())
     }
 }
