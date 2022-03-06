@@ -187,6 +187,7 @@ jobs:
         path: target/x/debug/macos/x64/${{ matrix.artifact }}.app.tar.zst
 
   build-windows-latest-macos-x64-debug:
+    if: false
     strategy:
       fail-fast: false
       matrix:
@@ -481,14 +482,14 @@ jobs:
         task:
         - ubuntu-latest-macos-x64-debug
         - macos-latest-macos-x64-debug
-        - windows-latest-macos-x64-debug
+        #- windows-latest-macos-x64-debug
         artifact: [helloworld]
     runs-on: macos-latest
     needs:
     - build-macos-latest
     - build-ubuntu-latest-macos-x64-debug
     - build-macos-latest-macos-x64-debug
-    - build-windows-latest-macos-x64-debug
+    #- build-windows-latest-macos-x64-debug
     steps:
     - uses: actions/download-artifact@v2
       with:
