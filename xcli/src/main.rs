@@ -189,7 +189,7 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
     // env.cargo_build(target)?.exec()?;
     //}
 
-    if env.target().platform() != Platform::Android && env.target().platform() != Platform::Ios {
+    if env.flutter().is_none() ||  env.target().platform() != Platform::Android || env.target().platform() != Platform::Ios {
         for target in env.target().compile_targets() {
             println!("building rust binary for {}", target);
             let arch_dir = platform_dir.join(target.arch().to_string());
@@ -397,6 +397,9 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
                 }
                 build_ios_main(&env, flutter, &arch_dir, target)?;
                 app.add_executable(&arch_dir.join("main"))?;
+            } else {
+                let main = env.cargo_artefact(&arch_dir.join("cargo"), target)?;
+                app.add_executable(&main)?;
             }
             app.add_provisioning_profile(env.target().provisioning_profile().unwrap())?;
             app.finish(env.target().signer().cloned())?
