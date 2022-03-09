@@ -658,6 +658,12 @@ impl BuildEnv {
                 cargo.use_macos_sdk(&sdk, minimum_version)?;
             }
         }
+        if target.platform() == Platform::Ios {
+            let sdk = self.build_dir().join("iPhoneOS.sdk");
+            if sdk.exists() {
+                cargo.use_ios_sdk(&sdk)?;
+            }
+        }
         if let Some(flutter) = self.flutter() {
             match self.target().platform() {
                 Platform::Linux => {

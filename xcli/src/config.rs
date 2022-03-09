@@ -92,6 +92,7 @@ impl Config {
 
     pub fn android_manifest(&self, sdk: &AndroidSdk) -> Result<AndroidManifest> {
         let mut manifest = self.apk.manifest.clone();
+        manifest.application.label = self.name.clone();
         manifest.version_name = Some(self.version.clone());
         manifest.version_code = Some(VersionCode::from_semver(&self.version)?.to_code(1));
         manifest
@@ -103,6 +104,7 @@ impl Config {
 
     pub fn info_plist(&self) -> Result<InfoPlist> {
         let mut info = self.appbundle.info.clone();
+        info.name = self.name.clone();
         info.short_version = Some(self.version.clone());
         info.minimum_system_version = Some("10.11".to_string());
         Ok(info)

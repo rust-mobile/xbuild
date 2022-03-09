@@ -208,6 +208,18 @@ impl CargoBuild {
         Ok(())
     }
 
+    pub fn use_ios_sdk(&mut self, path: &Path) -> Result<()> {
+        let path = dunce::canonicalize(path)?;
+        self.cmd.env("SDKROOT", &path);
+        self.cfg_tool(Tool::Cc, "clang");
+        self.cfg_tool(Tool::Cxx, "clang++");
+        self.cfg_tool(Tool::Ar, "llvm-ar");
+        self.cfg_tool(Tool::Linker, "clang");
+        self.use_ld("lld");
+        self.set_sysroot(&path);
+        Ok(())
+    }
+
     pub fn cfg_tool<P: AsRef<Path>>(&mut self, tool: Tool, path: P) {
         match tool {
             Tool::Cc | Tool::Cxx | Tool::Ar => {
