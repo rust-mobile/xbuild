@@ -74,7 +74,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        artifact: [helloworld-flutter, raqote-winit]
+        artifact: [helloworld, raqote-winit]
     runs-on: ubuntu-latest
     needs: build-ubuntu-latest
     steps:
@@ -109,7 +109,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        artifact: [helloworld-flutter, raqote-winit]
+        artifact: [helloworld, raqote-winit]
     runs-on: ubuntu-latest
     needs: build-ubuntu-latest
     steps:
@@ -138,7 +138,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        artifact: [helloworld-flutter, raqote-winit]
+        artifact: [helloworld, raqote-winit]
     runs-on: ubuntu-latest
     needs: build-ubuntu-latest
     steps:
@@ -168,7 +168,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        artifact: [helloworld-flutter, raqote-winit]
+        artifact: [helloworld, raqote-winit]
     runs-on: macos-latest
     needs: build-macos-latest
     steps:
@@ -195,7 +195,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        artifact: [helloworld-flutter, raqote-winit]
+        artifact: [helloworld, raqote-winit]
     runs-on: windows-latest
     needs: build-windows-latest
     steps:
@@ -224,7 +224,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        artifact: [helloworld-flutter, raqote-winit]
+        artifact: [helloworld, raqote-winit]
     runs-on: macos-latest
     needs: build-macos-latest
     steps:
@@ -252,7 +252,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        artifact: [helloworld-flutter, raqote-winit]
+        artifact: [helloworld, raqote-winit]
     runs-on: ubuntu-latest
     needs: build-ubuntu-latest
     steps:
@@ -281,7 +281,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        artifact: [helloworld-flutter, raqote-winit]
+        artifact: [helloworld, raqote-winit]
     runs-on: macos-latest
     needs: build-macos-latest
     steps:
@@ -311,7 +311,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        artifact: [helloworld-flutter, raqote-winit]
+        artifact: [helloworld, raqote-winit]
     runs-on: windows-latest
     needs: build-windows-latest
     steps:
@@ -338,7 +338,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        artifact: [helloworld-flutter, raqote-winit]
+        artifact: [helloworld, raqote-winit]
     runs-on: windows-latest
     needs: build-windows-latest
     steps:
@@ -365,7 +365,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        artifact: [helloworld-flutter, raqote-winit]
+        artifact: [helloworld, raqote-winit]
         opt: [debug, release]
     runs-on: ubuntu-latest
     needs: build-ubuntu-latest
@@ -394,7 +394,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        artifact: [helloworld-flutter, raqote-winit]
+        artifact: [helloworld, raqote-winit]
         opt: [debug, release]
     runs-on: macos-latest
     needs: build-macos-latest
@@ -423,7 +423,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        artifact: [helloworld-flutter, raqote-winit]
+        artifact: [helloworld, raqote-winit]
         opt: [debug, release]
     runs-on: windows-latest
     needs: build-windows-latest
@@ -467,7 +467,7 @@ jobs:
       fail-fast: false
       matrix:
         task: [ubuntu-latest-linux-x64-debug]
-        artifact: [helloworld-flutter, raqote-winit]
+        artifact: [helloworld, raqote-winit]
     runs-on: ubuntu-latest
     needs: [build-ubuntu-latest, build-ubuntu-latest-linux-x64-debug]
     steps:
@@ -496,7 +496,7 @@ jobs:
         - ubuntu-latest-macos-x64-debug
         - macos-latest-macos-x64-debug
         #- windows-latest-macos-x64-debug
-        artifact: [helloworld-flutter, raqote-winit]
+        artifact: [helloworld, raqote-winit]
     runs-on: macos-latest
     needs:
     - build-macos-latest
@@ -526,7 +526,7 @@ jobs:
         - ubuntu-latest-windows-x64-debug
         - macos-latest-windows-x64-debug
         - windows-latest-windows-x64-debug
-        artifact: [helloworld-flutter, raqote-winit]
+        artifact: [helloworld, raqote-winit]
     runs-on: windows-latest
     needs:
     - build-windows-latest
