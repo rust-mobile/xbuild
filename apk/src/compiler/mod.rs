@@ -11,8 +11,8 @@ mod xml;
 
 pub use table::Table;
 
-pub fn compile_manifest(manifest: AndroidManifest, table: &Table) -> Result<Chunk> {
-    let xml = quick_xml::se::to_string(&manifest)?;
+pub fn compile_manifest(manifest: &AndroidManifest, table: &Table) -> Result<Chunk> {
+    let xml = quick_xml::se::to_string(manifest)?;
     xml::compile_xml(&xml, &table)
 }
 

@@ -8,6 +8,7 @@ use std::process::Command;
 use xapk::zip::read::ZipArchive;
 use xapk::Apk;
 use xappimage::AppImage;
+use xcli::cargo::CrateType;
 use xcli::devices::Device;
 use xcli::flutter::Flutter;
 use xcli::maven::{FlutterEmbedding, FlutterEngine, R8};
@@ -189,7 +190,10 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
     // env.cargo_build(target)?.exec()?;
     //}
 
-    if env.flutter().is_none() ||  env.target().platform() != Platform::Android || env.target().platform() != Platform::Ios {
+    if env.flutter().is_none()
+        || env.target().platform() != Platform::Android
+        || env.target().platform() != Platform::Ios
+    {
         for target in env.target().compile_targets() {
             println!("building rust binary for {}", target);
             let arch_dir = platform_dir.join(target.arch().to_string());
@@ -242,7 +246,7 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
                 }
             }
 
-            let main = env.cargo_artefact(&arch_dir.join("cargo"), target)?;
+            let main = env.cargo_artefact(&arch_dir.join("cargo"), target, CrateType::Bin)?;
             appimage.add_file(&main, Path::new(env.name()))?;
 
             if target.opt() == Opt::Release {
@@ -255,12 +259,8 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
         }
         Format::Apk => {
             let out = platform_dir.join(format!("{}.apk", env.name()));
-            let mut apk = Apk::new(out.clone())?;
-            apk.add_res(
-                env.android_manifest().unwrap().clone(),
-                env.icon(),
-                &env.android_jar()?,
-            )?;
+            let mut apk = Apk::new(out.clone(), env.manifest().android().clone())?;
+            apk.add_res(env.icon(), &env.android_jar()?)?;
             if let Some(flutter) = env.flutter() {
                 // add libflutter.so
                 let engine_version = flutter.engine_version()?;
@@ -314,6 +314,13 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
                         }
                     }
                 }
+            } else {
+                for target in env.target().compile_targets() {
+                    let arch_dir = platform_dir.join(target.arch().to_string());
+                    let lib =
+                        env.cargo_artefact(&arch_dir.join("cargo"), target, CrateType::Cdylib)?;
+                    apk.add_lib(target.android_abi()?, &lib)?;
+                }
             }
             apk.finish(env.target().signer().cloned())?;
             out
@@ -322,7 +329,7 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
             let target = env.target().compile_targets().next().unwrap();
             let arch_dir = platform_dir.join(target.arch().to_string());
             std::fs::create_dir_all(&arch_dir)?;
-            let mut app = AppBundle::new(&arch_dir, env.info_plist().unwrap().clone())?;
+            let mut app = AppBundle::new(&arch_dir, env.manifest().macos().clone())?;
             if let Some(icon) = env.icon() {
                 app.add_icon(icon)?;
             }
@@ -347,7 +354,7 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
                     }
                 }
             }
-            let main = env.cargo_artefact(&arch_dir.join("cargo"), target)?;
+            let main = env.cargo_artefact(&arch_dir.join("cargo"), target, CrateType::Bin)?;
             app.add_executable(&main)?;
             let appdir = app.finish(env.target().signer().cloned())?;
             if target.opt() == Opt::Release {
@@ -362,10 +369,7 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
             let target = env.target().compile_targets().next().unwrap();
             let arch_dir = platform_dir.join(target.arch().to_string());
             std::fs::create_dir_all(&arch_dir)?;
-            let mut info_plist = env.info_plist().unwrap().clone();
-            info_plist.requires_ios = Some(true);
-            info_plist.minimum_system_version = None;
-            let mut app = AppBundle::new(&arch_dir, info_plist)?;
+            let mut app = AppBundle::new(&arch_dir, env.manifest().ios().clone())?;
             // TODO:
             /*if let Some(icon) = env.icon() {
                 app.add_icon(icon)?;
@@ -398,7 +402,7 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
                 build_ios_main(&env, flutter, &arch_dir, target)?;
                 app.add_executable(&arch_dir.join("main"))?;
             } else {
-                let main = env.cargo_artefact(&arch_dir.join("cargo"), target)?;
+                let main = env.cargo_artefact(&arch_dir.join("cargo"), target, CrateType::Bin)?;
                 app.add_executable(&main)?;
             }
             app.add_provisioning_profile(env.target().provisioning_profile().unwrap())?;
@@ -409,8 +413,7 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
             let arch_dir = platform_dir.join(target.arch().to_string());
             std::fs::create_dir_all(&arch_dir)?;
             let out = arch_dir.join(format!("{}.msix", env.name()));
-            let mut msix = Msix::new(out.clone())?;
-            msix.add_manifest(env.appx_manifest().unwrap())?;
+            let mut msix = Msix::new(out.clone(), env.manifest().windows().clone())?;
             if let Some(icon) = env.icon() {
                 msix.add_icon(icon)?;
             }
@@ -451,7 +454,7 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
                     }
                 }
             }
-            let main = env.cargo_artefact(&arch_dir.join("cargo"), target)?;
+            let main = env.cargo_artefact(&arch_dir.join("cargo"), target, CrateType::Bin)?;
             msix.add_file(
                 &main,
                 format!("{}.exe", env.name()).as_ref(),

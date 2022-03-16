@@ -27,7 +27,10 @@ pub struct AppBundle {
 
 impl AppBundle {
     pub fn new(build_dir: &Path, info: InfoPlist) -> Result<Self> {
-        let appdir = build_dir.join(format!("{}.app", &info.name));
+        if info.name.is_none() {
+            anyhow::bail!("missing info.name");
+        }
+        let appdir = build_dir.join(format!("{}.app", info.name.as_ref().unwrap()));
         std::fs::remove_dir_all(&appdir).ok();
         std::fs::create_dir_all(&appdir)?;
         Ok(Self {

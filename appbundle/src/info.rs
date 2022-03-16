@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 pub struct InfoPlist {
     /// A user-visible short name for the bundle.
     #[serde(rename(serialize = "CFBundleName"))]
-    pub name: String,
+    pub name: Option<String>,
     /// The user-visible name for the bundle, used by Siri and visible
     /// on the iOS Home screen.
     #[serde(rename(serialize = "CFBundleDisplayName"))]

@@ -66,29 +66,29 @@ pub struct Dependencies {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Identity {
     #[serde(rename(serialize = "Name"))]
-    name: String,
+    pub name: Option<String>,
     #[serde(rename(serialize = "Version"))]
-    version: String,
+    pub version: Option<String>,
     #[serde(rename(serialize = "Publisher"))]
-    publisher: String,
+    pub publisher: Option<String>,
     #[serde(rename(serialize = "ProcessorArchitecture"))]
-    processor_architecture: String,
+    pub processor_architecture: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Properties {
     #[serde(rename(serialize = "DisplayName"))]
     #[serde(serialize_with = "serialize_element")]
-    display_name: String,
+    pub display_name: Option<String>,
     #[serde(rename(serialize = "PublisherDisplayName"))]
     #[serde(serialize_with = "serialize_element")]
-    publisher_display_name: String,
+    pub publisher_display_name: Option<String>,
     #[serde(rename(serialize = "Logo"))]
     #[serde(serialize_with = "serialize_element")]
-    logo: String,
+    pub logo: Option<String>,
     #[serde(rename(serialize = "Description"))]
     #[serde(serialize_with = "serialize_element")]
-    description: String,
+    pub description: Option<String>,
 }
 
 fn serialize_element<S>(value: &impl Serialize, serializer: S) -> Result<S::Ok, S::Error>
@@ -103,26 +103,17 @@ where
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Resource {
     #[serde(rename(serialize = "Language"))]
-    #[serde(default = "default_language")]
-    language: String,
-}
-
-impl Default for Resource {
-    fn default() -> Self {
-        Self {
-            language: default_language(),
-        }
-    }
+    pub language: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct TargetDeviceFamily {
     #[serde(rename(serialize = "Name"))]
-    name: String,
+    pub name: String,
     #[serde(rename(serialize = "MinVersion"))]
-    min_version: String,
+    pub min_version: String,
     #[serde(rename(serialize = "MaxVersionTested"))]
-    max_version: String,
+    pub max_version: String,
 }
 
 impl Default for TargetDeviceFamily {
@@ -160,11 +151,11 @@ pub enum Capability {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Application {
     #[serde(rename(serialize = "Id"))]
-    pub id: String,
+    pub id: Option<String>,
     #[serde(rename(serialize = "Executable"))]
-    pub executable: String,
+    pub executable: Option<String>,
     #[serde(rename(serialize = "EntryPoint"))]
-    pub entry_point: String,
+    pub entry_point: Option<String>,
     #[serde(rename(serialize = "uap:VisualElements"))]
     pub visual_elements: VisualElements,
 }
@@ -172,33 +163,33 @@ pub struct Application {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct VisualElements {
     #[serde(rename(serialize = "BackgroundColor"))]
-    pub background_color: String,
+    pub background_color: Option<String>,
     #[serde(rename(serialize = "DisplayName"))]
-    pub display_name: String,
+    pub display_name: Option<String>,
     #[serde(rename(serialize = "Description"))]
-    pub description: String,
+    pub description: Option<String>,
     #[serde(rename(serialize = "Square150x150Logo"))]
-    pub logo_150x150: String,
+    pub logo_150x150: Option<String>,
     #[serde(rename(serialize = "Square44x44Logo"))]
-    pub logo_44x44: String,
+    pub logo_44x44: Option<String>,
     #[serde(rename(serialize = "uap:DefaultTile"))]
-    pub default_tile: DefaultTile,
+    pub default_tile: Option<DefaultTile>,
     #[serde(rename(serialize = "uap:SplashScreen"))]
-    pub splash_screen: SplashScreen,
+    pub splash_screen: Option<SplashScreen>,
     #[serde(rename(serialize = "uap:LockScreen"))]
-    pub lock_screen: LockScreen,
+    pub lock_screen: Option<LockScreen>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct DefaultTile {
     #[serde(rename(serialize = "ShortName"))]
-    pub short_name: String,
+    pub short_name: Option<String>,
     #[serde(rename(serialize = "Square71x71Logo"))]
-    pub logo_71x71: String,
+    pub logo_71x71: Option<String>,
     #[serde(rename(serialize = "Square310x310Logo"))]
-    pub logo_310x310: String,
+    pub logo_310x310: Option<String>,
     #[serde(rename(serialize = "Wide310x150Logo"))]
-    pub logo_310x150: String,
+    pub logo_310x150: Option<String>,
     #[serde(rename(serialize = "uap:ShowNameOnTiles"))]
     pub show_names_on_tiles: ShowNameOnTiles,
 }
@@ -226,7 +217,6 @@ pub struct LockScreen {
     #[serde(rename(serialize = "BadgeLogo"))]
     pub badge_logo: String,
     #[serde(rename(serialize = "Notification"))]
-    #[serde(default = "lock_screen_notification")]
     pub notification: String,
 }
 
@@ -241,14 +231,6 @@ fn default_uap_namespace() -> String {
 fn default_rescap_namespace() -> String {
     "http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
         .to_string()
-}
-
-fn default_language() -> String {
-    "en-us".to_string()
-}
-
-fn lock_screen_notification() -> String {
-    "badge".to_string()
 }
 
 #[cfg(test)]
