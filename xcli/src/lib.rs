@@ -1,16 +1,13 @@
 use crate::android::{AndroidNdk, AndroidSdk};
 use crate::cargo::{Cargo, CargoBuild, CrateType};
-use crate::config::Config;
+use crate::config::{Config, Manifest};
 use crate::devices::Device;
 use crate::flutter::Flutter;
 use crate::maven::Maven;
 use anyhow::Result;
-use appbundle::InfoPlist;
 use clap::Parser;
 use std::path::{Path, PathBuf};
-use xapk::AndroidManifest;
 use xcommon::Signer;
-use xmsix::AppxManifest;
 
 #[macro_export]
 macro_rules! exe {
@@ -492,9 +489,7 @@ pub struct BuildEnv {
     target_file: PathBuf,
     cargo: Cargo,
     pubspec: PathBuf,
-    android_manifest: Option<AndroidManifest>,
-    appx_manifest: Option<AppxManifest>,
-    info_plist: Option<InfoPlist>,
+    manifest: Manifest,
     flutter: Option<Flutter>,
     android_sdk: Option<AndroidSdk>,
     android_ndk: Option<AndroidNdk>,
@@ -511,10 +506,14 @@ impl BuildEnv {
         } else {
             None
         };
-        let config = if flutter.is_some() {
-            Config::parse(&pubspec)?
+        let (config, mut manifest) = if flutter.is_some() {
+            let config = &pubspec;
+            let manifest = config.parent().unwrap().join("manifest.yaml");
+            (Config::pubspec_yaml(&pubspec)?, Manifest::parse(&manifest)?)
         } else {
-            Config::parse(cargo.manifest())?
+            let config = cargo.manifest();
+            let manifest = config.parent().unwrap().join("manifest.yaml");
+            (Config::cargo_toml(config)?, Manifest::parse(&manifest)?)
         };
         let android_sdk = if build_target.platform() == Platform::Android {
             Some(AndroidSdk::from_env()?)
@@ -522,26 +521,10 @@ impl BuildEnv {
             None
         };
         let android_ndk = android_sdk.as_ref().map(AndroidNdk::from_env).transpose()?;
-        let android_manifest = if let Some(sdk) = android_sdk.as_ref() {
-            Some(config.android_manifest(&sdk)?)
-        } else {
-            None
-        };
-        let appx_manifest = if build_target.platform() == Platform::Windows {
-            Some(config.appx_manifest()?)
-        } else {
-            None
-        };
-        let info_plist = if build_target.platform() == Platform::Macos
-            || build_target.platform() == Platform::Ios
-        {
-            Some(config.info_plist()?)
-        } else {
-            None
-        };
-        let target_file = config.target_file(cargo.root_dir(), build_target.platform());
-        let icon = config
-            .icon(build_target.format())
+        manifest.apply_config(&config, build_target.opt(), android_sdk.as_ref());
+        let target_file = manifest.target_file(cargo.root_dir(), build_target.platform());
+        let icon = manifest
+            .icon(build_target.platform())
             .map(|icon| cargo.root_dir().join(icon));
         let name = config.name;
         Ok(Self {
@@ -554,9 +537,7 @@ impl BuildEnv {
             flutter,
             android_sdk,
             android_ndk,
-            android_manifest,
-            appx_manifest,
-            info_plist,
+            manifest,
             build_dir,
         })
     }
@@ -609,24 +590,12 @@ impl BuildEnv {
         self.android_ndk.as_ref()
     }
 
-    pub fn android_manifest(&self) -> Option<&AndroidManifest> {
-        self.android_manifest.as_ref()
-    }
-
-    pub fn appx_manifest(&self) -> Option<&AppxManifest> {
-        self.appx_manifest.as_ref()
-    }
-
-    pub fn info_plist(&self) -> Option<&InfoPlist> {
-        self.info_plist.as_ref()
+    pub fn manifest(&self) -> &Manifest {
+        &self.manifest
     }
 
     fn target_sdk_version(&self) -> u32 {
-        self.android_manifest()
-            .unwrap()
-            .sdk
-            .target_sdk_version
-            .unwrap()
+        self.manifest().android().sdk.target_sdk_version.unwrap()
     }
 
     pub fn android_jar(&self) -> Result<PathBuf> {
@@ -650,8 +619,8 @@ impl BuildEnv {
             let sdk = self.build_dir().join("MacOSX.sdk");
             if sdk.exists() {
                 let minimum_version = self
-                    .info_plist()
-                    .unwrap()
+                    .manifest()
+                    .macos()
                     .minimum_system_version
                     .as_ref()
                     .unwrap();
@@ -681,9 +650,13 @@ impl BuildEnv {
         Ok(cargo)
     }
 
-    pub fn cargo_artefact(&self, target_dir: &Path, target: CompileTarget) -> Result<PathBuf> {
-        self.cargo
-            .artifact(target_dir, target, None, CrateType::Bin)
+    pub fn cargo_artefact(
+        &self,
+        target_dir: &Path,
+        target: CompileTarget,
+        crate_type: CrateType,
+    ) -> Result<PathBuf> {
+        self.cargo.artifact(target_dir, target, None, crate_type)
     }
 
     pub fn maven(&self) -> Result<Maven> {

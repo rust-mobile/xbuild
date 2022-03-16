@@ -33,24 +33,18 @@ const IMAGES: [(&str, (u32, u32), f32); 8] = [
 ];
 
 pub struct Msix {
+    manifest: AppxManifest,
     path: PathBuf,
     zip: Zip,
 }
 
 impl Msix {
-    pub fn new(path: PathBuf) -> Result<Self> {
+    pub fn new(path: PathBuf, manifest: AppxManifest) -> Result<Self> {
         Ok(Self {
+            manifest,
             zip: Zip::new(&path)?,
             path,
         })
-    }
-
-    pub fn add_manifest(&mut self, manifest: &AppxManifest) -> Result<()> {
-        self.zip.create_file(
-            "AppxManifest.xml".as_ref(),
-            ZipFileOptions::Compressed,
-            &to_xml(manifest, true),
-        )
     }
 
     pub fn add_icon(&mut self, path: &Path) -> Result<()> {
@@ -82,7 +76,12 @@ impl Msix {
         self.zip.add_directory(source, dest)
     }
 
-    pub fn finish(self, signer: Option<Signer>) -> Result<()> {
+    pub fn finish(mut self, signer: Option<Signer>) -> Result<()> {
+        self.zip.create_file(
+            "AppxManifest.xml".as_ref(),
+            ZipFileOptions::Compressed,
+            &to_xml(&self.manifest, true),
+        )?;
         self.zip.finish()?;
         Self::sign(&self.path, signer)
     }

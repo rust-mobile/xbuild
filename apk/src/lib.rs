@@ -18,19 +18,19 @@ pub use xcommon::{Certificate, Signer};
 pub use zip;
 
 pub struct Apk {
+    manifest: AndroidManifest,
     path: PathBuf,
     zip: Zip,
 }
 
 impl Apk {
-    pub fn new(path: PathBuf) -> Result<Self> {
+    pub fn new(path: PathBuf, manifest: AndroidManifest) -> Result<Self> {
         let zip = Zip::new(&path)?;
-        Ok(Self { path, zip })
+        Ok(Self { manifest, path, zip })
     }
 
     pub fn add_res(
         &mut self,
-        mut manifest: AndroidManifest,
         icon: Option<&Path>,
         android: &Path,
     ) -> Result<()> {
@@ -40,7 +40,12 @@ impl Apk {
         if let Some(path) = icon {
             let mut scaler = Scaler::open(path)?;
             scaler.optimize();
-            let mipmap = crate::compiler::compile_mipmap(&manifest.package, "icon")?;
+            let package = if let Some(package) = self.manifest.package.as_ref() {
+                package
+            } else {
+                anyhow::bail!("missing manifest.package");
+            };
+            let mipmap = crate::compiler::compile_mipmap(package, "icon")?;
 
             let mut cursor = Cursor::new(&mut buf);
             mipmap.chunk().write(&mut cursor)?;
@@ -59,9 +64,9 @@ impl Apk {
             }
 
             table.import_chunk(mipmap.chunk());
-            manifest.application.icon = Some("@mipmap/icon".into());
+            self.manifest.application.icon = Some("@mipmap/icon".into());
         }
-        let manifest = crate::compiler::compile_manifest(manifest, &table)?;
+        let manifest = crate::compiler::compile_manifest(&self.manifest, &table)?;
         buf.clear();
         let mut cursor = Cursor::new(&mut buf);
         manifest.write(&mut cursor)?;

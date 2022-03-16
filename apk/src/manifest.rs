@@ -8,8 +8,7 @@ pub struct AndroidManifest {
     #[serde(rename(serialize = "xmlns:android"))]
     #[serde(default = "default_namespace")]
     ns_android: String,
-    #[serde(default)]
-    pub package: String,
+    pub package: Option<String>,
     #[serde(rename(serialize = "android:versionCode"))]
     pub version_code: Option<u32>,
     #[serde(rename(serialize = "android:versionName"))]
@@ -22,19 +21,12 @@ pub struct AndroidManifest {
     pub platform_build_version_code: Option<u32>,
     #[serde(rename(serialize = "platformBuildVersionName"))]
     pub platform_build_version_name: Option<u32>,
-
     #[serde(rename(serialize = "uses-sdk"))]
-    #[serde(default)]
     pub sdk: Sdk,
-
     #[serde(rename(serialize = "uses-feature"))]
-    #[serde(default)]
     pub uses_feature: Vec<Feature>,
     #[serde(rename(serialize = "uses-permission"))]
-    #[serde(default)]
     pub uses_permission: Vec<Permission>,
-
-    #[serde(default)]
     pub application: Application,
 }
 
@@ -75,31 +67,25 @@ pub struct Application {
     #[serde(rename(serialize = "android:icon"))]
     pub icon: Option<String>,
     #[serde(rename(serialize = "android:label"))]
-    #[serde(default)]
-    pub label: String,
+    pub label: Option<String>,
     #[serde(rename(serialize = "android:appComponentFactory"))]
     pub app_component_factory: Option<String>,
-
     #[serde(rename(serialize = "meta-data"))]
-    #[serde(default)]
     pub meta_data: Vec<MetaData>,
-    #[serde(default)]
-    pub activity: Activity,
+    pub activity: Vec<Activity>,
 }
 
 /// Android [activity element](https://developer.android.com/guide/topics/manifest/activity-element).
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Activity {
     #[serde(rename(serialize = "android:configChanges"))]
-    #[serde(default = "default_config_changes")]
     pub config_changes: Option<String>,
     #[serde(rename(serialize = "android:label"))]
     pub label: Option<String>,
     #[serde(rename(serialize = "android:launchMode"))]
     pub launch_mode: Option<String>,
     #[serde(rename(serialize = "android:name"))]
-    #[serde(default = "default_activity_name")]
-    pub name: String,
+    pub name: Option<String>,
     #[serde(rename(serialize = "android:screenOrientation"))]
     pub orientation: Option<String>,
     #[serde(rename(serialize = "android:windowSoftInputMode"))]
@@ -108,32 +94,12 @@ pub struct Activity {
     pub exported: Option<bool>,
     #[serde(rename(serialize = "android:hardwareAccelerated"))]
     pub hardware_accelerated: Option<bool>,
-
     #[serde(rename(serialize = "meta-data"))]
-    #[serde(default)]
     pub meta_data: Vec<MetaData>,
     /// If no `MAIN` action exists in any intent filter, a default `MAIN` filter is serialized.
     #[serde(serialize_with = "serialize_intents")]
     #[serde(rename(serialize = "intent-filter"))]
-    #[serde(default)]
     pub intent_filter: Vec<IntentFilter>,
-}
-
-impl Default for Activity {
-    fn default() -> Self {
-        Self {
-            config_changes: default_config_changes(),
-            label: None,
-            launch_mode: None,
-            name: default_activity_name(),
-            orientation: None,
-            meta_data: Default::default(),
-            intent_filter: Default::default(),
-            window_soft_input_mode: Default::default(),
-            exported: Default::default(),
-            hardware_accelerated: Default::default(),
-        }
-    }
 }
 
 fn serialize_intents<S>(intent_filters: &[IntentFilter], serializer: S) -> Result<S::Ok, S::Error>
@@ -288,7 +254,7 @@ where
 }
 
 /// Android [uses-permission element](https://developer.android.com/guide/topics/manifest/uses-permission-element).
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Permission {
     #[serde(rename(serialize = "android:name"))]
     pub name: String,
@@ -319,12 +285,4 @@ impl Default for Sdk {
 
 fn default_namespace() -> String {
     "http://schemas.android.com/apk/res/android".to_string()
-}
-
-fn default_activity_name() -> String {
-    "android.app.NativeActivity".to_string()
-}
-
-fn default_config_changes() -> Option<String> {
-    Some("orientation|keyboardHidden|screenSize".to_string())
 }
