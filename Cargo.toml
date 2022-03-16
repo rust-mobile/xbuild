@@ -3,12 +3,10 @@ members = [
     "apk",
     "appbundle",
     "appimage",
-    "examples/flutter",
-    #"examples/rust",
     "maven",
     "msix",
     "xcli",
     "xcommon",
 ]
 default-members = ["xcli"]
-exclude = ["examples/raqote-winit"]
+exclude = ["examples"]

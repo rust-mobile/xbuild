@@ -74,7 +74,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        artifact: [helloworld]
+        artifact: [helloworld-flutter, raqote-winit]
     runs-on: ubuntu-latest
     needs: build-ubuntu-latest
     steps:
@@ -88,13 +88,14 @@ jobs:
         targets: x86_64-unknown-linux-gnu
     - uses: subosito/flutter-action@v1
     - run: chmod +x ./x
-    - run: ./x build -p ${{ matrix.artifact }} --platform linux --arch x64
+    - run: ../../x build --platform linux --arch x64
+      working-directory: examples/${{ matrix.artifact }}
     - run: tar --zstd -cf ${{ matrix.artifact }}.AppDir.tar.zst ${{ matrix.artifact }}.AppDir
-      working-directory: target/x/debug/linux/x64
+      working-directory: examples/${{ matrix.artifact }}/target/x/debug/linux/x64
     - uses: actions/upload-artifact@v2
       with:
         name: ubuntu-latest-linux-x64-debug-${{ matrix.artifact }}
-        path: target/x/debug/linux/x64/${{ matrix.artifact }}.AppDir.tar.zst
+        path: examples/${{ matrix.artifact }}/target/x/debug/linux/x64/${{ matrix.artifact }}.AppDir.tar.zst
 
   # TODO: build-macos-latest-linux-x64-debug
 
@@ -122,11 +123,12 @@ jobs:
         targets: x86_64-unknown-linux-gnu
     - uses: subosito/flutter-action@v1
     - run: chmod +x ./x
-    - run: ./x build -p ${{ matrix.artifact }} --platform linux --arch x64 --release
+    - run: ../../x build --platform linux --arch x64 --release
+      working-directory: examples/${{ matrix.artifact }}
     - uses: actions/upload-artifact@v2
       with:
         name: ubuntu-latest-linux-x64-release-${{ matrix.artifact }}
-        path: target/x/release/linux/x64/${{ matrix.artifact }}.AppImage
+        path: examples/${{ matrix.artifact }}/target/x/release/linux/x64/${{ matrix.artifact }}.AppImage
 
   #
   # Build test projects for macos-x64-debug
@@ -153,13 +155,14 @@ jobs:
         targets: x86_64-apple-darwin
     - uses: subosito/flutter-action@v1
     - run: chmod +x ./x
-    - run: ./x build -p ${{ matrix.artifact }} --platform macos --arch x64
+    - run: ../../x build --platform macos --arch x64
+      working-directory: examples/${{ matrix.artifact }}
     - run: tar --zstd -cf ${{ matrix.artifact }}.app.tar.zst ${{ matrix.artifact }}.app
-      working-directory: target/x/debug/macos/x64
+      working-directory: examples/${{ matrix.artifact }}/target/x/debug/macos/x64
     - uses: actions/upload-artifact@v2
       with:
         name: ubuntu-latest-macos-x64-debug-${{ matrix.artifact }}
-        path: target/x/debug/macos/x64/${{ matrix.artifact }}.app.tar.zst
+        path: examples/${{ matrix.artifact }}/target/x/debug/macos/x64/${{ matrix.artifact }}.app.tar.zst
 
   build-macos-latest-macos-x64-debug:
     strategy:
@@ -178,13 +181,14 @@ jobs:
         targets: x86_64-apple-darwin
     - uses: subosito/flutter-action@v1
     - run: chmod +x ./x
-    - run: ./x build -p ${{ matrix.artifact }} --platform macos --arch x64
+    - run: ../../x build --platform macos --arch x64
+      working-directory: examples/${{ matrix.artifact }}
     - run: gtar --zstd -cf ${{ matrix.artifact }}.app.tar.zst ${{ matrix.artifact }}.app
-      working-directory: target/x/debug/macos/x64
+      working-directory: examples/${{ matrix.artifact }}/target/x/debug/macos/x64
     - uses: actions/upload-artifact@v2
       with:
         name: macos-latest-macos-x64-debug-${{ matrix.artifact }}
-        path: target/x/debug/macos/x64/${{ matrix.artifact }}.app.tar.zst
+        path: examples/${{ matrix.artifact }}/target/x/debug/macos/x64/${{ matrix.artifact }}.app.tar.zst
 
   build-windows-latest-macos-x64-debug:
     if: false
@@ -203,13 +207,14 @@ jobs:
       with:
         targets: x86_64-apple-darwin
     - uses: subosito/flutter-action@v1
-    - run: ./x.exe build -p ${{ matrix.artifact }} --platform macos --arch x64
+    - run: ../../x.exe build --platform macos --arch x64
+      working-directory: examples/${{ matrix.artifact }}
     - run: tar --zstd -cf ${{ matrix.artifact }}.app.tar.zst ${{ matrix.artifact }}.app
-      working-directory: target/x/debug/macos/x64
+      working-directory: examples/${{ matrix.artifact }}/target/x/debug/macos/x64
     - uses: actions/upload-artifact@v2
       with:
         name: windows-latest-macos-x64-debug-${{ matrix.artifact }}
-        path: target/x/debug/macos/x64/${{ matrix.artifact }}.app.tar.zst
+        path: examples/${{ matrix.artifact }}/target/x/debug/macos/x64/${{ matrix.artifact }}.app.tar.zst
 
   #
   # Build test projects for macos-x64-release
@@ -232,11 +237,12 @@ jobs:
         targets: x86_64-apple-darwin
     - uses: subosito/flutter-action@v1
     - run: chmod +x ./x
-    - run: ./x build -p ${{ matrix.artifact }} --platform macos --arch x64 --release
+    - run: ../../x build --platform macos --arch x64 --release
+      working-directory: examples/${{ matrix.artifact }}
     - uses: actions/upload-artifact@v2
       with:
         name: macos-latest-macos-x64-release-${{ matrix.artifact }}
-        path: target/x/release/macos/x64/${{ matrix.artifact }}.dmg
+        path: examples/${{ matrix.artifact }}/target/x/release/macos/x64/${{ matrix.artifact }}.dmg
 
   #
   # Build test projects for windows-x64-debug
@@ -264,11 +270,12 @@ jobs:
         targets: x86_64-pc-windows-msvc
     - uses: subosito/flutter-action@v1
     - run: chmod +x ./x
-    - run: ./x build -p ${{ matrix.artifact }} --platform windows --arch x64
+    - run: ../../x build --platform windows --arch x64
+      working-directory: examples/${{ matrix.artifact }}
     - uses: actions/upload-artifact@v2
       with:
         name: ubuntu-latest-windows-x64-debug-${{ matrix.artifact }}
-        path: target/x/debug/windows/x64/${{ matrix.artifact }}.msix
+        path: examples/${{ matrix.artifact }}/target/x/debug/windows/x64/${{ matrix.artifact }}.msix
 
   build-macos-latest-windows-x64-debug:
     strategy:
@@ -293,11 +300,12 @@ jobs:
         targets: x86_64-pc-windows-msvc
     - uses: subosito/flutter-action@v1
     - run: chmod +x ./x
-    - run: ./x build -p ${{ matrix.artifact }} --platform windows --arch x64
+    - run: ../../x build --platform windows --arch x64
+      working-directory: examples/${{ matrix.artifact }}
     - uses: actions/upload-artifact@v2
       with:
         name: macos-latest-windows-x64-debug-${{ matrix.artifact }}
-        path: target/x/debug/windows/x64/${{ matrix.artifact }}.msix
+        path: examples/${{ matrix.artifact }}/target/x/debug/windows/x64/${{ matrix.artifact }}.msix
 
   build-windows-latest-windows-x64-debug:
     strategy:
@@ -315,11 +323,12 @@ jobs:
       with:
         targets: x86_64-pc-windows-msvc
     - uses: subosito/flutter-action@v1
-    - run: ./x build -p ${{ matrix.artifact }} --platform windows --arch x64
+    - run: ../../x build --platform windows --arch x64
+      working-directory: examples/${{ matrix.artifact }}
     - uses: actions/upload-artifact@v2
       with:
         name: windows-latest-windows-x64-debug-${{ matrix.artifact }}
-        path: target/x/debug/windows/x64/${{ matrix.artifact }}.msix
+        path: examples/${{ matrix.artifact }}/target/x/debug/windows/x64/${{ matrix.artifact }}.msix
 
   #
   # Build test projects for windows-x64-release
@@ -341,11 +350,12 @@ jobs:
       with:
         targets: x86_64-pc-windows-msvc
     - uses: subosito/flutter-action@v1
-    - run: ./x build -p ${{ matrix.artifact }} --platform windows --arch x64 --release
+    - run: ../../x build --platform windows --arch x64 --release
+      working-directory: examples/${{ matrix.artifact }}
     - uses: actions/upload-artifact@v2
       with:
         name: windows-latest-windows-x64-release-${{ matrix.artifact }}
-        path: target/x/release/windows/x64/${{ matrix.artifact }}.msix
+        path: examples/${{ matrix.artifact }}/target/x/release/windows/x64/${{ matrix.artifact }}.msix
 
   #
   # Buld test projects for android-arm64
@@ -373,11 +383,12 @@ jobs:
       with:
         targets: aarch64-linux-android
     - uses: subosito/flutter-action@v1
-    - run: ./x build -p ${{ matrix.artifact }} --platform android --arch arm64 --${{ matrix.opt }}
+    - run: .../../x build --platform android --arch arm64 --${{ matrix.opt }}
+      working-directory: examples/${{ matrix.artifact }}
     - uses: actions/upload-artifact@v2
       with:
         name: ubuntu-latest-android-arm64-${{ matrix.opt }}-${{ matrix.artifact }}
-        path: target/x/${{ matrix.opt }}/android/arm64/${{ matrix.artifact }}.apk
+        path: examples/${{ matrix.artifact }}/target/x/${{ matrix.opt }}/android/arm64/${{ matrix.artifact }}.apk
 
   build-macos-latest-android-arm64:
     strategy:
@@ -401,11 +412,12 @@ jobs:
       with:
         targets: aarch64-linux-android
     - uses: subosito/flutter-action@v1
-    - run: ./x build -p ${{ matrix.artifact }} --platform android --arch arm64 --${{ matrix.opt }}
+    - run: ../../x build --platform android --arch arm64 --${{ matrix.opt }}
+      working-directory: examples/${{ matrix.artifact }}
     - uses: actions/upload-artifact@v2
       with:
         name: macos-latest-android-arm64-${{ matrix.opt }}-${{ matrix.artifact }}
-        path: target/x/${{ matrix.opt }}/android/arm64/${{ matrix.artifact }}.apk
+        path: examples/${{ matrix.artifact }}target/x/${{ matrix.opt }}/android/arm64/${{ matrix.artifact }}.apk
 
   build-windows-latest-android-arm64:
     strategy:
@@ -428,11 +440,12 @@ jobs:
       with:
         targets: aarch64-linux-android
     - uses: subosito/flutter-action@v1
-    - run: ./x build -p ${{ matrix.artifact }} --platform android --arch arm64 --${{ matrix.opt }}
+    - run: ../../x build --platform android --arch arm64 --${{ matrix.opt }}
+      working-directory: examples/${{ matrix.artifact }}
     - uses: actions/upload-artifact@v2
       with:
         name: windows-latest-android-arm64-${{ matrix.opt }}-${{ matrix.artifact }}
-        path: target/x/${{ matrix.opt }}/android/arm64/${{ matrix.artifact }}.apk
+        path: examples/${{ matrix.artifact }}/target/x/${{ matrix.opt }}/android/arm64/${{ matrix.artifact }}.apk
 
   #
   # Buld test projects for android-arm64
