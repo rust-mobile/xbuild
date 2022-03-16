@@ -24,9 +24,12 @@ pub struct AndroidManifest {
     #[serde(rename(serialize = "uses-sdk"))]
     pub sdk: Sdk,
     #[serde(rename(serialize = "uses-feature"))]
+    #[serde(default)]
     pub uses_feature: Vec<Feature>,
     #[serde(rename(serialize = "uses-permission"))]
+    #[serde(default)]
     pub uses_permission: Vec<Permission>,
+    #[serde(default)]
     pub application: Application,
 }
 
@@ -71,7 +74,9 @@ pub struct Application {
     #[serde(rename(serialize = "android:appComponentFactory"))]
     pub app_component_factory: Option<String>,
     #[serde(rename(serialize = "meta-data"))]
+    #[serde(default)]
     pub meta_data: Vec<MetaData>,
+    #[serde(default)]
     pub activity: Vec<Activity>,
 }
 
@@ -95,10 +100,12 @@ pub struct Activity {
     #[serde(rename(serialize = "android:hardwareAccelerated"))]
     pub hardware_accelerated: Option<bool>,
     #[serde(rename(serialize = "meta-data"))]
+    #[serde(default)]
     pub meta_data: Vec<MetaData>,
     /// If no `MAIN` action exists in any intent filter, a default `MAIN` filter is serialized.
     #[serde(serialize_with = "serialize_intents")]
     #[serde(rename(serialize = "intent-filter"))]
+    #[serde(default)]
     pub intent_filter: Vec<IntentFilter>,
 }
 
