@@ -1,0 +1,86 @@
+icon: assets/logo.png
+
+android:
+  manifest:
+    compile_sdk_version: 31
+    compile_sdk_version_codename: 12
+    package: com.example.helloworld
+    platform_build_version_code: 31
+    platform_build_version_name: 12
+    sdk:
+      min_sdk_version: 16
+      target_sdk_version: 31
+    uses_permission:
+    - name: android.permission.INTERNET
+    application:
+      label: helloworld
+      theme: "@android:style/Theme.Light.NoTitleBar"
+      debuggable: true
+      app_component_factory: androidx.core.app.CoreComponentFactory
+      activity:
+      - name: io.flutter.embedding.android.FlutterActivity
+        exported: true
+        launch_mode: singleTop
+        config_changes: orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode
+        window_soft_input_mode: adjustResize
+        hardware_accelerated: true
+      meta_data:
+      - name: flutterEmbedding
+        value: 2
+
+ios:
+  info:
+    bundle_identifier: com.cloudpeer.todoapp
+windows:
+  manifest:
+    identity:
+      name: com.flutter.helloworld
+      version: 1.0.0.0
+      publisher: CN=Msix Testing, O=Msix Testing Corporation, S=Some-State, C=US
+      processor_architecture: x64
+    properties:
+      display_name: helloworld
+      publisher_display_name: com.flutter.helloworld
+      logo: Images\StoreLogo.png
+      description: A new flutter project
+    resources:
+      resource:
+      - language: en-us
+    dependencies:
+      target_device_family:
+      - name: Windows.Desktop
+        min_version: 10.0.0.0
+        max_version: 10.0.20348.0
+    capabilities:
+      - capability:
+          name: internetClient
+      - restricted:
+          name: runFullTrust
+      - device:
+          name: location
+    applications:
+      application:
+      - id: helloworld
+        executable: helloworld.exe
+        entry_point: Windows.FullTrustApplication
+        visual_elements:
+          background_color: transparent
+          display_name: helloworld
+          description: A new flutter project
+          logo_44x44: Images\Square44x44Logo.png
+          logo_150x150: Images\Square150x150Logo.png
+          default_tile:
+            short_name: todoapp
+            logo_71x71: Images\SmallTile.png
+            logo_310x310: Images\LargeTile.png
+            logo_310x150: Images\Wide310x150Logo.png
+            show_names_on_tiles:
+              show_on:
+              - tile: square150x150Logo
+              - tile: square310x310Logo
+              - tile: wide310x150Logo
+          splash_screen:
+            image: Images\SplashScreen.png
+          lock_screen:
+            badge_logo: Images\BadgeLogo.png
+            notification: badge
