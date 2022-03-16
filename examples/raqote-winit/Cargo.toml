@@ -18,7 +18,7 @@ euclid = "0.22"
 log = "0.4"
 pixels = { git = "https://github.com/parasyte/pixels", branch = "main" }
 raqote = { git = "https://github.com/jrmuizel/raqote", default-features = false }
-winit = "0.26"
+winit = "0.26.1"
 winit_input_helper = "0.11"
 
 [target.'cfg(target_os = "android")'.dependencies]
@@ -26,3 +26,4 @@ ndk-glue = { version = "0.6.1", features = ["logger"] }
 
 [patch.crates-io]
 cc = { path = "../../../cc-rs" }
+winit = { git = "https://github.com/rust-windowing/winit" }
