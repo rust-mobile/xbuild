@@ -1,8 +1,5 @@
 on:
-  push:
-    branches:
-    - master
-  pull_request:
+  pull-request
 
 name: x
 
