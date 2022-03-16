@@ -385,6 +385,8 @@ jobs:
     - uses: subosito/flutter-action@v1
     - run: ../../x build --platform android --arch arm64 --${{ matrix.opt }}
       working-directory: examples/${{ matrix.artifact }}
+      env:
+        ANDROID_NDK_ROOT: /usr/local/lib/android/sdk/ndk/23.1.7779620
     - uses: actions/upload-artifact@v2
       with:
         name: ubuntu-latest-android-arm64-${{ matrix.opt }}-${{ matrix.artifact }}
@@ -414,6 +416,8 @@ jobs:
     - uses: subosito/flutter-action@v1
     - run: ../../x build --platform android --arch arm64 --${{ matrix.opt }}
       working-directory: examples/${{ matrix.artifact }}
+      env:
+        ANDROID_NDK_ROOT: /usr/local/lib/android/sdk/ndk/23.1.7779620
     - uses: actions/upload-artifact@v2
       with:
         name: macos-latest-android-arm64-${{ matrix.opt }}-${{ matrix.artifact }}
@@ -442,6 +446,8 @@ jobs:
     - uses: subosito/flutter-action@v1
     - run: ../../x build --platform android --arch arm64 --${{ matrix.opt }}
       working-directory: examples/${{ matrix.artifact }}
+      env:
+        ANDROID_NDK_ROOT: /usr/local/lib/android/sdk/ndk/23.1.7779620
     - uses: actions/upload-artifact@v2
       with:
         name: windows-latest-android-arm64-${{ matrix.opt }}-${{ matrix.artifact }}
