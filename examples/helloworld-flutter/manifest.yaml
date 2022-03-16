@@ -13,7 +13,6 @@ android:
     uses_permission:
     - name: android.permission.INTERNET
     application:
-      label: helloworld
       theme: "@android:style/Theme.Light.NoTitleBar"
       debuggable: true
       app_component_factory: androidx.core.app.CoreComponentFactory
