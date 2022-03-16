@@ -191,8 +191,8 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
     //}
 
     if env.flutter().is_none()
-        || env.target().platform() != Platform::Android
-        || env.target().platform() != Platform::Ios
+        || (env.target().platform() != Platform::Android
+            && env.target().platform() != Platform::Ios)
     {
         for target in env.target().compile_targets() {
             println!("building rust binary for {}", target);

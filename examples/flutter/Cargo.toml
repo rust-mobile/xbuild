@@ -3,6 +3,9 @@ name = "helloworld-flutter"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+crate-types = ["rlib", "cdylib"]
+
 [dependencies]
 env_logger = "0.9.0"
 nativeshell = { git = "https://github.com/dvc94ch/nativeshell", branch = "cross" }

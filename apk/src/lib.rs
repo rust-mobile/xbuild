@@ -26,14 +26,14 @@ pub struct Apk {
 impl Apk {
     pub fn new(path: PathBuf, manifest: AndroidManifest) -> Result<Self> {
         let zip = Zip::new(&path)?;
-        Ok(Self { manifest, path, zip })
+        Ok(Self {
+            manifest,
+            path,
+            zip,
+        })
     }
 
-    pub fn add_res(
-        &mut self,
-        icon: Option<&Path>,
-        android: &Path,
-    ) -> Result<()> {
+    pub fn add_res(&mut self, icon: Option<&Path>, android: &Path) -> Result<()> {
         let mut buf = vec![];
         let mut table = Table::default();
         table.import_apk(android)?;
