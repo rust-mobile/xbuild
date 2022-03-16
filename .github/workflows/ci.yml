@@ -383,7 +383,7 @@ jobs:
       with:
         targets: aarch64-linux-android
     - uses: subosito/flutter-action@v1
-    - run: .../../x build --platform android --arch arm64 --${{ matrix.opt }}
+    - run: ../../x build --platform android --arch arm64 --${{ matrix.opt }}
       working-directory: examples/${{ matrix.artifact }}
     - uses: actions/upload-artifact@v2
       with:
