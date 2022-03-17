@@ -165,12 +165,11 @@ impl CargoBuild {
         if !sdk_lib_dir.exists() {
             anyhow::bail!("ndk doesn't support sdk version {}", target_sdk_version);
         }
-        self.add_lib_dir(&lib_dir);
-        self.add_lib_dir(&sdk_lib_dir);
         self.use_ld("lld");
-        self.add_link_arg(&format!("--target=aarch64-linux-android{}", target_sdk_version));
+        self.add_link_arg("--target=aarch64-linux-android");
         self.add_link_arg(&format!("-B{}", sdk_lib_dir.display()));
-        self.add_link_arg(&format!("--sysroot={}", path.display()));
+        self.add_link_arg(&format!("-L{}", sdk_lib_dir.display()));
+        self.add_link_arg(&format!("-L{}", lib_dir.display()));
         Ok(())
     }
 
