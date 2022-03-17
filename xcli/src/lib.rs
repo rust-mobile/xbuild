@@ -1,4 +1,4 @@
-use crate::android::{AndroidNdk, AndroidSdk};
+use crate::android::AndroidSdk;
 use crate::cargo::{Cargo, CargoBuild, CrateType};
 use crate::config::{Config, Manifest};
 use crate::devices::Device;
@@ -261,11 +261,22 @@ impl CompileTarget {
         self.opt
     }
 
-    pub fn android_abi(self) -> Result<xapk::Target> {
-        match (self.platform, self.arch) {
-            (Platform::Android, Arch::Arm64) => Ok(xapk::Target::Arm64V8a),
-            (Platform::Android, Arch::X64) => Ok(xapk::Target::X86_64),
-            _ => anyhow::bail!("unsupported android abi"),
+    pub fn android_abi(self) -> xapk::Target {
+        assert_eq!(self.platform(), Platform::Android);
+        match self.arch() {
+            Arch::Arm64 => xapk::Target::Arm64V8a,
+            Arch::X64 => xapk::Target::X86_64,
+        }
+    }
+
+    /// Returns the triple used by the non-LLVM parts of the NDK
+    pub fn ndk_triple(self) -> &'static str {
+        assert_eq!(self.platform(), Platform::Android);
+        match self.arch() {
+            Arch::Arm64 => "aarch64-linux-android",
+            //Arch::Arm => "arm-linux-androideabi",
+            //Arch::X86 => "i686-linux-android",
+            Arch::X64 => "x86_64-linux-android",
         }
     }
 
@@ -492,7 +503,6 @@ pub struct BuildEnv {
     manifest: Manifest,
     flutter: Option<Flutter>,
     android_sdk: Option<AndroidSdk>,
-    android_ndk: Option<AndroidNdk>,
 }
 
 impl BuildEnv {
@@ -520,7 +530,6 @@ impl BuildEnv {
         } else {
             None
         };
-        let android_ndk = android_sdk.as_ref().map(AndroidNdk::from_env).transpose()?;
         manifest.apply_config(&config, build_target.opt(), android_sdk.as_ref());
         let target_file = manifest.target_file(cargo.root_dir(), build_target.platform());
         let icon = manifest
@@ -536,7 +545,6 @@ impl BuildEnv {
             cargo,
             flutter,
             android_sdk,
-            android_ndk,
             manifest,
             build_dir,
         })
@@ -582,14 +590,6 @@ impl BuildEnv {
         self.flutter.as_ref()
     }
 
-    pub fn android_sdk(&self) -> Option<&AndroidSdk> {
-        self.android_sdk.as_ref()
-    }
-
-    pub fn android_ndk(&self) -> Option<&AndroidNdk> {
-        self.android_ndk.as_ref()
-    }
-
     pub fn manifest(&self) -> &Manifest {
         &self.manifest
     }
@@ -599,20 +599,37 @@ impl BuildEnv {
     }
 
     pub fn android_jar(&self) -> Result<PathBuf> {
-        self.android_sdk()
+        self.android_sdk
+            .as_ref()
             .unwrap()
             .android_jar(self.target_sdk_version())
     }
 
+    pub fn lldb_server(&self, target: CompileTarget) -> Option<PathBuf> {
+        match target.platform() {
+            Platform::Android => {
+                let ndk = self.build_dir().join("Android.ndk");
+                let lib_dir = ndk.join("usr").join("lib").join(target.ndk_triple());
+                Some(lib_dir.join("lldb-server"))
+            }
+            Platform::Ios => {
+                todo!()
+            }
+            _ => None,
+        }
+    }
+
     pub fn cargo_build(&self, target: CompileTarget, target_dir: &Path) -> Result<CargoBuild> {
         let mut cargo = self.cargo.build(target, target_dir)?;
-        if let Some(ndk) = self.android_ndk() {
-            cargo.use_ndk_tools(ndk, self.target_sdk_version())?;
+        if target.platform() == Platform::Android {
+            let ndk = self.build_dir().join("Android.ndk");
+            let target_sdk_version = self.manifest().android().sdk.target_sdk_version.unwrap();
+            cargo.use_android_ndk(&ndk, target_sdk_version)?;
         }
         if target.platform() == Platform::Windows {
             let sdk = self.build_dir().join("Windows.sdk");
             if sdk.exists() {
-                cargo.use_xwin(&sdk)?;
+                cargo.use_windows_sdk(&sdk)?;
             }
         }
         if target.platform() == Platform::Macos {

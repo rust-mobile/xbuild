@@ -1,20 +1,52 @@
-use crate::android::AndroidNdk;
+use crate::CompileTarget;
 use anyhow::Result;
 use std::collections::HashSet;
 use std::io::BufRead;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use xapk::{Apk, Target};
+use xapk::Apk;
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AndroidNdk<'a>(&'a Path);
+
+impl<'a> AndroidNdk<'a> {
+    pub fn new(ndk_path: &'a Path) -> Self {
+        Self(ndk_path)
+    }
+
+    pub fn sysroot_lib_dir(&self, target: CompileTarget) -> Result<PathBuf> {
+        let sysroot_lib_dir = self.0.join("usr").join("lib").join(target.ndk_triple());
+        if !sysroot_lib_dir.exists() {
+            anyhow::bail!("sysroot lib dir {} not found", sysroot_lib_dir.display());
+        }
+        Ok(sysroot_lib_dir)
+    }
+
+    pub fn sysroot_platform_lib_dir(
+        &self,
+        target: CompileTarget,
+        sdk_version: u32,
+    ) -> Result<PathBuf> {
+        let sysroot_platform_lib_dir = self.sysroot_lib_dir(target)?.join(sdk_version.to_string());
+        if !sysroot_platform_lib_dir.exists() {
+            anyhow::bail!(
+                "sysroot platform lib dir {} not found",
+                sysroot_platform_lib_dir.display()
+            );
+        }
+        Ok(sysroot_platform_lib_dir)
+    }
+}
 
 pub fn add_lib_recursively(
     apk: &mut Apk,
     ndk: &AndroidNdk,
     min_sdk_version: u32,
     lib: &Path,
-    target: Target,
+    target: CompileTarget,
     search_paths: &[&Path],
 ) -> Result<()> {
-    let readelf_path = ndk.toolchain_bin("readelf", target)?;
+    let readelf_path = which::which("llvm-readelf")?;
 
     let android_search_paths = [
         &*ndk.sysroot_lib_dir(target)?,
@@ -30,7 +62,7 @@ pub fn add_lib_recursively(
 
     let mut artifacts = vec![lib.to_path_buf()];
     while let Some(artifact) = artifacts.pop() {
-        apk.add_lib(target, &artifact)?;
+        apk.add_lib(target.android_abi(), &artifact)?;
         for need in list_needed_libs(&readelf_path, &artifact)? {
             // c++_shared is available in the NDK but not on-device.
             // Must be bundled with the apk if used:

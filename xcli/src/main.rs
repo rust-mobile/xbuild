@@ -40,6 +40,10 @@ enum Commands {
         #[clap(flatten)]
         args: BuildArgs,
     },
+    Lldb {
+        #[clap(flatten)]
+        args: BuildArgs,
+    },
 }
 
 impl Commands {
@@ -56,8 +60,9 @@ impl Commands {
                     );
                 }
             }
-            Self::Build { args } => build(args, false)?,
-            Self::Run { args } => build(args, true)?,
+            Self::Build { args } => build(args, false, false)?,
+            Self::Run { args } => build(args, true, false)?,
+            Self::Lldb { args } => build(args, false, true)?,
         }
         Ok(())
     }
@@ -80,7 +85,7 @@ fn download_sdk(
     )
 }
 
-fn build(args: BuildArgs, run: bool) -> Result<()> {
+fn build(args: BuildArgs, run: bool, debug: bool) -> Result<()> {
     let env = BuildEnv::new(args)?;
     let opt_dir = env.build_dir().join(env.target().opt().to_string());
     let platform_dir = opt_dir.join(env.target().platform().to_string());
@@ -276,7 +281,7 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
                 // add libflutter.so
                 let engine_version = flutter.engine_version()?;
                 for target in env.target().compile_targets() {
-                    let abi = target.android_abi()?;
+                    let abi = target.android_abi();
                     let flutter_engine = FlutterEngine::new(abi, target.opt(), &engine_version);
                     let flutter_jar = env
                         .maven()?
@@ -317,7 +322,7 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
                     Opt::Release => {
                         for target in env.target().compile_targets() {
                             apk.add_lib(
-                                target.android_abi()?,
+                                target.android_abi(),
                                 &platform_dir
                                     .join(target.arch().to_string())
                                     .join("libapp.so"),
@@ -330,7 +335,7 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
                     let arch_dir = platform_dir.join(target.arch().to_string());
                     let lib =
                         env.cargo_artefact(&arch_dir.join("cargo"), target, CrateType::Cdylib)?;
-                    apk.add_lib(target.android_abi()?, &lib)?;
+                    apk.add_lib(target.android_abi(), &lib)?;
                 }
             }
             apk.finish(env.target().signer().cloned())?;
@@ -483,6 +488,19 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
             device.run(&out, &env, env.has_dart_code())?;
         } else {
             anyhow::bail!("no device specified");
+        }
+    }
+    if debug {
+        if let Some(device) = env.target().device() {
+            let target = CompileTarget::new(device.platform()?, device.arch()?, env.target().opt());
+            let cargo_dir = env
+                .build_dir()
+                .join(target.opt().to_string())
+                .join(target.platform().to_string())
+                .join(target.arch().to_string())
+                .join("cargo");
+            let executable = env.cargo_artefact(&cargo_dir, target, CrateType::Cdylib)?;
+            device.lldb(&env, target, &executable)?;
         }
     }
     Ok(())
