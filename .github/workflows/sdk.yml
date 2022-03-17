@@ -6,16 +6,25 @@ on:
 name: sdk
 
 jobs:
-  # android requires at least d8 and adb to be useful and since it's widely available we
-  # don't have to repackage it
-  #android:
-  #  runs-on: macos-11
-  #  steps:
-  #  - run: mkdir -p xcross/android
-  #  - run: ls /Users/runner/Library/Android/sdk/ndk
-  #  - run: cp -R /Users/runner/Library/Android/sdk/ndk/23.1.7779620/toolchains/llvm/prebuilt/darwin-x86_64/sysroot xcross/android
-  #  - run: cp -R /Users/runner/Library/Android/sdk/ndk/23.1.7779620/toolchains/llvm/prebuilt/darwin-x86_64/lib64/clang/12.0.8 xcross/android/clang
-  #  - run: echo "INPUT(-lunwind)" > xcross/android/clang/lib/linux/aarch64/libgcc.a
+  android:
+    runs-on: ubuntu-latest
+    steps:
+    - run: mkdir Android.ndk
+    - run: ls $ANDROID_NDK_LATEST_HOME
+    - run: cp -r $ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr Android.ndk/
+    - run: cp -r $ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib64/clang/12.0.8/lib/linux/aarch64/* Android.ndk/usr/lib/aarch64-linux-android/
+    - run: cp -r $ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib64/clang/12.0.8/lib/linux/arm/* Android.ndk/usr/lib/arm-linux-androideabi/
+    - run: cp -r $ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib64/clang/12.0.8/lib/linux/x86_64/* Android.ndk/usr/lib/x86_64-linux-android/
+    - run: cp -r $ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib64/clang/12.0.8/lib/linux/i386/* Android.ndk/usr/lib/i686-linux-android/
+    - run: echo "INPUT(-lunwind)" > Android.ndk/usr/lib/aarch64-linux-android/libgcc.a
+    - run: echo "INPUT(-lunwind)" > Android.ndk/usr/lib/arm-linux-androideabi/libgcc.a
+    - run: echo "INPUT(-lunwind)" > Android.ndk/usr/lib/x86_64-linux-android/libgcc.a
+    - run: echo "INPUT(-lunwind)" > Android.ndk/usr/lib/i686-linux-android/libgcc.a
+    - run: tar --zstd -cf Android.ndk.tar.zst Android.ndk
+    - run: gh release upload $TAG Android.ndk.tar.zst -R cloudpeers/x
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        TAG: ${{ github.event.release.tag_name }}
 
   macos:
     runs-on: macos-11
@@ -25,7 +34,7 @@ jobs:
       env:
         SDK_PATH: /Applications/Xcode_13.2.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
     - run: gtar --zstd -cf MacOSX.sdk.tar.zst MacOSX.sdk
-    - run: gh release upload $TAG MacOSX.sdk.tar.zst -R cloudpeers/xcross
+    - run: gh release upload $TAG MacOSX.sdk.tar.zst -R cloudpeers/x
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         TAG: ${{ github.event.release.tag_name }}
@@ -38,7 +47,7 @@ jobs:
       env:
         SDK_PATH: /Applications/Xcode_13.2.1.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk
     - run: gtar --zstd -cf iPhoneOS.sdk.tar.zst iPhoneOS.sdk
-    - run: gh release upload $TAG iPhoneOS.sdk.tar.zst -R cloudpeers/xcross
+    - run: gh release upload $TAG iPhoneOS.sdk.tar.zst -R cloudpeers/x
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         TAG: ${{ github.event.release.tag_name }}
@@ -49,9 +58,9 @@ jobs:
     - name: Install rust toolchain
       uses: hecrj/setup-rust-action@v1
     - run: cargo install xwin
-    - run: xwin --accept-license yes splat --output Windows.sdk
+    - run: xwin --accept-license splat --output Windows.sdk
     - run: tar --zstd -cf Windows.sdk.tar.zst Windows.sdk
-    - run: gh release upload $TAG Windows.sdk.tar.zst -R cloudpeers/xcross
+    - run: gh release upload $TAG Windows.sdk.tar.zst -R cloudpeers/x
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         TAG: ${{ github.event.release.tag_name }}
