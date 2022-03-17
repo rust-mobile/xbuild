@@ -63,6 +63,23 @@ impl Commands {
     }
 }
 
+fn download_sdk(
+    build_dir: &Path,
+    artifact: &str,
+    no_symlinks: bool,
+    no_colons: bool,
+) -> Result<()> {
+    xcli::download::github_release_tar_zst(
+        build_dir,
+        "cloudpeers",
+        "x",
+        "v0.1.0+2",
+        artifact,
+        no_symlinks,
+        no_colons,
+    )
+}
+
 fn build(args: BuildArgs, run: bool) -> Result<()> {
     let env = BuildEnv::new(args)?;
     let opt_dir = env.build_dir().join(env.target().opt().to_string());
@@ -71,54 +88,48 @@ fn build(args: BuildArgs, run: bool) -> Result<()> {
     println!("root_dir {}", env.cargo().root_dir().display());
     println!("target_dir {}", env.cargo().target_dir().display());
 
-    if env.target().platform() == Platform::Windows && Platform::host()? != Platform::Windows {
-        let windows_sdk = env.build_dir().join("Windows.sdk");
-        if !windows_sdk.exists() {
-            println!("downloading windows sdk");
-            let no_symlinks = !cfg!(target_os = "linux");
-            xcli::download::github_release_tar_zst(
-                env.build_dir(),
-                "cloudpeers",
-                "x",
-                "v0.1.0+1",
-                "Windows.sdk.tar.zst",
-                no_symlinks,
-                false,
-            )?;
+    match env.target().platform() {
+        Platform::Linux => {
+            if Platform::host()? != Platform::Linux {
+                anyhow::bail!("cross compiling to linux is not yet supported");
+            }
         }
-    }
-
-    if env.target().platform() == Platform::Macos && Platform::host()? != Platform::Macos {
-        let macos_sdk = env.build_dir().join("MacOSX.sdk");
-        if !macos_sdk.exists() {
-            println!("downloading macos sdk");
-            let no_colons = cfg!(target_os = "windows");
-            xcli::download::github_release_tar_zst(
-                env.build_dir(),
-                "cloudpeers",
-                "x",
-                "v0.1.0+1",
-                "MacOSX.sdk.tar.zst",
-                false,
-                no_colons,
-            )?;
+        Platform::Windows => {
+            if Platform::host()? != Platform::Windows {
+                let windows_sdk = env.build_dir().join("Windows.sdk");
+                if !windows_sdk.exists() {
+                    println!("downloading windows sdk");
+                    let no_symlinks = !cfg!(target_os = "linux");
+                    download_sdk(env.build_dir(), "Windows.sdk.tar.zst", no_symlinks, false)?;
+                }
+            }
         }
-    }
-
-    if env.target().platform() == Platform::Ios && Platform::host()? != Platform::Macos {
-        let ios_sdk = env.build_dir().join("iPhoneOS.sdk");
-        if !ios_sdk.exists() {
-            println!("downloading ios sdk");
-            let no_colons = cfg!(target_os = "windows");
-            xcli::download::github_release_tar_zst(
-                env.build_dir(),
-                "cloudpeers",
-                "x",
-                "v0.1.0+1",
-                "iPhoneOS.sdk.tar.zst",
-                false,
-                no_colons,
-            )?;
+        Platform::Macos => {
+            if Platform::host()? != Platform::Macos {
+                let macos_sdk = env.build_dir().join("MacOSX.sdk");
+                if !macos_sdk.exists() {
+                    println!("downloading macos sdk");
+                    let no_colons = cfg!(target_os = "windows");
+                    download_sdk(env.build_dir(), "MacOSX.sdk.tar.zst", false, no_colons)?;
+                }
+            }
+        }
+        Platform::Android => {
+            let android_ndk = env.build_dir().join("Android.ndk");
+            if !android_ndk.exists() {
+                println!("downloading android ndk");
+                download_sdk(env.build_dir(), "Android.ndk.tar.zst", false, false)?;
+            }
+        }
+        Platform::Ios => {
+            if Platform::host()? != Platform::Macos {
+                let ios_sdk = env.build_dir().join("iPhoneOS.sdk");
+                if !ios_sdk.exists() {
+                    println!("downloading ios sdk");
+                    let no_colons = cfg!(target_os = "windows");
+                    download_sdk(env.build_dir(), "iPhoneOS.sdk.tar.zst", false, no_colons)?;
+                }
+            }
         }
     }
 
