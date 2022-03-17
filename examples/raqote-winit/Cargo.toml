@@ -23,3 +23,6 @@ winit_input_helper = "0.11"
 
 [target.'cfg(target_os = "android")'.dependencies]
 ndk-glue = { version = "0.6.1", features = ["logger"] }
+
+[patch.crates-io]
+winit = { git = "https://github.com/rust-windowing/winit" }
