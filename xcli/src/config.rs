@@ -141,6 +141,8 @@ impl Manifest {
                 .sdk
                 .target_sdk_version
                 .get_or_insert_with(|| sdk.default_target_platform());
+            // TODO: set minimum_sdk_version as lowest ndk supported api level
+            self.android.manifest.sdk.min_sdk_version.get_or_insert(21);
         }
 
         self.ios

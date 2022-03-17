@@ -1,9 +1,10 @@
 use crate::devices::{Backend, BuildEnv, Device, Run};
-use crate::{Arch, Platform};
+use crate::{Arch, CompileTarget, Platform};
 use anyhow::Result;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdout, Command, Stdio};
+use std::time::Duration;
 
 #[derive(Clone, Debug)]
 pub struct Adb(PathBuf);
@@ -13,30 +14,55 @@ impl Adb {
         Ok(Self(which::which(exe!("adb"))?))
     }
 
-    fn serials(&self) -> Result<Vec<String>> {
+    fn adb(&self, device: &str) -> Command {
+        let mut cmd = Command::new(&self.0);
+        cmd.arg("-s").arg(device);
+        cmd
+    }
+
+    fn push(&self, device: &str, path: &Path) -> Result<()> {
+        let status = self
+            .adb(device)
+            .arg("push")
+            .arg("--sync")
+            .arg(path)
+            .arg("/data/local/tmp")
+            .status()?;
+        if !status.success() {
+            anyhow::bail!("adb push failed");
+        }
+        Ok(())
+    }
+
+    fn shell(&self, device: &str, run_as: Option<&str>) -> Command {
+        let mut cmd = self.adb(device);
+        cmd.arg("shell").arg("-x");
+        if let Some(package) = run_as {
+            cmd.arg("run-as").arg(package);
+        }
+        cmd
+    }
+
+    pub fn devices(&self, devices: &mut Vec<Device>) -> Result<()> {
         let output = Command::new(&self.0).arg("devices").output()?;
         if !output.status.success() {
             anyhow::bail!("adb devices exited with code {:?}", output.status.code());
         }
         let mut lines = std::str::from_utf8(&output.stdout)?.lines();
         lines.next();
-        let mut devices = vec![];
         for line in lines {
             if let Some(id) = line.split_whitespace().next() {
-                devices.push(id.to_string());
+                devices.push(Device {
+                    backend: Backend::Adb(self.clone()),
+                    id: id.to_string(),
+                });
             }
         }
-        Ok(devices)
+        Ok(())
     }
 
     fn getprop(&self, device: &str, prop: &str) -> Result<String> {
-        let output = Command::new(&self.0)
-            .arg("-s")
-            .arg(device)
-            .arg("shell")
-            .arg("getprop")
-            .arg(prop)
-            .output()?;
+        let output = self.shell(device, None).arg("getprop").arg(prop).output()?;
         if !output.status.success() {
             anyhow::bail!("adb getprop exited with code {:?}", output.status.code());
         }
@@ -44,24 +70,24 @@ impl Adb {
     }
 
     fn install(&self, device: &str, path: &Path) -> Result<()> {
-        let status = Command::new(&self.0)
-            .arg("-s")
-            .arg(device)
+        let file_name = path.file_name().unwrap().to_str().unwrap();
+        self.push(device, path)?;
+        let status = self
+            .shell(device, None)
+            .arg("pm")
             .arg("install")
-            .arg(path)
+            .arg(format!("/data/local/tmp/{}", file_name))
             .status()?;
         if !status.success() {
-            anyhow::bail!("adb install exited with code {:?}", status.code());
+            anyhow::bail!("adb pm install exited with code {:?}", status.code());
         }
         Ok(())
     }
 
-    /// To run a native activity use "android.app.NativeActivity" as the activity name.
+    /// To run a native activity use "android.app.NativeActivity" as the activity name
     fn start(&self, device: &str, package: &str, activity: &str) -> Result<()> {
-        let status = Command::new(&self.0)
-            .arg("-s")
-            .arg(device)
-            .arg("shell")
+        let status = self
+            .shell(device, None)
             .arg("am")
             .arg("start")
             .arg("-a")
@@ -76,10 +102,8 @@ impl Adb {
     }
 
     fn stop(&self, device: &str, id: &str) -> Result<()> {
-        let status = Command::new(&self.0)
-            .arg("-s")
-            .arg(device)
-            .arg("shell")
+        let status = self
+            .shell(device, None)
             .arg("am")
             .arg("force-stop")
             .arg(id)
@@ -94,11 +118,8 @@ impl Adb {
     }
 
     fn logcat_last_timestamp(&self, device: &str) -> Result<String> {
-        let output = Command::new(&self.0)
-            .arg("-s")
-            .arg(device)
-            .arg("shell")
-            .arg("-x")
+        let output = self
+            .shell(device, None)
             .arg("logcat")
             .arg("-v")
             .arg("time")
@@ -118,14 +139,7 @@ impl Adb {
 
     fn pidof(&self, device: &str, id: &str) -> Result<u32> {
         loop {
-            let output = Command::new(&self.0)
-                .arg("-s")
-                .arg(device)
-                .arg("shell")
-                .arg("-x")
-                .arg("pidof")
-                .arg(id)
-                .output()?;
+            let output = self.shell(device, None).arg("pidof").arg(id).output()?;
             if !output.status.success() {
                 anyhow::bail!("failed to get pid");
             }
@@ -141,11 +155,8 @@ impl Adb {
     }
 
     fn logcat(&self, device: &str, pid: u32, last_timestamp: &str) -> Result<Logcat> {
-        let child = Command::new(&self.0)
-            .arg("-s")
-            .arg(device)
-            .arg("shell")
-            .arg("-x")
+        let child = self
+            .shell(device, None)
             .arg("logcat")
             .arg("-T")
             .arg(format!("'{}'", last_timestamp))
@@ -156,10 +167,9 @@ impl Adb {
         Ok(Logcat::new(child))
     }
 
-    pub fn forward(&self, device: &str, port: u16) -> Result<u16> {
-        let output = Command::new(&self.0)
-            .arg("-s")
-            .arg(device)
+    fn forward(&self, device: &str, port: u16) -> Result<u16> {
+        let output = self
+            .adb(device)
             .arg("forward")
             .arg("tcp:0")
             .arg(format!("tcp:{}", port))
@@ -168,6 +178,82 @@ impl Adb {
             anyhow::bail!("adb forward exited with code {:?}", output.status.code());
         }
         Ok(std::str::from_utf8(&output.stdout)?.trim().parse()?)
+    }
+
+    fn app_dir(&self, device: &str, package: &str) -> Result<PathBuf> {
+        let output = self
+            .shell(device, Some(package))
+            .arg("sh")
+            .arg("-c")
+            .arg("pwd")
+            .output()?;
+        if !output.status.success() {
+            anyhow::bail!("failed to get app dir");
+        }
+        Ok(Path::new(std::str::from_utf8(&output.stdout)?.trim()).to_path_buf())
+    }
+
+    pub fn lldb(
+        &self,
+        device: &str,
+        env: &BuildEnv,
+        target: CompileTarget,
+        executable: &Path,
+    ) -> Result<()> {
+        let lldb_server = env.lldb_server(target).unwrap();
+        let package = env.manifest().android().package.as_ref().unwrap();
+        /*let app_dir = self.app_dir(device, package)?;
+        self.shell(device, Some(package))
+            .arg("chmod")
+            .arg("a+x")
+            .arg(&app_dir)
+            .status()?;
+        let dest = app_dir.join("lldb-server");*/
+        self.push(device, &lldb_server)?;
+        /*self.shell(device, None)
+            .arg("cat")
+            .arg("/data/local/tmp/lldb-server")
+            .arg("|")
+            .arg("run-as")
+            .arg(package)
+            .arg("sh")
+            .arg("-c")
+            .arg(format!("'cat > {}'", dest.display()))
+            .status()?;
+        self.shell(device, Some(package))
+            .arg("chmod")
+            .arg("700")
+            .arg(&dest)
+            .status()?;*/
+        let mut lldb_server = self
+            .shell(device, None)
+            .arg("cd")
+            .arg("/data/local/tmp")
+            .arg("&&")
+            .arg("./lldb-server")
+            .arg("platform")
+            .arg("--listen")
+            .arg("*:10086")
+            .arg("--server")
+            .stdin(Stdio::null())
+            .spawn()?;
+        std::thread::sleep(Duration::from_millis(100));
+        self.forward(device, 10086)?;
+        let status = Command::new("lldb")
+            .arg("-O")
+            .arg("platform select remote-android")
+            //.arg("-O")
+            //.arg(format!("platform settings -w {}", app_dir.display()))
+            //.arg("platform settings -w /data/local/tmp")
+            .arg("-O")
+            .arg(format!("platform connect connect://{}:10086", device))
+            .arg(executable)
+            .status()?;
+        if !status.success() {
+            anyhow::bail!("lldb exited with nonzero exit code.");
+        }
+        lldb_server.kill()?;
+        Ok(())
     }
 
     pub fn run(
@@ -245,16 +331,6 @@ impl Adb {
             .arg("--target")
             .arg(target)
             .status()?;
-        Ok(())
-    }
-
-    pub fn devices(&self, devices: &mut Vec<Device>) -> Result<()> {
-        for id in self.serials()? {
-            devices.push(Device {
-                backend: Backend::Adb(self.clone()),
-                id,
-            });
-        }
         Ok(())
     }
 

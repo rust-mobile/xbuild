@@ -1,4 +1,3 @@
-use crate::android::AndroidNdk;
 use crate::{Arch, CompileTarget, Opt, Platform};
 use anyhow::Result;
 use std::path::{Path, PathBuf};
@@ -152,17 +151,30 @@ impl CargoBuild {
         })
     }
 
-    pub fn use_ndk_tools(&mut self, ndk: &AndroidNdk, sdk_version: u32) -> Result<()> {
-        let android_abi = self.target.android_abi()?;
-        let (clang, clang_pp) = ndk.clang(android_abi, sdk_version)?;
-        self.cfg_tool(Tool::Cc, &clang);
-        self.cfg_tool(Tool::Cxx, &clang_pp);
-        self.cfg_tool(Tool::Linker, &clang);
-        self.cfg_tool(Tool::Ar, &ndk.toolchain_bin("ar", android_abi)?);
+    pub fn use_android_ndk(&mut self, path: &Path, target_sdk_version: u32) -> Result<()> {
+        let path = dunce::canonicalize(path)?;
+        let ndk_triple = self.target.ndk_triple();
+        self.cfg_tool(Tool::Cc, "clang");
+        self.cfg_tool(Tool::Cxx, "clang++");
+        self.cfg_tool(Tool::Ar, "llvm-ar");
+        self.cfg_tool(Tool::Linker, "clang");
+        self.add_include_dir(&path.join("usr").join("include"));
+        self.add_include_dir(&path.join("usr").join("local").join("include"));
+        let lib_dir = path.join("usr").join("lib").join(ndk_triple);
+        let sdk_lib_dir = lib_dir.join(target_sdk_version.to_string());
+        if !sdk_lib_dir.exists() {
+            anyhow::bail!("ndk doesn't support sdk version {}", target_sdk_version);
+        }
+        self.add_lib_dir(&lib_dir);
+        self.add_lib_dir(&sdk_lib_dir);
+        self.use_ld("lld");
+        self.add_link_arg(&format!("--target=aarch64-linux-android{}", target_sdk_version));
+        self.add_link_arg(&format!("-B{}", sdk_lib_dir.display()));
+        self.add_link_arg(&format!("--sysroot={}", path.display()));
         Ok(())
     }
 
-    pub fn use_xwin(&mut self, path: &Path) -> Result<()> {
+    pub fn use_windows_sdk(&mut self, path: &Path) -> Result<()> {
         let path = dunce::canonicalize(path)?;
         self.cfg_tool(Tool::Cc, "clang");
         self.cfg_tool(Tool::Cxx, "clang++");
@@ -262,11 +274,11 @@ impl CargoBuild {
     }
 
     pub fn link_lib(&mut self, name: &str) {
-        self.rust_flags.push_str(&format!("-l{}", name));
+        self.rust_flags.push_str(&format!("-l{} ", name));
     }
 
     pub fn link_framework(&mut self, name: &str) {
-        self.rust_flags.push_str(&format!("-lframework={}", name));
+        self.rust_flags.push_str(&format!("-lframework={} ", name));
     }
 
     pub fn add_target_feature(&mut self, target_feature: &str) {
