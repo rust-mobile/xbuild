@@ -522,7 +522,7 @@ impl BuildEnv {
             let manifest = config.parent().unwrap().join("manifest.yaml");
             (Config::cargo_toml(config)?, Manifest::parse(&manifest)?)
         };
-        manifest.apply_config(&config, build_target.opt());
+        manifest.apply_config(&config, build_target.opt(), flutter.is_some());
         let target_file = manifest.target_file(cargo.root_dir(), build_target.platform());
         let icon = manifest
             .icon(build_target.platform())

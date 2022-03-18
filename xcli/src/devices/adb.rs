@@ -265,7 +265,7 @@ impl Adb {
     ) -> Result<Run> {
         let manifest = env.manifest().android();
         let package = manifest.package.as_ref().unwrap();
-        let activity = manifest.application.activity[0].name.as_ref().unwrap();
+        let activity = manifest.application.activities[0].name.as_ref().unwrap();
         self.xrun(device, path, package, activity, flutter_attach)
     }
 

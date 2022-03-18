@@ -1,5 +1,26 @@
 use anyhow::Result;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u8)]
+pub enum Target {
+    ArmV7a = 1,
+    Arm64V8a = 2,
+    X86 = 3,
+    X86_64 = 4,
+}
+
+impl Target {
+    /// Identifier used in the NDK to refer to the ABI
+    pub fn android_abi(self) -> &'static str {
+        match self {
+            Self::Arm64V8a => "arm64-v8a",
+            Self::ArmV7a => "armeabi-v7a",
+            Self::X86 => "x86",
+            Self::X86_64 => "x86_64",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct VersionCode {
     major: u8,

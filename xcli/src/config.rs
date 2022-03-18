@@ -3,7 +3,8 @@ use anyhow::Result;
 use appbundle::InfoPlist;
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
-use xapk::{AndroidManifest, VersionCode};
+use xapk::manifest::{Activity, AndroidManifest, IntentFilter, MetaData, Permission};
+use xapk::VersionCode;
 use xmsix::AppxManifest;
 
 #[derive(Clone, Debug)]
@@ -66,7 +67,7 @@ impl PubspecYaml {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Manifest {
     generic: GenericConfig,
     android: ApkConfig,
@@ -78,6 +79,9 @@ pub struct Manifest {
 
 impl Manifest {
     pub fn parse<P: AsRef<Path>>(path: P) -> Result<Self> {
+        if !path.as_ref().exists() {
+            return Ok(Default::default());
+        }
         let contents = std::fs::read_to_string(path.as_ref())?;
         let config: RawConfig = serde_yaml::from_str(&contents)?;
         Ok(Manifest {
@@ -113,33 +117,108 @@ impl Manifest {
         }
     }
 
-    pub fn apply_config(&mut self, config: &Config, opt: Opt) {
-        self.android
-            .manifest
+    pub fn apply_config(&mut self, config: &Config, opt: Opt, flutter: bool) {
+        let manifest = &mut self.android.manifest;
+        manifest
+            .package
+            .get_or_insert_with(|| format!("com.example.{}", config.name.replace("-", "_")));
+        manifest
             .version_name
             .get_or_insert_with(|| config.version.clone());
         if let Ok(code) = VersionCode::from_semver(&config.version) {
-            self.android
-                .manifest
-                .version_code
-                .get_or_insert_with(|| code.to_code(1));
+            manifest.version_code.get_or_insert_with(|| code.to_code(1));
         }
-        self.android
-            .manifest
-            .application
-            .label
-            .get_or_insert_with(|| config.name.clone());
-        self.android
-            .manifest
-            .application
-            .debuggable
-            .get_or_insert_with(|| opt == Opt::Debug);
-        self.android
-            .manifest
+        let target_sdk_version = 31;
+        let target_sdk_codename = 11;
+        let min_sdk_version = 21;
+        manifest
+            .compile_sdk_version
+            .get_or_insert(target_sdk_version);
+        manifest
+            .platform_build_version_code
+            .get_or_insert(target_sdk_version);
+        manifest
+            .compile_sdk_version_codename
+            .get_or_insert(target_sdk_codename);
+        manifest
+            .platform_build_version_name
+            .get_or_insert(target_sdk_codename);
+        manifest
             .sdk
             .target_sdk_version
-            .get_or_insert_with(|| 31);
-        self.android.manifest.sdk.min_sdk_version.get_or_insert(21);
+            .get_or_insert(target_sdk_version);
+        manifest.sdk.min_sdk_version.get_or_insert(min_sdk_version);
+        if flutter && opt == Opt::Debug {
+            manifest.uses_permission.push(Permission {
+                name: "android.permission.INTERNET".into(),
+                max_sdk_version: None,
+            });
+        }
+
+        let application = &mut manifest.application;
+        application.label.get_or_insert_with(|| config.name.clone());
+        application
+            .debuggable
+            .get_or_insert_with(|| opt == Opt::Debug);
+        if flutter {
+            application
+                .theme
+                .get_or_insert_with(|| "@android:style/Theme.Light.NoTitleBar".into());
+            application
+                .app_component_factory
+                .get_or_insert_with(|| "androidx.core.app.CoreComponentFactory".into());
+            application.meta_data.push(MetaData {
+                name: "flutterEmbedding".into(),
+                value: "2".into(),
+            });
+        } else {
+            application.has_code.get_or_insert(false);
+        }
+        if application.activities.is_empty() {
+            let activity = Activity {
+                config_changes: Some(
+                    [
+                        "orientation",
+                        "keyboardHidden",
+                        "keyboard",
+                        "screenSize",
+                        "smallestScreenSize",
+                        "locale",
+                        "layoutDirection",
+                        "fontScale",
+                        "screenLayout",
+                        "density",
+                        "uiMode",
+                    ]
+                    .join("|"),
+                ),
+                label: None,
+                launch_mode: Some("singleTop".into()),
+                name: Some(if flutter {
+                    "io.flutter.embedding.android.FlutterActivity".into()
+                } else {
+                    "android.app.NativeActivity".into()
+                }),
+                orientation: None,
+                window_soft_input_mode: Some("adjustResize".into()),
+                hardware_accelerated: Some(true),
+                exported: Some(true),
+                meta_data: if flutter {
+                    vec![]
+                } else {
+                    vec![MetaData {
+                        name: "android.app.lib_name".into(),
+                        value: config.name.replace("-", "_"),
+                    }]
+                },
+                intent_filters: vec![IntentFilter {
+                    actions: vec!["android.intent.action.MAIN".into()],
+                    categories: vec!["android.intent.category.LAUNCHER".into()],
+                    data: vec![],
+                }],
+            };
+            application.activities.push(activity);
+        }
 
         self.ios
             .info

@@ -164,7 +164,10 @@ fn download_flutter_artifact(dir: &Path, version: &str, artifact: &str) -> Resul
 }
 
 pub fn android_jar(dir: &Path, sdk: u32) -> Result<PathBuf> {
-    let path = dir.join("platforms").join(format!("android-{}", sdk)).join("android.jar");
+    let path = dir
+        .join("platforms")
+        .join(format!("android-{}", sdk))
+        .join("android.jar");
     if !path.exists() {
         let package = format!("platforms;android-{}", sdk);
         android_sdkmanager::download_and_extract_packages(
