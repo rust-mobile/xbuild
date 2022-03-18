@@ -201,8 +201,8 @@ impl Adb {
         executable: &Path,
     ) -> Result<()> {
         let lldb_server = env.lldb_server(target).unwrap();
-        let package = env.manifest().android().package.as_ref().unwrap();
-        /*let app_dir = self.app_dir(device, package)?;
+        /*let package = env.manifest().android().package.as_ref().unwrap();
+        let app_dir = self.app_dir(device, package)?;
         self.shell(device, Some(package))
             .arg("chmod")
             .arg("a+x")

@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+android-sdkmanager-rs = "0.5.0"
 anyhow = "1.0.53"
 appbundle = { version = "0.1.0", path = "../appbundle" }
 clap = { version = "3.0.13", features = ["derive"] }

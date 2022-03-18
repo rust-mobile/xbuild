@@ -2,7 +2,7 @@ use crate::{Arch, CompileTarget, Opt, Platform};
 use anyhow::Result;
 use std::fs::File;
 use std::io::BufWriter;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tar::{Archive, Builder, EntryType};
 use zstd::Decoder;
 
@@ -161,4 +161,18 @@ fn download_flutter_artifact(dir: &Path, version: &str, artifact: &str) -> Resul
     std::io::copy(&mut resp, &mut f)?;
     xcommon::extract_zip(&path, dir)?;
     Ok(())
+}
+
+pub fn android_jar(dir: &Path, sdk: u32) -> Result<PathBuf> {
+    let path = dir.join("platforms").join(format!("android-{}", sdk)).join("android.jar");
+    if !path.exists() {
+        let package = format!("platforms;android-{}", sdk);
+        android_sdkmanager::download_and_extract_packages(
+            dir.to_str().unwrap(),
+            android_sdkmanager::HostOs::Linux,
+            &[&package],
+            Some(&[android_sdkmanager::MatchType::EntireName("android.jar")]),
+        )
+    }
+    Ok(path)
 }

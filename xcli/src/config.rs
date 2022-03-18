@@ -1,4 +1,3 @@
-use crate::android::AndroidSdk;
 use crate::{Opt, Platform};
 use anyhow::Result;
 use appbundle::InfoPlist;
@@ -114,7 +113,7 @@ impl Manifest {
         }
     }
 
-    pub fn apply_config(&mut self, config: &Config, opt: Opt, sdk: Option<&AndroidSdk>) {
+    pub fn apply_config(&mut self, config: &Config, opt: Opt) {
         self.android
             .manifest
             .version_name
@@ -135,15 +134,12 @@ impl Manifest {
             .application
             .debuggable
             .get_or_insert_with(|| opt == Opt::Debug);
-        if let Some(sdk) = sdk {
-            self.android
-                .manifest
-                .sdk
-                .target_sdk_version
-                .get_or_insert_with(|| sdk.default_target_platform());
-            // TODO: set minimum_sdk_version as lowest ndk supported api level
-            self.android.manifest.sdk.min_sdk_version.get_or_insert(21);
-        }
+        self.android
+            .manifest
+            .sdk
+            .target_sdk_version
+            .get_or_insert_with(|| 31);
+        self.android.manifest.sdk.min_sdk_version.get_or_insert(21);
 
         self.ios
             .info

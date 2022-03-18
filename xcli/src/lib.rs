@@ -1,4 +1,3 @@
-use crate::android::AndroidSdk;
 use crate::cargo::{Cargo, CargoBuild, CrateType};
 use crate::config::{Config, Manifest};
 use crate::devices::Device;
@@ -20,7 +19,6 @@ macro_rules! exe {
     };
 }
 
-pub mod android;
 pub mod cargo;
 pub mod config;
 pub mod devices;
@@ -502,7 +500,6 @@ pub struct BuildEnv {
     pubspec: PathBuf,
     manifest: Manifest,
     flutter: Option<Flutter>,
-    android_sdk: Option<AndroidSdk>,
 }
 
 impl BuildEnv {
@@ -525,12 +522,7 @@ impl BuildEnv {
             let manifest = config.parent().unwrap().join("manifest.yaml");
             (Config::cargo_toml(config)?, Manifest::parse(&manifest)?)
         };
-        let android_sdk = if build_target.platform() == Platform::Android {
-            Some(AndroidSdk::from_env()?)
-        } else {
-            None
-        };
-        manifest.apply_config(&config, build_target.opt(), android_sdk.as_ref());
+        manifest.apply_config(&config, build_target.opt());
         let target_file = manifest.target_file(cargo.root_dir(), build_target.platform());
         let icon = manifest
             .icon(build_target.platform())
@@ -544,7 +536,6 @@ impl BuildEnv {
             icon,
             cargo,
             flutter,
-            android_sdk,
             manifest,
             build_dir,
         })
@@ -594,15 +585,10 @@ impl BuildEnv {
         &self.manifest
     }
 
-    fn target_sdk_version(&self) -> u32 {
-        self.manifest().android().sdk.target_sdk_version.unwrap()
-    }
-
     pub fn android_jar(&self) -> Result<PathBuf> {
-        self.android_sdk
-            .as_ref()
-            .unwrap()
-            .android_jar(self.target_sdk_version())
+        let path = self.build_dir().join("Android.sdk");
+        let version = self.manifest().android().sdk.target_sdk_version.unwrap();
+        crate::download::android_jar(&path, version)
     }
 
     pub fn lldb_server(&self, target: CompileTarget) -> Option<PathBuf> {
