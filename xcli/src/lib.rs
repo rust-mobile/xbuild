@@ -22,6 +22,7 @@ macro_rules! exe {
 pub mod cargo;
 pub mod config;
 pub mod devices;
+pub mod doctor;
 pub mod download;
 pub mod flutter;
 pub mod maven;

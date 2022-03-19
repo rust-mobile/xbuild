@@ -31,6 +31,7 @@ fn main() -> Result<()> {
 
 #[derive(Subcommand)]
 enum Commands {
+    Doctor,
     Devices,
     New {
         name: String,
@@ -52,6 +53,10 @@ enum Commands {
 impl Commands {
     pub fn run(self) -> Result<()> {
         match self {
+            Self::Doctor => {
+                let doctor = xcli::doctor::Doctor::default();
+                print!("{}", doctor);
+            }
             Self::Devices => {
                 for device in Device::list()? {
                     println!(

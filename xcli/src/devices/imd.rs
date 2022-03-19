@@ -9,7 +9,6 @@ pub struct IMobileDevice {
     idevice_id: PathBuf,
     ideviceinfo: PathBuf,
     ideviceinstaller: PathBuf,
-    idevicesyslog: PathBuf,
 }
 
 impl IMobileDevice {
@@ -18,7 +17,6 @@ impl IMobileDevice {
             idevice_id: which::which(exe!("idevice_id"))?,
             ideviceinfo: which::which(exe!("ideviceinfo"))?,
             ideviceinstaller: which::which(exe!("ideviceinstaller"))?,
-            idevicesyslog: which::which(exe!("idevicesyslog"))?,
         })
     }
 
