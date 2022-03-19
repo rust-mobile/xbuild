@@ -138,6 +138,21 @@ fn build(args: BuildArgs, run: bool, debug: bool) -> Result<()> {
         }
     }
 
+    for target in env.target().compile_targets() {
+        let arch_dir = platform_dir.join(target.arch().to_string());
+        let mut cargo = env.cargo_build(target, &arch_dir.join("cargo"))?;
+        let artifact = if env.target().platform() == Platform::Android
+            || (env.flutter().is_some() && env.target().platform() == Platform::Ios)
+        {
+            cargo.arg("--lib");
+            "library"
+        } else {
+            "binary"
+        };
+        println!("building rust {} for {}", artifact, target);
+        cargo.exec()?;
+    }
+
     if let Some(flutter) = env.flutter() {
         let engine_version = flutter.engine_version()?;
         let host = CompileTarget::new(Platform::host()?, Arch::host()?, Opt::Debug);
@@ -197,23 +212,6 @@ fn build(args: BuildArgs, run: bool, debug: bool) -> Result<()> {
                     target,
                 )?;
             }
-        }
-    }
-
-    // TODO:
-    //for target in env.target().compile_targets() {
-    // println!("building rust library for {}", target);
-    // env.cargo_build(target)?.exec()?;
-    //}
-
-    if env.flutter().is_none()
-        || (env.target().platform() != Platform::Android
-            && env.target().platform() != Platform::Ios)
-    {
-        for target in env.target().compile_targets() {
-            println!("building rust binary for {}", target);
-            let arch_dir = platform_dir.join(target.arch().to_string());
-            env.cargo_build(target, &arch_dir.join("cargo"))?.exec()?;
         }
     }
 
@@ -330,13 +328,12 @@ fn build(args: BuildArgs, run: bool, debug: bool) -> Result<()> {
                         }
                     }
                 }
-            } else {
-                for target in env.target().compile_targets() {
-                    let arch_dir = platform_dir.join(target.arch().to_string());
-                    let lib =
-                        env.cargo_artefact(&arch_dir.join("cargo"), target, CrateType::Cdylib)?;
-                    apk.add_lib(target.android_abi(), &lib)?;
-                }
+            }
+            for target in env.target().compile_targets() {
+                let arch_dir = platform_dir.join(target.arch().to_string());
+                let lib =
+                    env.cargo_artefact(&arch_dir.join("cargo"), target, CrateType::Cdylib)?;
+                apk.add_lib(target.android_abi(), &lib)?;
             }
             apk.finish(env.target().signer().cloned())?;
             out

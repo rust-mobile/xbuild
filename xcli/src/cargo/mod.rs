@@ -313,6 +313,10 @@ impl CargoBuild {
         self.add_link_arg(&format!("-fuse-ld={}", name));
     }
 
+    pub fn arg(&mut self, arg: &str) {
+        self.cmd.arg(arg);
+    }
+
     pub fn exec(mut self) -> Result<()> {
         self.cargo_target_env("RUSTFLAGS", &self.rust_flags.clone());
         self.cc_triple_env("CFLAGS", &self.c_flags.clone());
