@@ -32,6 +32,9 @@ fn main() -> Result<()> {
 #[derive(Subcommand)]
 enum Commands {
     Devices,
+    New {
+        name: String,
+    },
     Build {
         #[clap(flatten)]
         args: BuildArgs,
@@ -60,6 +63,7 @@ impl Commands {
                     );
                 }
             }
+            Self::New { name } => xcli::new::create_project(&name)?,
             Self::Build { args } => build(args, false, false)?,
             Self::Run { args } => build(args, true, false)?,
             Self::Lldb { args } => build(args, false, true)?,

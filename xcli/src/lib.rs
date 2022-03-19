@@ -25,6 +25,7 @@ pub mod devices;
 pub mod download;
 pub mod flutter;
 pub mod maven;
+pub mod new;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Opt {
