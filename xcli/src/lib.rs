@@ -19,6 +19,7 @@ macro_rules! exe {
     };
 }
 
+pub mod assets;
 pub mod cargo;
 pub mod config;
 pub mod devices;

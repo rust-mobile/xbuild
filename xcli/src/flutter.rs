@@ -1,3 +1,4 @@
+use crate::assets::AssetBundle;
 use crate::{Arch, CompileTarget, Opt, Platform};
 use anyhow::Result;
 use std::path::{Path, PathBuf};
@@ -89,39 +90,10 @@ impl Flutter {
         &self,
         root_dir: &Path,
         flutter_assets: &Path,
-        depfile: &Path,
+        _depfile: &Path,
     ) -> Result<()> {
-        // in release mode only the assets are copied. this means that the result
-        // should be platform independent.
-        let host = CompileTarget::new(Platform::host()?, Arch::host()?, Opt::Release);
-        let target_platform = match (host.platform(), host.arch()) {
-            (Platform::Linux, Arch::Arm64) => "linux-arm64",
-            (Platform::Linux, Arch::X64) => "linux-x64",
-            (Platform::Macos, _) => "darwin",
-            (Platform::Windows, Arch::X64) => "windows-x64",
-            _ => anyhow::bail!(
-                "unsupported platform arch combination {} {}",
-                host.platform(),
-                host.arch(),
-            ),
-        };
-        let status = self
-            .flutter()
-            .current_dir(root_dir)
-            .arg("assemble")
-            .arg("--no-version-check")
-            .arg("--suppress-analytics")
-            .arg("--depfile")
-            .arg(depfile)
-            .arg("--output")
-            .arg(flutter_assets)
-            .arg(format!("-dTargetPlatform={}", target_platform))
-            .arg("-dBuildMode=release")
-            .arg("copy_flutter_bundle")
-            .status()?;
-        if !status.success() {
-            anyhow::bail!("flutter assemble exited with {:?}", status.code());
-        }
+        let bundle = AssetBundle::new(root_dir, &self.material_fonts()?)?;
+        bundle.assemble(flutter_assets)?;
         Ok(())
     }
 
@@ -144,6 +116,19 @@ impl Flutter {
 
     pub fn vm_snapshot_data(&self) -> Result<PathBuf> {
         self.host_file(Path::new("vm_isolate_snapshot.bin"))
+    }
+
+    pub fn material_fonts(&self) -> Result<PathBuf> {
+        let path = self
+            .path
+            .join("bin")
+            .join("cache")
+            .join("artifacts")
+            .join("material_fonts");
+        if !path.exists() {
+            anyhow::bail!("failed to locate {}", path.display());
+        }
+        Ok(path)
     }
 
     pub fn kernel_blob_bin(
