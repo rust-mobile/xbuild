@@ -127,6 +127,7 @@ pub fn flutter_engine(engine_dir: &Path, engine: &str, target: CompileTarget) ->
             artifacts.push("ios-release/artifacts.zip".to_string());
         }
     }
+    std::fs::create_dir_all(engine_dir)?;
     for artifact in &artifacts {
         let url = format!(
             "https://storage.googleapis.com/flutter_infra_release/flutter/{}/{}",

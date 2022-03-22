@@ -98,6 +98,7 @@ fn build(args: BuildArgs, run: bool, debug: bool) -> Result<()> {
     let env = BuildEnv::new(args)?;
     let opt_dir = env.build_dir().join(env.target().opt().to_string());
     let platform_dir = opt_dir.join(env.target().platform().to_string());
+    std::fs::create_dir_all(&platform_dir)?;
     println!("package {}", env.cargo().package());
     println!("root_dir {}", env.cargo().root_dir().display());
     println!("target_dir {}", env.cargo().target_dir().display());
@@ -144,24 +145,6 @@ fn build(args: BuildArgs, run: bool, debug: bool) -> Result<()> {
                     download_sdk(env.build_dir(), "iPhoneOS.sdk.tar.zst", false, no_colons)?;
                 }
             }
-        }
-    }
-
-    let bin_target = env.target().platform() != Platform::Android
-        && (env.flutter().is_some() || env.target().platform() != Platform::Ios);
-    let has_lib = env.root_dir().join("src").join("lib.rs").exists();
-    if bin_target || has_lib {
-        for target in env.target().compile_targets() {
-            let arch_dir = platform_dir.join(target.arch().to_string());
-            let mut cargo = env.cargo_build(target, &arch_dir.join("cargo"))?;
-            let artifact = if bin_target {
-                "binary"
-            } else {
-                cargo.arg("--lib");
-                "library"
-            };
-            println!("building rust {} for {}", artifact, target);
-            cargo.exec()?;
         }
     }
 
@@ -223,6 +206,24 @@ fn build(args: BuildArgs, run: bool, debug: bool) -> Result<()> {
                     target,
                 )?;
             }
+        }
+    }
+
+    let bin_target = env.target().platform() != Platform::Android
+        && (env.flutter().is_some() || env.target().platform() != Platform::Ios);
+    let has_lib = env.root_dir().join("src").join("lib.rs").exists();
+    if bin_target || has_lib {
+        for target in env.target().compile_targets() {
+            let arch_dir = platform_dir.join(target.arch().to_string());
+            let mut cargo = env.cargo_build(target, &arch_dir.join("cargo"))?;
+            let artifact = if bin_target {
+                "binary"
+            } else {
+                cargo.arg("--lib");
+                "library"
+            };
+            println!("building rust {} for {}", artifact, target);
+            cargo.exec()?;
         }
     }
 

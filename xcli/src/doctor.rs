@@ -21,8 +21,8 @@ impl Default for Doctor {
                     ],
                 },
                 Group {
-                    name: "flutter",
-                    checks: vec!["flutter"],
+                    name: "git",
+                    checks: vec!["git"],
                 },
                 Group {
                     name: "android",
