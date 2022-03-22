@@ -86,7 +86,6 @@ jobs:
     - uses: hecrj/setup-rust-action@v1
       with:
         targets: x86_64-unknown-linux-gnu
-    - uses: subosito/flutter-action@v1
     - run: chmod +x ./x
     - run: ../../x build --platform linux --arch x64
       working-directory: examples/${{ matrix.artifact }}
@@ -121,7 +120,6 @@ jobs:
     - uses: hecrj/setup-rust-action@v1
       with:
         targets: x86_64-unknown-linux-gnu
-    - uses: subosito/flutter-action@v1
     - run: chmod +x ./x
     - run: ../../x build --platform linux --arch x64 --release
       working-directory: examples/${{ matrix.artifact }}
@@ -153,7 +151,6 @@ jobs:
     - uses: hecrj/setup-rust-action@v1
       with:
         targets: x86_64-apple-darwin
-    - uses: subosito/flutter-action@v1
     - run: chmod +x ./x
     - run: ../../x build --platform macos --arch x64
       working-directory: examples/${{ matrix.artifact }}
@@ -179,7 +176,6 @@ jobs:
     - uses: hecrj/setup-rust-action@v1
       with:
         targets: x86_64-apple-darwin
-    - uses: subosito/flutter-action@v1
     - run: chmod +x ./x
     - run: ../../x build --platform macos --arch x64
       working-directory: examples/${{ matrix.artifact }}
@@ -206,7 +202,6 @@ jobs:
     - uses: hecrj/setup-rust-action@v1
       with:
         targets: x86_64-apple-darwin
-    - uses: subosito/flutter-action@v1
     - run: ../../x.exe build --platform macos --arch x64
       working-directory: examples/${{ matrix.artifact }}
     - run: tar --zstd -cf ${{ matrix.artifact }}.app.tar.zst ${{ matrix.artifact }}.app
@@ -235,7 +230,6 @@ jobs:
     - uses: hecrj/setup-rust-action@v1
       with:
         targets: x86_64-apple-darwin
-    - uses: subosito/flutter-action@v1
     - run: chmod +x ./x
     - run: ../../x build --platform macos --arch x64 --release
       working-directory: examples/${{ matrix.artifact }}
@@ -268,7 +262,6 @@ jobs:
     - uses: hecrj/setup-rust-action@v1
       with:
         targets: x86_64-pc-windows-msvc
-    - uses: subosito/flutter-action@v1
     - run: chmod +x ./x
     - run: ../../x build --platform windows --arch x64
       working-directory: examples/${{ matrix.artifact }}
@@ -298,7 +291,6 @@ jobs:
     - uses: hecrj/setup-rust-action@v1
       with:
         targets: x86_64-pc-windows-msvc
-    - uses: subosito/flutter-action@v1
     - run: chmod +x ./x
     - run: ../../x build --platform windows --arch x64
       working-directory: examples/${{ matrix.artifact }}
@@ -322,7 +314,6 @@ jobs:
     - uses: hecrj/setup-rust-action@v1
       with:
         targets: x86_64-pc-windows-msvc
-    - uses: subosito/flutter-action@v1
     - run: ../../x build --platform windows --arch x64
       working-directory: examples/${{ matrix.artifact }}
     - uses: actions/upload-artifact@v2
@@ -349,7 +340,6 @@ jobs:
     - uses: hecrj/setup-rust-action@v1
       with:
         targets: x86_64-pc-windows-msvc
-    - uses: subosito/flutter-action@v1
     - run: ../../x build --platform windows --arch x64 --release
       working-directory: examples/${{ matrix.artifact }}
     - uses: actions/upload-artifact@v2
@@ -382,11 +372,8 @@ jobs:
     - uses: hecrj/setup-rust-action@v1
       with:
         targets: aarch64-linux-android
-    - uses: subosito/flutter-action@v1
     - run: ../../x build --platform android --arch arm64 --${{ matrix.opt }}
       working-directory: examples/${{ matrix.artifact }}
-      env:
-        ANDROID_NDK_ROOT: /usr/local/lib/android/sdk/ndk/23.1.7779620
     - uses: actions/upload-artifact@v2
       with:
         name: ubuntu-latest-android-arm64-${{ matrix.opt }}-${{ matrix.artifact }}
@@ -415,14 +402,11 @@ jobs:
     - uses: hecrj/setup-rust-action@v1
       with:
         targets: aarch64-linux-android
-    - uses: subosito/flutter-action@v1
     - run: sudo mkdir -p /usr/local/bin
     - run: sudo ln -s lld-13 /usr/local/bin/lld
     - run: chmod +x ./x
     - run: ../../x build --platform android --arch arm64 --${{ matrix.opt }}
       working-directory: examples/${{ matrix.artifact }}
-      env:
-        ANDROID_NDK_ROOT: /usr/local/lib/android/sdk/ndk/23.1.7779620
     - uses: actions/upload-artifact@v2
       with:
         name: macos-latest-android-arm64-${{ matrix.opt }}-${{ matrix.artifact }}
@@ -448,11 +432,8 @@ jobs:
     - uses: hecrj/setup-rust-action@v1
       with:
         targets: aarch64-linux-android
-    - uses: subosito/flutter-action@v1
     - run: ../../x build --platform android --arch arm64 --${{ matrix.opt }}
       working-directory: examples/${{ matrix.artifact }}
-      env:
-        ANDROID_NDK_ROOT: /usr/local/lib/android/sdk/ndk/23.1.7779620
     - uses: actions/upload-artifact@v2
       with:
         name: windows-latest-android-arm64-${{ matrix.opt }}-${{ matrix.artifact }}

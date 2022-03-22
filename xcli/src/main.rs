@@ -166,13 +166,16 @@ fn build(args: BuildArgs, run: bool, debug: bool) -> Result<()> {
     }
 
     if let Some(flutter) = env.flutter() {
+        flutter.upgrade()?;
         let engine_version = flutter.engine_version()?;
         let host = CompileTarget::new(Platform::host()?, Arch::host()?, Opt::Debug);
+        let mut engine_version_changed = false;
         for target in env.target().compile_targets().chain(std::iter::once(host)) {
             let engine_dir = flutter.engine_dir(target)?;
             if !engine_dir.exists() {
                 println!("downloading flutter engine for {}", target);
                 xcli::download::flutter_engine(&engine_dir, &engine_version, target)?;
+                engine_version_changed = true;
             }
         }
         if !env
@@ -185,10 +188,6 @@ fn build(args: BuildArgs, run: bool, debug: bool) -> Result<()> {
             println!("pub get");
             flutter.pub_get(env.root_dir())?;
         }
-        let engine_version_changed = xcommon::stamp_file(
-            &flutter.engine_version_path()?,
-            &platform_dir.join("engine.version.stamp"),
-        )?;
         if env.target().platform() == Platform::Android {
             if engine_version_changed || !platform_dir.join("classes.dex").exists() {
                 println!("building classes.dex");

@@ -5,45 +5,87 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 pub struct Flutter {
-    path: PathBuf,
-    engine: PathBuf,
+    git: PathBuf,
+    sdk: PathBuf,
 }
 
 impl Flutter {
-    pub fn new(engine: PathBuf) -> Result<Self> {
-        let path = dunce::canonicalize(which::which("flutter")?)?
-            .parent()
-            .unwrap()
-            .parent()
-            .unwrap()
-            .to_path_buf();
-        Ok(Self { path, engine })
+    pub fn new(sdk: PathBuf) -> Result<Self> {
+        std::fs::create_dir_all(&sdk)?;
+        let git = which::which("git")?;
+        if !sdk.join("flutter").exists() {
+            let status = Command::new(&git)
+                .current_dir(&sdk)
+                .arg("clone")
+                .arg("https://github.com/flutter/flutter")
+                .arg("--depth")
+                .arg("1")
+                .arg("--branch")
+                .arg("stable")
+                .status()?;
+            if !status.success() {
+                anyhow::bail!("failed to clone flutter repo");
+            }
+        }
+        Ok(Self { git, sdk })
     }
 
-    pub fn engine_version_path(&self) -> Result<PathBuf> {
+    pub fn version(&self) -> Result<String> {
+        let output = Command::new(&self.git)
+            .current_dir(self.sdk.join("flutter"))
+            .arg("tag")
+            .arg("--points-at")
+            .arg("HEAD")
+            .output()?;
+        if !output.status.success() {
+            anyhow::bail!("failed to get flutter version");
+        }
+        let version = std::str::from_utf8(&output.stdout)?;
+        Ok(version.to_string())
+    }
+
+    pub fn upgrade(&self) -> Result<()> {
+        let flutter = self.sdk.join("flutter");
+        let status = Command::new(&self.git)
+            .current_dir(&flutter)
+            .arg("pull")
+            .status()?;
+        if !status.success() {
+            anyhow::bail!("failed to pull flutter repo");
+        }
+        Ok(())
+    }
+
+    fn artifact_version(&self, artifact: &str) -> Result<String> {
         let path = self
-            .path
+            .sdk
+            .join("flutter")
             .join("bin")
             .join("internal")
-            .join("engine.version");
+            .join(format!("{}.version", artifact));
         if !path.exists() {
             anyhow::bail!("failed to locate engine.version at {}", path.display());
         }
-        Ok(path)
+        Ok(std::fs::read_to_string(path)?.trim().into())
     }
 
     pub fn engine_version(&self) -> Result<String> {
-        if let Ok(version) = std::env::var("FLUTTER_ENGINE_VERSION") {
-            return Ok(version);
-        }
-        Ok(std::fs::read_to_string(self.engine_version_path()?)?
-            .trim()
-            .into())
+        self.artifact_version("engine")
+    }
+
+    pub fn material_fonts_version(&self) -> Result<String> {
+        Ok(self
+            .artifact_version("material_fonts")?
+            .split('/')
+            .nth(3)
+            .unwrap()
+            .to_string())
     }
 
     pub fn engine_dir(&self, target: CompileTarget) -> Result<PathBuf> {
         let path = self
-            .engine
+            .sdk
+            .join("engine")
             .join(self.engine_version()?)
             .join(target.opt().to_string())
             .join(target.platform().to_string())
@@ -51,32 +93,55 @@ impl Flutter {
         Ok(path)
     }
 
-    pub fn dart(&self) -> Command {
-        let path = self
-            .path
-            .join("bin")
-            .join("cache")
-            .join("dart-sdk")
-            .join("bin")
-            .join(exe!("dart"));
-        Command::new(path)
+    fn host_file(&self, path: &Path) -> Result<PathBuf> {
+        let host = CompileTarget::new(Platform::host()?, Arch::host()?, Opt::Debug);
+        let path = self.engine_dir(host)?.join(path);
+        if !path.exists() {
+            anyhow::bail!("failed to locate {}", path.display());
+        }
+        Ok(path)
     }
 
-    pub fn flutter(&self) -> Command {
-        let path = self.path.join("bin");
-        if cfg!(windows) {
-            Command::new(path.join("flutter.bat"))
-        } else {
-            Command::new(path.join("flutter"))
-        }
+    pub fn material_fonts(&self) -> Result<PathBuf> {
+        let dir = self.sdk.join("material_fonts");
+        let version = self.material_fonts_version()?;
+        crate::download::material_fonts(&dir, &version)
+    }
+
+    pub fn icudtl_dat(&self) -> Result<PathBuf> {
+        self.host_file(Path::new("icudtl.dat"))
+    }
+
+    pub fn isolate_snapshot_data(&self) -> Result<PathBuf> {
+        self.host_file(Path::new("isolate_snapshot.bin"))
+    }
+
+    pub fn vm_snapshot_data(&self) -> Result<PathBuf> {
+        self.host_file(Path::new("vm_isolate_snapshot.bin"))
+    }
+
+    pub fn dart(&self) -> Result<Command> {
+        let path = Path::new("dart-sdk").join("bin").join(exe!("dart"));
+        Ok(Command::new(self.host_file(&path)?))
     }
 
     pub fn pub_get(&self, root_dir: &Path) -> Result<()> {
+        let flutter_root = self.sdk.join("flutter");
+        let version = self.version()?;
+        std::fs::write(flutter_root.join("version"), version)?;
+        let pkg_dir = flutter_root.join("bin").join("cache").join("pkg");
+        std::fs::create_dir_all(&pkg_dir)?;
+        let src_dir = self.host_file(Path::new("sky_engine"))?;
+        let dest_dir = pkg_dir.join("sky_engine");
+        if dest_dir.exists() {
+            symlink::remove_symlink_dir(&dest_dir)?;
+        }
+        symlink::symlink_dir(&src_dir, &dest_dir)?;
         let status = self
-            .dart()
+            .dart()?
             .current_dir(root_dir)
-            .env("FLUTTER_ROOT", &self.path)
-            .arg("__deprecated_pub")
+            .env("FLUTTER_ROOT", flutter_root)
+            .arg("pub")
             .arg("get")
             .arg("--no-precompile")
             .status()?;
@@ -97,40 +162,6 @@ impl Flutter {
         Ok(())
     }
 
-    fn host_file(&self, path: &Path) -> Result<PathBuf> {
-        let host = CompileTarget::new(Platform::host()?, Arch::host()?, Opt::Debug);
-        let path = self.engine_dir(host)?.join(path);
-        if !path.exists() {
-            anyhow::bail!("failed to locate {}", path.display());
-        }
-        Ok(path)
-    }
-
-    pub fn icudtl_dat(&self) -> Result<PathBuf> {
-        self.host_file(Path::new("icudtl.dat"))
-    }
-
-    pub fn isolate_snapshot_data(&self) -> Result<PathBuf> {
-        self.host_file(Path::new("isolate_snapshot.bin"))
-    }
-
-    pub fn vm_snapshot_data(&self) -> Result<PathBuf> {
-        self.host_file(Path::new("vm_isolate_snapshot.bin"))
-    }
-
-    pub fn material_fonts(&self) -> Result<PathBuf> {
-        let path = self
-            .path
-            .join("bin")
-            .join("cache")
-            .join("artifacts")
-            .join("material_fonts");
-        if !path.exists() {
-            anyhow::bail!("failed to locate {}", path.display());
-        }
-        Ok(path)
-    }
-
     pub fn kernel_blob_bin(
         &self,
         root_dir: &Path,
@@ -139,7 +170,7 @@ impl Flutter {
         depfile: &Path,
         opt: Opt,
     ) -> Result<()> {
-        let mut cmd = self.dart();
+        let mut cmd = self.dart()?;
         cmd.current_dir(root_dir)
             .arg(self.host_file(Path::new("frontend_server.dart.snapshot"))?)
             .arg("--target=flutter")

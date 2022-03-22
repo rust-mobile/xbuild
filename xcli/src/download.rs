@@ -63,17 +63,16 @@ pub fn flutter_engine(engine_dir: &Path, engine: &str, target: CompileTarget) ->
         && target.arch() == Arch::host()?
         && target.opt() == Opt::Debug
     {
+        artifacts.push("sky_engine.zip".to_string());
         artifacts.push("flutter_patched_sdk.zip".to_string());
         artifacts.push("flutter_patched_sdk_product.zip".to_string());
-        if target.platform() != Platform::Macos {
-            artifacts.push(format!(
-                "{}-{}/artifacts.zip",
-                target.platform(),
-                target.arch()
-            ));
+        let platform = if target.platform() == Platform::Macos {
+            "darwin".to_string()
         } else {
-            artifacts.push(format!("darwin-{}/artifacts.zip", target.arch()));
-        }
+            target.platform().to_string()
+        };
+        artifacts.push(format!("{}-{}/artifacts.zip", &platform, target.arch()));
+        artifacts.push(format!("dart-sdk-{}-{}.zip", &platform, target.arch(),));
     }
     match (target.platform(), target.arch(), target.opt()) {
         (Platform::Linux, arch, Opt::Debug) => {
@@ -129,7 +128,12 @@ pub fn flutter_engine(engine_dir: &Path, engine: &str, target: CompileTarget) ->
         }
     }
     for artifact in &artifacts {
-        if let Err(err) = download_flutter_artifact(engine_dir, engine, artifact) {
+        let url = format!(
+            "https://storage.googleapis.com/flutter_infra_release/flutter/{}/{}",
+            engine, artifact
+        );
+        let file_name = Path::new(artifact).file_name().unwrap().to_str().unwrap();
+        if let Err(err) = download_zip(engine_dir, &url, &file_name) {
             std::fs::remove_dir_all(engine_dir).ok();
             return Err(err);
         }
@@ -144,15 +148,22 @@ pub fn flutter_engine(engine_dir: &Path, engine: &str, target: CompileTarget) ->
     Ok(())
 }
 
-fn download_flutter_artifact(dir: &Path, version: &str, artifact: &str) -> Result<()> {
-    let file_name = Path::new(artifact).file_name().unwrap();
+pub fn material_fonts(dir: &Path, version: &str) -> Result<PathBuf> {
+    let path = dir.join(version);
+    if !path.exists() {
+        let url = format!(
+            "https://storage.googleapis.com/flutter_infra_release/flutter/fonts/{}/fonts.zip",
+            version,
+        );
+        download_zip(&path, &url, "material_fonts.zip")?;
+    }
+    Ok(path)
+}
+
+fn download_zip(dir: &Path, url: &str, file_name: &str) -> Result<()> {
     let path = dir.join("download").join(file_name);
-    let url = format!(
-        "https://storage.googleapis.com/flutter_infra_release/flutter/{}/{}",
-        version, artifact
-    );
     let client = reqwest::blocking::Client::new();
-    let mut resp = client.get(&url).send()?;
+    let mut resp = client.get(url).send()?;
     if !resp.status().is_success() {
         anyhow::bail!("GET {} returned status code {}", url, resp.status());
     }
