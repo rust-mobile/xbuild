@@ -19,15 +19,13 @@ macro_rules! exe {
     };
 }
 
-pub mod assets;
 pub mod cargo;
+pub mod command;
 pub mod config;
 pub mod devices;
-pub mod doctor;
 pub mod download;
 pub mod flutter;
 pub mod maven;
-pub mod new;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Opt {

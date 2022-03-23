@@ -73,3 +73,8 @@ impl std::fmt::Display for Group {
         writeln!(f, "")
     }
 }
+
+pub fn doctor() {
+    let doctor = Doctor::default();
+    print!("{}", doctor);
+}

@@ -1,8 +1,11 @@
-use crate::assets::AssetBundle;
+use self::assets::AssetBundle;
 use crate::{Arch, CompileTarget, Opt, Platform};
 use anyhow::Result;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+
+pub mod assets;
+pub mod attach;
 
 pub struct Flutter {
     git: PathBuf,

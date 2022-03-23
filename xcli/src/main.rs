@@ -9,10 +9,9 @@ use xapk::zip::read::ZipArchive;
 use xapk::Apk;
 use xappimage::AppImage;
 use xcli::cargo::CrateType;
-use xcli::devices::Device;
 use xcli::flutter::Flutter;
 use xcli::maven::{FlutterEmbedding, FlutterEngine, R8};
-use xcli::{Arch, BuildArgs, BuildEnv, CompileTarget, Format, Opt, Platform};
+use xcli::{command, Arch, BuildArgs, BuildEnv, CompileTarget, Format, Opt, Platform};
 use xcommon::ZipFileOptions;
 use xmsix::Msix;
 
@@ -48,30 +47,21 @@ enum Commands {
         #[clap(flatten)]
         args: BuildArgs,
     },
+    Attach {
+        url: String,
+    },
 }
 
 impl Commands {
     pub fn run(self) -> Result<()> {
         match self {
-            Self::Doctor => {
-                let doctor = xcli::doctor::Doctor::default();
-                print!("{}", doctor);
-            }
-            Self::Devices => {
-                for device in Device::list()? {
-                    println!(
-                        "{:50}{:20}{:20}{}",
-                        device.to_string(),
-                        device.name()?,
-                        format!("{} {}", device.platform()?, device.arch()?),
-                        device.details()?,
-                    );
-                }
-            }
-            Self::New { name } => xcli::new::create_project(&name)?,
+            Self::Doctor => command::doctor(),
+            Self::Devices => command::devices()?,
+            Self::New { name } => command::new(&name)?,
             Self::Build { args } => build(args, false, false)?,
             Self::Run { args } => build(args, true, false)?,
             Self::Lldb { args } => build(args, false, true)?,
+            Self::Attach { url } => command::attach(&url)?,
         }
         Ok(())
     }

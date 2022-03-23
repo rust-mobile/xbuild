@@ -63,7 +63,7 @@ fn main() {{
     )
 }
 
-pub fn create_project(name: &str) -> Result<()> {
+pub fn new(name: &str) -> Result<()> {
     let root = Path::new(name);
     let src = root.join("src");
     let lib = root.join("lib");
@@ -75,23 +75,23 @@ pub fn create_project(name: &str) -> Result<()> {
     std::fs::write(root.join("build.rs"), build_rs(name))?;
     std::fs::write(
         root.join(".gitignore"),
-        include_bytes!("../assets/template/.gitignore"),
+        include_bytes!("../../assets/template/.gitignore"),
     )?;
     std::fs::write(
         root.join("rust-toolchain.toml"),
-        include_bytes!("../assets/template/rust-toolchain.toml"),
+        include_bytes!("../../assets/template/rust-toolchain.toml"),
     )?;
     std::fs::write(
         root.join("api.rsh"),
-        include_bytes!("../assets/template/api.rsh"),
+        include_bytes!("../../assets/template/api.rsh"),
     )?;
     std::fs::write(
         src.join("lib.rs"),
-        include_bytes!("../assets/template/lib.rs"),
+        include_bytes!("../../assets/template/lib.rs"),
     )?;
     std::fs::write(
         lib.join("main.dart"),
-        include_bytes!("../assets/template/main.dart"),
+        include_bytes!("../../assets/template/main.dart"),
     )?;
     Ok(())
 }
