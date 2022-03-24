@@ -62,16 +62,6 @@ impl IMobileDevice {
         })
     }
 
-    pub fn attach(
-        &self,
-        _device: &str,
-        _url: &str,
-        _root_dir: &Path,
-        _target: &Path,
-    ) -> Result<()> {
-        todo!()
-    }
-
     pub fn devices(&self, devices: &mut Vec<Device>) -> Result<()> {
         let output = Command::new(&self.idevice_id)
             .arg("-l")

@@ -52,6 +52,8 @@ enum Commands {
     Run {
         #[clap(flatten)]
         args: BuildArgs,
+        #[clap(long)]
+        no_build: bool,
     },
     Lldb {
         #[clap(flatten)]
@@ -64,6 +66,8 @@ enum Commands {
         root_dir: PathBuf,
         #[clap(long)]
         target_file: PathBuf,
+        #[clap(long)]
+        host_vmservice_port: Option<u16>,
     },
 }
 
@@ -73,14 +77,28 @@ impl Commands {
             Self::Doctor => command::doctor(),
             Self::Devices => command::devices()?,
             Self::New { name } => command::new(&name)?,
-            Self::Build { args } => build(args, false, false)?,
-            Self::Run { args } => build(args, true, false)?,
-            Self::Lldb { args } => build(args, false, true)?,
+            Self::Build { args } => {
+                let env = BuildEnv::new(args)?;
+                build(&env).await?;
+            }
+            Self::Run { args, no_build } => {
+                let env = BuildEnv::new(args)?;
+                if !no_build {
+                    build(&env).await?;
+                }
+                run(&env).await?;
+            }
+            Self::Lldb { args } => {
+                let env = BuildEnv::new(args)?;
+                build(&env).await?;
+                lldb(&env).await?;
+            }
             Self::Attach {
                 url,
                 root_dir,
                 target_file,
-            } => command::attach(&url, root_dir, target_file).await?,
+                host_vmservice_port,
+            } => command::attach(&url, &root_dir, &target_file, host_vmservice_port).await?,
         }
         Ok(())
     }
@@ -103,8 +121,34 @@ fn download_sdk(
     )
 }
 
-fn build(args: BuildArgs, run: bool, debug: bool) -> Result<()> {
-    let env = BuildEnv::new(args)?;
+async fn run(env: &BuildEnv) -> Result<()> {
+    let out = env.executable();
+    if let Some(device) = env.target().device() {
+        device.run(&out, &env, env.has_dart_code()).await?;
+    } else {
+        anyhow::bail!("no device specified");
+    }
+    Ok(())
+}
+
+async fn lldb(env: &BuildEnv) -> Result<()> {
+    if let Some(device) = env.target().device() {
+        let target = CompileTarget::new(device.platform()?, device.arch()?, env.target().opt());
+        let cargo_dir = env
+            .build_dir()
+            .join(target.opt().to_string())
+            .join(target.platform().to_string())
+            .join(target.arch().to_string())
+            .join("cargo");
+        let executable = env.cargo_artefact(&cargo_dir, target, CrateType::Cdylib)?;
+        device.lldb(&env, target, &executable)?;
+    } else {
+        anyhow::bail!("no device specified");
+    }
+    Ok(())
+}
+
+async fn build(env: &BuildEnv) -> Result<()> {
     let opt_dir = env.build_dir().join(env.target().opt().to_string());
     let platform_dir = opt_dir.join(env.target().platform().to_string());
     std::fs::create_dir_all(&platform_dir)?;
@@ -237,8 +281,8 @@ fn build(args: BuildArgs, run: bool, debug: bool) -> Result<()> {
     }
 
     println!("building {}", env.target().format());
-    let out = match env.target().format() {
-        Format::Appimage => {
+    let out = match env.target().platform() {
+        Platform::Linux => {
             let target = env.target().compile_targets().next().unwrap();
             let arch_dir = platform_dir.join(target.arch().to_string());
 
@@ -284,7 +328,7 @@ fn build(args: BuildArgs, run: bool, debug: bool) -> Result<()> {
             let main = env.cargo_artefact(&arch_dir.join("cargo"), target, CrateType::Bin)?;
             appimage.add_file(&main, Path::new(env.name()))?;
 
-            if target.opt() == Opt::Release {
+            if env.target().format() == Format::Appimage {
                 let out = arch_dir.join(format!("{}.AppImage", env.name()));
                 appimage.build(&out, env.target().signer().cloned())?;
                 out
@@ -292,7 +336,7 @@ fn build(args: BuildArgs, run: bool, debug: bool) -> Result<()> {
                 appimage.appdir().join("AppRun")
             }
         }
-        Format::Apk => {
+        Platform::Android => {
             let out = platform_dir.join(format!("{}.apk", env.name()));
             let mut apk = Apk::new(out.clone(), env.manifest().android().clone())?;
             apk.add_res(env.icon(), &env.android_jar()?)?;
@@ -361,7 +405,7 @@ fn build(args: BuildArgs, run: bool, debug: bool) -> Result<()> {
             apk.finish(env.target().signer().cloned())?;
             out
         }
-        Format::Dmg => {
+        Platform::Macos => {
             let target = env.target().compile_targets().next().unwrap();
             let arch_dir = platform_dir.join(target.arch().to_string());
             std::fs::create_dir_all(&arch_dir)?;
@@ -393,7 +437,7 @@ fn build(args: BuildArgs, run: bool, debug: bool) -> Result<()> {
             let main = env.cargo_artefact(&arch_dir.join("cargo"), target, CrateType::Bin)?;
             app.add_executable(&main)?;
             let appdir = app.finish(env.target().signer().cloned())?;
-            if target.opt() == Opt::Release {
+            if env.target().format() == Format::Dmg {
                 let out = arch_dir.join(format!("{}.dmg", env.name()));
                 appbundle::make_dmg(&arch_dir, &appdir, &out)?;
                 out
@@ -401,7 +445,7 @@ fn build(args: BuildArgs, run: bool, debug: bool) -> Result<()> {
                 appdir
             }
         }
-        Format::Ipa => {
+        Platform::Ios => {
             let target = env.target().compile_targets().next().unwrap();
             let arch_dir = platform_dir.join(target.arch().to_string());
             std::fs::create_dir_all(&arch_dir)?;
@@ -444,7 +488,7 @@ fn build(args: BuildArgs, run: bool, debug: bool) -> Result<()> {
             app.add_provisioning_profile(env.target().provisioning_profile().unwrap())?;
             app.finish(env.target().signer().cloned())?
         }
-        Format::Msix => {
+        Platform::Windows => {
             let target = env.target().compile_targets().next().unwrap();
             let arch_dir = platform_dir.join(target.arch().to_string());
             std::fs::create_dir_all(&arch_dir)?;
@@ -499,30 +543,8 @@ fn build(args: BuildArgs, run: bool, debug: bool) -> Result<()> {
             msix.finish(env.target().signer().cloned())?;
             out
         }
-        f => unimplemented!("{:?}", f),
     };
     println!("built {}", out.display());
-
-    if run {
-        if let Some(device) = env.target().device() {
-            device.run(&out, &env, env.has_dart_code())?;
-        } else {
-            anyhow::bail!("no device specified");
-        }
-    }
-    if debug {
-        if let Some(device) = env.target().device() {
-            let target = CompileTarget::new(device.platform()?, device.arch()?, env.target().opt());
-            let cargo_dir = env
-                .build_dir()
-                .join(target.opt().to_string())
-                .join(target.platform().to_string())
-                .join(target.arch().to_string())
-                .join("cargo");
-            let executable = env.cargo_artefact(&cargo_dir, target, CrateType::Cdylib)?;
-            device.lldb(&env, target, &executable)?;
-        }
-    }
     Ok(())
 }
 

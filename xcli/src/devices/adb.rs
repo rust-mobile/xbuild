@@ -167,7 +167,7 @@ impl Adb {
         Ok(Logcat::new(child))
     }
 
-    fn forward(&self, device: &str, port: u16) -> Result<u16> {
+    pub fn forward(&self, device: &str, port: u16) -> Result<u16> {
         let output = self
             .adb(device)
             .arg("forward")
@@ -307,31 +307,6 @@ impl Adb {
             }),
             child: None,
         })
-    }
-
-    pub fn attach(&self, device: &str, url: &str, root_dir: &Path, target: &Path) -> Result<()> {
-        let port = url
-            .strip_prefix("http://127.0.0.1:")
-            .unwrap()
-            .split_once('/')
-            .unwrap()
-            .0
-            .parse()?;
-        let port = self.forward(device, port)?;
-        println!("attaching to {} {}", url, port);
-        Command::new("flutter")
-            .current_dir(root_dir)
-            .arg("attach")
-            .arg("--device-id")
-            .arg(device)
-            .arg("--debug-url")
-            .arg(url)
-            .arg("--host-vmservice-port")
-            .arg(port.to_string())
-            .arg("--target")
-            .arg(target)
-            .status()?;
-        Ok(())
     }
 
     pub fn name(&self, device: &str) -> Result<String> {

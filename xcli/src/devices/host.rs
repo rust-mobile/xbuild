@@ -87,19 +87,4 @@ impl Host {
             child: Some(child),
         })
     }
-
-    pub fn attach(&self, url: &str, root_dir: &Path, target: &Path) -> Result<()> {
-        println!("attaching to {}", url);
-        Command::new("flutter")
-            .current_dir(root_dir)
-            .arg("attach")
-            .arg("--device-id")
-            .arg(self.platform()?.to_string())
-            .arg("--debug-url")
-            .arg(url)
-            .arg("--target")
-            .arg(target)
-            .status()?;
-        Ok(())
-    }
 }

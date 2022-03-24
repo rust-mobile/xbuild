@@ -115,7 +115,7 @@ impl Device {
         }
     }
 
-    pub fn run(&self, path: &Path, env: &BuildEnv, attach: bool) -> Result<()> {
+    pub async fn run(&self, path: &Path, env: &BuildEnv, attach: bool) -> Result<()> {
         let run = match &self.backend {
             Backend::Adb(adb) => adb.run(&self.id, path, env, attach),
             Backend::Host(host) => host.run(path, attach),
@@ -123,7 +123,7 @@ impl Device {
         }?;
         if let Some(url) = run.url {
             std::thread::spawn(run.logger);
-            self.attach(&url, env.root_dir(), env.target_file())?;
+            self.attach(&url, env.root_dir(), env.target_file()).await?;
         } else {
             (run.logger)();
         }
@@ -138,12 +138,20 @@ impl Device {
         }
     }
 
-    pub fn attach(&self, url: &str, root_dir: &Path, target: &Path) -> Result<()> {
-        match &self.backend {
-            Backend::Adb(adb) => adb.attach(&self.id, url, root_dir, target),
-            Backend::Host(host) => host.attach(url, root_dir, target),
-            Backend::Imd(imd) => imd.attach(&self.id, url, root_dir, target),
-        }
+    pub async fn attach(&self, url: &str, root_dir: &Path, target: &Path) -> Result<()> {
+        let port = url
+            .strip_prefix("http://127.0.0.1:")
+            .unwrap()
+            .split_once('/')
+            .unwrap()
+            .0
+            .parse()?;
+        let host_vmservice_port = match &self.backend {
+            Backend::Adb(adb) => Some(adb.forward(&self.id, port)?),
+            _ => None,
+        };
+        crate::command::attach(url, root_dir, target, host_vmservice_port).await?;
+        Ok(())
     }
 
     pub fn xrun_host(&self, path: &Path, attach: bool) -> Result<Run> {

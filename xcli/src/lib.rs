@@ -141,6 +141,8 @@ impl std::str::FromStr for Arch {
 pub enum Format {
     Aab,
     Apk,
+    Appbundle,
+    Appdir,
     Appimage,
     Dmg,
     Ipa,
@@ -152,6 +154,8 @@ impl std::fmt::Display for Format {
         match self {
             Self::Aab => write!(f, "aab"),
             Self::Apk => write!(f, "apk"),
+            Self::Appbundle => write!(f, "appbundle"),
+            Self::Appdir => write!(f, "appdir"),
             Self::Appimage => write!(f, "appimage"),
             Self::Dmg => write!(f, "dmg"),
             Self::Ipa => write!(f, "ipa"),
@@ -167,6 +171,8 @@ impl std::str::FromStr for Format {
         Ok(match arch {
             "aab" => Self::Aab,
             "apk" => Self::Apk,
+            "appbundle" => Self::Appbundle,
+            "appdir" => Self::Appdir,
             "appimage" => Self::Appimage,
             "dmg" => Self::Dmg,
             "ipa" => Self::Ipa,
@@ -177,13 +183,17 @@ impl std::str::FromStr for Format {
 }
 
 impl Format {
-    pub fn platform_default(platform: Platform) -> Self {
-        match platform {
-            Platform::Android => Self::Apk,
-            Platform::Ios => Self::Ipa,
-            Platform::Linux => Self::Appimage,
-            Platform::Macos => Self::Dmg,
-            Platform::Windows => Self::Msix,
+    pub fn platform_default(platform: Platform, opt: Opt) -> Self {
+        match (platform, opt) {
+            (Platform::Android, Opt::Debug) => Self::Apk,
+            (Platform::Android, Opt::Release) => Self::Aab,
+            (Platform::Ios, Opt::Debug) => Self::Appbundle,
+            (Platform::Ios, Opt::Release) => Self::Ipa,
+            (Platform::Linux, Opt::Debug) => Self::Appdir,
+            (Platform::Linux, Opt::Release) => Self::Appimage,
+            (Platform::Macos, Opt::Debug) => Self::Appbundle,
+            (Platform::Macos, Opt::Release) => Self::Dmg,
+            (Platform::Windows, _) => Self::Msix,
         }
     }
 
@@ -191,10 +201,20 @@ impl Format {
         match self {
             Self::Aab => "aab",
             Self::Apk => "apk",
+            Self::Appbundle => "app",
+            Self::Appdir => "AppDir",
             Self::Appimage => "AppImage",
             Self::Dmg => "dmg",
             Self::Ipa => "ipa",
             Self::Msix => "msix",
+        }
+    }
+
+    pub fn supports_multiarch(self) -> bool {
+        match self {
+            Self::Aab
+            | Self::Apk => true,
+            _ => false,
         }
     }
 }
@@ -391,15 +411,15 @@ impl BuildTargetArgs {
         } else {
             unreachable!();
         };
-        let format = if store == Some(Store::Play) {
-            Format::Aab
-        } else {
-            Format::platform_default(platform)
-        };
         let opt = if self.release || (!self.debug && self.store.is_some()) {
             Opt::Release
         } else {
             Opt::Debug
+        };
+        let format = if store == Some(Store::Play) {
+            Format::Aab
+        } else {
+            Format::platform_default(platform, opt)
         };
         let provisioning_profile =
             if self.provisioning_profile.is_some() || platform == Platform::Ios {
@@ -564,6 +584,38 @@ impl BuildEnv {
 
     pub fn build_dir(&self) -> &Path {
         &self.build_dir
+    }
+
+    pub fn opt_dir(&self) -> PathBuf {
+        self.build_dir().join(self.target().opt().to_string())
+    }
+
+    pub fn platform_dir(&self) -> PathBuf {
+        self.opt_dir().join(self.target().platform().to_string())
+    }
+
+    pub fn arch_dir(&self, arch: Arch) -> PathBuf {
+        self.platform_dir().join(arch.to_string())
+    }
+
+    pub fn output(&self) -> PathBuf {
+        let output_dir = if self.target().format().supports_multiarch() {
+            self.platform_dir()
+        } else {
+            let target = self.target().compile_targets().next().unwrap();
+            self.arch_dir(target.arch())
+        };
+        let output_name = format!("{}.{}", self.name(), self.target().format().extension());
+        output_dir.join(output_name)
+    }
+
+    pub fn executable(&self) -> PathBuf {
+        let out = self.output();
+        match (self.target().format(), self.target().platform()) {
+            (Format::Appdir, _) => out.join("AppRun"),
+            (Format::Appbundle, Platform::Macos) => out.join("MacOS").join(self.name()),
+            _ => out,
+        }
     }
 
     pub fn target_file(&self) -> &Path {
