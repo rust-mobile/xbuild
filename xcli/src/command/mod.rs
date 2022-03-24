@@ -1,10 +1,11 @@
 use crate::devices::Device;
-use crate::flutter::attach::VmService;
 use anyhow::Result;
 
+mod attach;
 mod doctor;
 mod new;
 
+pub use attach::attach;
 pub use doctor::doctor;
 pub use new::new;
 
@@ -19,13 +20,4 @@ pub fn devices() -> Result<()> {
         );
     }
     Ok(())
-}
-
-pub fn attach(url: &str) -> Result<()> {
-    futures::executor::block_on(async move {
-        let vm = VmService::attach(url).await?;
-        let (major, minor) = vm.get_version().await?;
-        println!("version {}.{}", major, minor);
-        Ok(())
-    })
 }

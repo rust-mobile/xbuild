@@ -3,7 +3,7 @@ use appbundle::AppBundle;
 use clap::{Parser, Subcommand};
 use std::fs::File;
 use std::io::BufReader;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use xapk::zip::read::ZipArchive;
 use xapk::Apk;
@@ -22,10 +22,20 @@ struct Args {
     command: Commands,
 }
 
-fn main() -> Result<()> {
-    env_logger::init();
+#[tokio::main]
+async fn main() -> Result<()> {
+    use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
+    tracing_log::LogTracer::init().ok();
+    let env = std::env::var(EnvFilter::DEFAULT_ENV).unwrap_or_else(|_| "error".into());
+    let subscriber = tracing_subscriber::FmtSubscriber::builder()
+        .with_span_events(FmtSpan::ACTIVE | FmtSpan::CLOSE)
+        .with_env_filter(EnvFilter::new(env))
+        .with_writer(std::io::stderr)
+        .finish();
+    tracing::subscriber::set_global_default(subscriber).ok();
+    log_panics::init();
     let args = Args::parse();
-    args.command.run()
+    args.command.run().await
 }
 
 #[derive(Subcommand)]
@@ -48,12 +58,17 @@ enum Commands {
         args: BuildArgs,
     },
     Attach {
+        #[clap(long)]
         url: String,
+        #[clap(long)]
+        root_dir: PathBuf,
+        #[clap(long)]
+        target_file: PathBuf,
     },
 }
 
 impl Commands {
-    pub fn run(self) -> Result<()> {
+    pub async fn run(self) -> Result<()> {
         match self {
             Self::Doctor => command::doctor(),
             Self::Devices => command::devices()?,
@@ -61,7 +76,11 @@ impl Commands {
             Self::Build { args } => build(args, false, false)?,
             Self::Run { args } => build(args, true, false)?,
             Self::Lldb { args } => build(args, false, true)?,
-            Self::Attach { url } => command::attach(&url)?,
+            Self::Attach {
+                url,
+                root_dir,
+                target_file,
+            } => command::attach(&url, root_dir, target_file).await?,
         }
         Ok(())
     }
