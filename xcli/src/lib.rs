@@ -212,8 +212,7 @@ impl Format {
 
     pub fn supports_multiarch(self) -> bool {
         match self {
-            Self::Aab
-            | Self::Apk => true,
+            Self::Aab | Self::Apk => true,
             _ => false,
         }
     }

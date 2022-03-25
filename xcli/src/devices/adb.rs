@@ -1,5 +1,5 @@
 use crate::devices::{Backend, BuildEnv, Device, Run};
-use crate::{Arch, CompileTarget, Platform};
+use crate::{Arch, Platform};
 use anyhow::Result;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
@@ -180,7 +180,7 @@ impl Adb {
         Ok(std::str::from_utf8(&output.stdout)?.trim().parse()?)
     }
 
-    fn app_dir(&self, device: &str, package: &str) -> Result<PathBuf> {
+    /*fn app_dir(&self, device: &str, package: &str) -> Result<PathBuf> {
         let output = self
             .shell(device, Some(package))
             .arg("sh")
@@ -191,16 +191,9 @@ impl Adb {
             anyhow::bail!("failed to get app dir");
         }
         Ok(Path::new(std::str::from_utf8(&output.stdout)?.trim()).to_path_buf())
-    }
+    }*/
 
-    pub fn lldb(
-        &self,
-        device: &str,
-        env: &BuildEnv,
-        target: CompileTarget,
-        executable: &Path,
-    ) -> Result<()> {
-        let lldb_server = env.lldb_server(target).unwrap();
+    pub fn lldb(&self, device: &str, lldb_server: &Path, executable: &Path) -> Result<()> {
         /*let package = env.manifest().android().package.as_ref().unwrap();
         let app_dir = self.app_dir(device, package)?;
         self.shell(device, Some(package))
@@ -263,6 +256,7 @@ impl Adb {
         env: &BuildEnv,
         flutter_attach: bool,
     ) -> Result<Run> {
+        // TODO: parse from manifest and remove xrun
         let manifest = env.manifest().android();
         let package = manifest.package.as_ref().unwrap();
         let activity = manifest.application.activities[0].name.as_ref().unwrap();

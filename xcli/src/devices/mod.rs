@@ -1,10 +1,10 @@
 use crate::devices::adb::Adb;
 use crate::devices::host::Host;
 use crate::devices::imd::IMobileDevice;
-use crate::{Arch, BuildEnv, CompileTarget, Platform};
+use crate::{Arch, BuildEnv, Platform};
 use anyhow::Result;
 use std::path::Path;
-use std::process::Child;
+use std::process::{Child, Command};
 
 mod adb;
 mod host;
@@ -119,7 +119,7 @@ impl Device {
         let run = match &self.backend {
             Backend::Adb(adb) => adb.run(&self.id, path, env, attach),
             Backend::Host(host) => host.run(path, attach),
-            Backend::Imd(imd) => imd.run(&self.id, path, env, attach),
+            Backend::Imd(imd) => imd.run(&self.id, path, attach),
         }?;
         if let Some(url) = run.url {
             std::thread::spawn(run.logger);
@@ -130,9 +130,9 @@ impl Device {
         Ok(())
     }
 
-    pub fn lldb(&self, env: &BuildEnv, target: CompileTarget, executable: &Path) -> Result<()> {
+    pub fn lldb(&self, lldb_server: &Path, executable: &Path) -> Result<()> {
         match &self.backend {
-            Backend::Adb(adb) => adb.lldb(&self.id, env, target, executable),
+            Backend::Adb(adb) => adb.lldb(&self.id, lldb_server, executable),
             Backend::Host(_) => anyhow::bail!("x lldb for host device not implemented"),
             Backend::Imd(_) => anyhow::bail!("x lldb for ios device not implemented"),
         }
@@ -150,10 +150,30 @@ impl Device {
             Backend::Adb(adb) => Some(adb.forward(&self.id, port)?),
             _ => None,
         };
-        crate::command::attach(url, root_dir, target, host_vmservice_port).await?;
+        // TODO: finish porting flutter attach to rust
+        //crate::command::attach(url, root_dir, target, host_vmservice_port).await?;
+        let device = match &self.backend {
+            Backend::Host(host) => host.platform()?.to_string(),
+            _ => self.id.to_string(),
+        };
+        let mut attach = Command::new("flutter");
+        attach
+            .current_dir(root_dir)
+            .arg("attach")
+            .arg("--device-id")
+            .arg(device)
+            .arg("--debug-url")
+            .arg(url)
+            .arg("--target")
+            .arg(target);
+        if let Some(port) = host_vmservice_port {
+            attach.arg("--host-vmservice-port").arg(port.to_string());
+        }
+        attach.status()?;
         Ok(())
     }
 
+    // TODO: remove once run args get parsed from manifest
     pub fn xrun_host(&self, path: &Path, attach: bool) -> Result<Run> {
         if let Backend::Host(host) = &self.backend {
             host.run(path, attach)
@@ -162,6 +182,7 @@ impl Device {
         }
     }
 
+    // TODO: remove once run args get parsed from manifest
     pub fn xrun_adb(
         &self,
         path: &Path,

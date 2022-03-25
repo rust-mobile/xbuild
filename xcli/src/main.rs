@@ -141,7 +141,11 @@ async fn lldb(env: &BuildEnv) -> Result<()> {
             .join(target.arch().to_string())
             .join("cargo");
         let executable = env.cargo_artefact(&cargo_dir, target, CrateType::Cdylib)?;
-        device.lldb(&env, target, &executable)?;
+        if let Some(lldb_server) = env.lldb_server(target) {
+            device.lldb(&lldb_server, &executable)?;
+        } else {
+            anyhow::bail!("lldb-server not found");
+        }
     } else {
         anyhow::bail!("no device specified");
     }

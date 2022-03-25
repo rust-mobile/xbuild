@@ -1,5 +1,5 @@
 use crate::devices::{Backend, Device, Run};
-use crate::{Arch, BuildEnv, Platform};
+use crate::{Arch, Platform};
 use anyhow::Result;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -46,13 +46,7 @@ impl IMobileDevice {
         Ok(())
     }
 
-    pub fn run(
-        &self,
-        device: &str,
-        path: &Path,
-        _env: &BuildEnv,
-        _flutter_attach: bool,
-    ) -> Result<Run> {
+    pub fn run(&self, device: &str, path: &Path, _flutter_attach: bool) -> Result<Run> {
         // TODO: stop, start, log, attach
         self.install(device, path)?;
         Ok(Run {
