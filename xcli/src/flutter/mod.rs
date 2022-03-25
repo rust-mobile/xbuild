@@ -1,11 +1,14 @@
 use self::assets::AssetBundle;
-use crate::{Arch, CompileTarget, Opt, Platform};
+use crate::{Arch, BuildEnv, CompileTarget, Opt, Platform};
 use anyhow::Result;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+mod android;
+pub mod artifacts;
 pub mod assets;
 pub mod attach;
+mod ios;
 
 pub struct Flutter {
     git: PathBuf,
@@ -108,7 +111,7 @@ impl Flutter {
     pub fn material_fonts(&self) -> Result<PathBuf> {
         let dir = self.sdk.join("material_fonts");
         let version = self.material_fonts_version()?;
-        crate::download::material_fonts(&dir, &version)
+        Ok(dir.join(version))
     }
 
     pub fn icudtl_dat(&self) -> Result<PathBuf> {
@@ -230,5 +233,13 @@ impl Flutter {
             anyhow::bail!("gen_snapshot failed with {:?}", status);
         }
         Ok(())
+    }
+
+    pub fn build_classes_dex(&self, env: &BuildEnv) -> Result<()> {
+        android::build_classes_dex(env, self)
+    }
+
+    pub fn build_ios_main(&self, env: &BuildEnv, target: CompileTarget) -> Result<()> {
+        ios::build_ios_main(env, self, target)
     }
 }

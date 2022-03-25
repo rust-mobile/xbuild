@@ -2,7 +2,6 @@ use crate::cargo::{Cargo, CargoBuild, CrateType};
 use crate::config::{Config, Manifest};
 use crate::devices::Device;
 use crate::flutter::Flutter;
-use crate::maven::Maven;
 use anyhow::Result;
 use clap::Parser;
 use std::path::{Path, PathBuf};
@@ -25,7 +24,6 @@ pub mod config;
 pub mod devices;
 pub mod download;
 pub mod flutter;
-pub mod maven;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Opt {
@@ -585,6 +583,10 @@ impl BuildEnv {
         &self.build_dir
     }
 
+    pub fn cache_dir(&self) -> &Path {
+        &self.build_dir
+    }
+
     pub fn opt_dir(&self) -> PathBuf {
         self.build_dir().join(self.target().opt().to_string())
     }
@@ -637,16 +639,42 @@ impl BuildEnv {
         &self.manifest
     }
 
-    pub fn android_jar(&self) -> Result<PathBuf> {
-        let path = self.build_dir().join("Android.sdk");
-        let version = self.manifest().android().sdk.target_sdk_version.unwrap();
-        crate::download::android_jar(&path, version)
+    pub fn target_sdk_version(&self) -> u32 {
+        self.manifest().android().sdk.target_sdk_version.unwrap()
+    }
+
+    pub fn android_jar(&self) -> PathBuf {
+        self.cache_dir()
+            .join("Android.sdk")
+            .join("platforms")
+            .join(format!("android-{}", self.target_sdk_version()))
+            .join("android.jar")
+    }
+
+    pub fn windows_sdk(&self) -> PathBuf {
+        self.cache_dir().join("Windows.sdk")
+    }
+
+    pub fn macos_sdk(&self) -> PathBuf {
+        self.cache_dir().join("MacOSX.sdk")
+    }
+
+    pub fn android_sdk(&self) -> PathBuf {
+        self.cache_dir().join("Android.sdk")
+    }
+
+    pub fn android_ndk(&self) -> PathBuf {
+        self.cache_dir().join("Android.ndk")
+    }
+
+    pub fn ios_sdk(&self) -> PathBuf {
+        self.cache_dir().join("iPhoneOS.sdk")
     }
 
     pub fn lldb_server(&self, target: CompileTarget) -> Option<PathBuf> {
         match target.platform() {
             Platform::Android => {
-                let ndk = self.build_dir().join("Android.ndk");
+                let ndk = self.android_ndk();
                 let lib_dir = ndk.join("usr").join("lib").join(target.ndk_triple());
                 Some(lib_dir.join("lldb-server"))
             }
@@ -660,18 +688,18 @@ impl BuildEnv {
     pub fn cargo_build(&self, target: CompileTarget, target_dir: &Path) -> Result<CargoBuild> {
         let mut cargo = self.cargo.build(target, target_dir)?;
         if target.platform() == Platform::Android {
-            let ndk = self.build_dir().join("Android.ndk");
+            let ndk = self.android_ndk();
             let target_sdk_version = self.manifest().android().sdk.target_sdk_version.unwrap();
             cargo.use_android_ndk(&ndk, target_sdk_version)?;
         }
         if target.platform() == Platform::Windows {
-            let sdk = self.build_dir().join("Windows.sdk");
+            let sdk = self.windows_sdk();
             if sdk.exists() {
                 cargo.use_windows_sdk(&sdk)?;
             }
         }
         if target.platform() == Platform::Macos {
-            let sdk = self.build_dir().join("MacOSX.sdk");
+            let sdk = self.macos_sdk();
             if sdk.exists() {
                 let minimum_version = self
                     .manifest()
@@ -683,7 +711,7 @@ impl BuildEnv {
             }
         }
         if target.platform() == Platform::Ios {
-            let sdk = self.build_dir().join("iPhoneOS.sdk");
+            let sdk = self.ios_sdk();
             if sdk.exists() {
                 cargo.use_ios_sdk(&sdk)?;
             }
@@ -712,13 +740,5 @@ impl BuildEnv {
         crate_type: CrateType,
     ) -> Result<PathBuf> {
         self.cargo.artifact(target_dir, target, None, crate_type)
-    }
-
-    pub fn maven(&self) -> Result<Maven> {
-        let mut maven = Maven::new(self.build_dir.join("maven"))?;
-        maven.add_repository(crate::maven::GOOGLE);
-        maven.add_repository(crate::maven::FLUTTER);
-        maven.add_repository(crate::maven::CENTRAL);
-        Ok(maven)
     }
 }

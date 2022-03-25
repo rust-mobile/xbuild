@@ -21,8 +21,8 @@ impl Default for Doctor {
                     ],
                 },
                 Group {
-                    name: "git",
-                    checks: vec!["git"],
+                    name: "misc",
+                    checks: vec!["cargo", "git", "flutter"],
                 },
                 Group {
                     name: "android",
