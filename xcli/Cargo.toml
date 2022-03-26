@@ -23,7 +23,6 @@ serde_json = "1.0.79"
 serde_yaml = "0.8.23"
 symlink = "0.1.0"
 tar = "0.4.38"
-tokio = { version = "1.17.0", features = ["macros"] }
 toml = "0.5.8"
 tracing = { version = "0.1.32", default-features = false }
 tracing-log = "0.1.2"

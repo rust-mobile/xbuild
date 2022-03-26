@@ -1,5 +1,6 @@
 use crate::cargo::CrateType;
 use crate::download::DownloadManager;
+use crate::task::TaskRunner;
 use crate::{BuildEnv, Format, Opt, Platform};
 use anyhow::Result;
 use appbundle::AppBundle;
@@ -9,27 +10,25 @@ use xappimage::AppImage;
 use xcommon::ZipFileOptions;
 use xmsix::Msix;
 
-pub async fn build(env: &BuildEnv) -> Result<()> {
-    println!("package {}", env.cargo().package());
-    println!("root_dir {}", env.cargo().root_dir().display());
-    println!("target_dir {}", env.cargo().target_dir().display());
-
+pub fn build(env: &BuildEnv) -> Result<()> {
+    let mut runner = TaskRunner::new(9, env.verbose());
     let platform_dir = env.platform_dir();
     std::fs::create_dir_all(&platform_dir)?;
 
-    println!("starting upgrade");
+    runner.start_task("Fetch flutter repo");
     if let Some(flutter) = env.flutter() {
         flutter.upgrade()?;
+        runner.end_task();
     }
-    println!("finished upgrade");
 
     // if engine version changed clean
 
-    println!("prefetching artifacts");
+    runner.start_task("Fetch precompiled artefacts");
     let manager = DownloadManager::new(&env)?;
     manager.prefetch()?;
-    println!("finished prefetching artifacts");
+    runner.end_verbose_task();
 
+    runner.start_task("Run pub get");
     if let Some(flutter) = env.flutter() {
         if !env
             .root_dir()
@@ -38,24 +37,35 @@ pub async fn build(env: &BuildEnv) -> Result<()> {
             .exists()
             || xcommon::stamp_file(env.pubspec(), &env.build_dir().join("pubspec.stamp"))?
         {
-            println!("pub get");
             flutter.pub_get(env.root_dir())?;
+            runner.end_task();
         }
-        if env.target().platform() == Platform::Android {
-            if !platform_dir.join("classes.dex").exists() {
-                println!("building classes.dex");
-                let r8 = manager.r8()?;
-                let deps = manager.flutter_embedding()?;
-                flutter.build_classes_dex(&env, &r8, deps)?;
-            }
+    }
+
+    runner.start_task("Build classes.dex");
+    if let Some(flutter) = env.flutter() {
+        if env.target().platform() == Platform::Android
+            && !platform_dir.join("classes.dex").exists()
+        {
+            let r8 = manager.r8()?;
+            let deps = manager.flutter_embedding()?;
+            flutter.build_classes_dex(&env, &r8, deps)?;
+            runner.end_task();
         }
-        println!("building flutter_assets");
+    }
+
+    runner.start_task("Build flutter assets");
+    if let Some(flutter) = env.flutter() {
         flutter.build_flutter_assets(
             env.root_dir(),
             &env.build_dir().join("flutter_assets"),
             &env.build_dir().join("flutter_assets.d"),
         )?;
-        println!("building kernel_blob.bin");
+        runner.end_task();
+    }
+
+    runner.start_task("Build kernel_blob.bin");
+    let kernel_blob = if let Some(flutter) = env.flutter() {
         let kernel_blob = platform_dir.join("kernel_blob.bin");
         flutter.kernel_blob_bin(
             env.root_dir(),
@@ -64,11 +74,18 @@ pub async fn build(env: &BuildEnv) -> Result<()> {
             &platform_dir.join("kernel_blob.bin.d"),
             env.target().opt(),
         )?;
+        runner.end_task();
+        kernel_blob
+    } else {
+        Default::default()
+    };
+
+    runner.start_task("Build aot snapshot");
+    if let Some(flutter) = env.flutter() {
         if env.target().opt() == Opt::Release
             && xcommon::stamp_file(&kernel_blob, &platform_dir.join("kernel_blob.bin.stamp"))?
         {
             for target in env.target().compile_targets() {
-                println!("building aot snapshot for {}", target);
                 let arch_dir = platform_dir.join(target.arch().to_string());
                 std::fs::create_dir_all(&arch_dir)?;
                 flutter.aot_snapshot(
@@ -78,9 +95,11 @@ pub async fn build(env: &BuildEnv) -> Result<()> {
                     target,
                 )?;
             }
+            runner.end_task();
         }
     }
 
+    runner.start_task("Build rust");
     let bin_target = env.target().platform() != Platform::Android
         && (env.flutter().is_some() || env.target().platform() != Platform::Ios);
     let has_lib = env.root_dir().join("src").join("lib.rs").exists();
@@ -88,19 +107,16 @@ pub async fn build(env: &BuildEnv) -> Result<()> {
         for target in env.target().compile_targets() {
             let arch_dir = platform_dir.join(target.arch().to_string());
             let mut cargo = env.cargo_build(target, &arch_dir.join("cargo"))?;
-            let artifact = if bin_target {
-                "binary"
-            } else {
+            if !bin_target {
                 cargo.arg("--lib");
-                "library"
-            };
-            println!("building rust {} for {}", artifact, target);
+            }
             cargo.exec()?;
         }
+        runner.end_verbose_task();
     }
 
-    println!("building {}", env.target().format());
-    let out = match env.target().platform() {
+    runner.start_task(format!("Create {}", env.target().format()));
+    match env.target().platform() {
         Platform::Linux => {
             let target = env.target().compile_targets().next().unwrap();
             let arch_dir = platform_dir.join(target.arch().to_string());
@@ -150,9 +166,6 @@ pub async fn build(env: &BuildEnv) -> Result<()> {
             if env.target().format() == Format::Appimage {
                 let out = arch_dir.join(format!("{}.AppImage", env.name()));
                 appimage.build(&out, env.target().signer().cloned())?;
-                out
-            } else {
-                appimage.appdir().join("AppRun")
             }
         }
         Platform::Android => {
@@ -216,7 +229,6 @@ pub async fn build(env: &BuildEnv) -> Result<()> {
                 }
             }
             apk.finish(env.target().signer().cloned())?;
-            out
         }
         Platform::Macos => {
             let target = env.target().compile_targets().next().unwrap();
@@ -253,9 +265,6 @@ pub async fn build(env: &BuildEnv) -> Result<()> {
             if env.target().format() == Format::Dmg {
                 let out = arch_dir.join(format!("{}.dmg", env.name()));
                 appbundle::make_dmg(&arch_dir, &appdir, &out)?;
-                out
-            } else {
-                appdir
             }
         }
         Platform::Ios => {
@@ -299,7 +308,7 @@ pub async fn build(env: &BuildEnv) -> Result<()> {
                 app.add_executable(&main)?;
             }
             app.add_provisioning_profile(env.target().provisioning_profile().unwrap())?;
-            app.finish(env.target().signer().cloned())?
+            app.finish(env.target().signer().cloned())?;
         }
         Platform::Windows => {
             let target = env.target().compile_targets().next().unwrap();
@@ -354,9 +363,9 @@ pub async fn build(env: &BuildEnv) -> Result<()> {
                 ZipFileOptions::Compressed,
             )?;
             msix.finish(env.target().signer().cloned())?;
-            out
         }
-    };
-    println!("built {}", out.display());
+    }
+    runner.end_task();
+
     Ok(())
 }

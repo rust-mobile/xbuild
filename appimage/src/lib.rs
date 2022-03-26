@@ -90,6 +90,7 @@ impl AppImage {
             .arg(&squashfs)
             .arg("-root-owned")
             .arg("-noappend")
+            .arg("-quiet")
             .status()?;
         if !status.success() {
             anyhow::bail!("mksquashfs failed with exit code {:?}", status);

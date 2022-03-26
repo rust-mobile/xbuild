@@ -24,6 +24,7 @@ pub mod config;
 pub mod devices;
 pub mod download;
 pub mod flutter;
+pub mod task;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Opt {
@@ -326,6 +327,8 @@ pub struct BuildArgs {
     build_target: BuildTargetArgs,
     #[clap(flatten)]
     cargo: CargoArgs,
+    #[clap(long, short)]
+    verbose: bool,
 }
 
 #[derive(Parser)]
@@ -518,16 +521,18 @@ pub struct BuildEnv {
     pubspec: PathBuf,
     manifest: Manifest,
     flutter: Option<Flutter>,
+    verbose: bool,
 }
 
 impl BuildEnv {
     pub fn new(args: BuildArgs) -> Result<Self> {
+        let verbose = args.verbose;
         let cargo = args.cargo.cargo()?;
         let build_target = args.build_target.build_target()?;
         let build_dir = cargo.target_dir().join("x");
         let pubspec = cargo.root_dir().join("pubspec.yaml");
         let flutter = if pubspec.exists() {
-            Some(Flutter::new(build_dir.join("Flutter.sdk"))?)
+            Some(Flutter::new(build_dir.join("Flutter.sdk"), verbose)?)
         } else {
             None
         };
@@ -556,6 +561,7 @@ impl BuildEnv {
             flutter,
             manifest,
             build_dir,
+            verbose,
         })
     }
 
@@ -565,6 +571,10 @@ impl BuildEnv {
 
     pub fn target(&self) -> &BuildTarget {
         &self.build_target
+    }
+
+    pub fn verbose(&self) -> bool {
+        self.verbose
     }
 
     pub fn has_dart_code(&self) -> bool {

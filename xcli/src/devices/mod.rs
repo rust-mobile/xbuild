@@ -115,7 +115,7 @@ impl Device {
         }
     }
 
-    pub async fn run(&self, path: &Path, env: &BuildEnv, attach: bool) -> Result<()> {
+    pub fn run(&self, path: &Path, env: &BuildEnv, attach: bool) -> Result<()> {
         let run = match &self.backend {
             Backend::Adb(adb) => adb.run(&self.id, path, env, attach),
             Backend::Host(host) => host.run(path, attach),
@@ -123,7 +123,7 @@ impl Device {
         }?;
         if let Some(url) = run.url {
             std::thread::spawn(run.logger);
-            self.attach(&url, env.root_dir(), env.target_file()).await?;
+            self.attach(&url, env.root_dir(), env.target_file())?;
         } else {
             (run.logger)();
         }
@@ -138,7 +138,7 @@ impl Device {
         }
     }
 
-    pub async fn attach(&self, url: &str, root_dir: &Path, target: &Path) -> Result<()> {
+    pub fn attach(&self, url: &str, root_dir: &Path, target: &Path) -> Result<()> {
         let port = url
             .strip_prefix("http://127.0.0.1:")
             .unwrap()

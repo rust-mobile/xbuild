@@ -1,5 +1,5 @@
 use self::assets::AssetBundle;
-use crate::{Arch, BuildEnv, CompileTarget, Opt, Platform};
+use crate::{task, Arch, BuildEnv, CompileTarget, Opt, Platform};
 use anyhow::Result;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -13,27 +13,13 @@ mod ios;
 pub struct Flutter {
     git: PathBuf,
     sdk: PathBuf,
+    verbose: bool,
 }
 
 impl Flutter {
-    pub fn new(sdk: PathBuf) -> Result<Self> {
-        std::fs::create_dir_all(&sdk)?;
+    pub fn new(sdk: PathBuf, verbose: bool) -> Result<Self> {
         let git = which::which("git")?;
-        if !sdk.join("flutter").exists() {
-            let status = Command::new(&git)
-                .current_dir(&sdk)
-                .arg("clone")
-                .arg("https://github.com/flutter/flutter")
-                .arg("--depth")
-                .arg("1")
-                .arg("--branch")
-                .arg("stable")
-                .status()?;
-            if !status.success() {
-                anyhow::bail!("failed to clone flutter repo");
-            }
-        }
-        Ok(Self { git, sdk })
+        Ok(Self { git, sdk, verbose })
     }
 
     pub fn version(&self) -> Result<String> {
@@ -52,12 +38,21 @@ impl Flutter {
 
     pub fn upgrade(&self) -> Result<()> {
         let flutter = self.sdk.join("flutter");
-        let status = Command::new(&self.git)
-            .current_dir(&flutter)
-            .arg("pull")
-            .status()?;
-        if !status.success() {
-            anyhow::bail!("failed to pull flutter repo");
+        if !flutter.exists() {
+            std::fs::create_dir_all(&self.sdk)?;
+            let mut cmd = Command::new(&self.git);
+            cmd.current_dir(&self.sdk)
+                .arg("clone")
+                .arg("https://github.com/flutter/flutter")
+                .arg("--depth")
+                .arg("1")
+                .arg("--branch")
+                .arg("stable");
+            task::run(cmd, self.verbose)?;
+        } else {
+            let mut cmd = Command::new(&self.git);
+            cmd.current_dir(&flutter).arg("pull");
+            task::run(cmd, self.verbose)?;
         }
         Ok(())
     }
@@ -143,17 +138,13 @@ impl Flutter {
             symlink::remove_symlink_dir(&dest_dir)?;
         }
         symlink::symlink_dir(&src_dir, &dest_dir)?;
-        let status = self
-            .dart()?
-            .current_dir(root_dir)
+        let mut cmd = self.dart()?;
+        cmd.current_dir(root_dir)
             .env("FLUTTER_ROOT", flutter_root)
             .arg("pub")
             .arg("get")
-            .arg("--no-precompile")
-            .status()?;
-        if !status.success() {
-            anyhow::bail!("dart pub get exited with status {:?}", status);
-        }
+            .arg("--no-precompile");
+        task::run(cmd, self.verbose)?;
         Ok(())
     }
 
@@ -204,10 +195,8 @@ impl Flutter {
                     .arg("--track-widget-creation");
             }
         }
-        let status = cmd.arg(target_file).status()?;
-        if !status.success() {
-            anyhow::bail!("failed to build kernel_blob.bin");
-        }
+        cmd.arg(target_file);
+        task::run(cmd, self.verbose)?;
         Ok(())
     }
 
@@ -228,10 +217,8 @@ impl Flutter {
             cmd.arg("--snapshot_kind=app-aot-elf")
                 .arg(format!("--elf={}", snapshot.display()));
         }
-        let status = cmd.arg("--deterministic").arg(kernel_blob_bin).status()?;
-        if !status.success() {
-            anyhow::bail!("gen_snapshot failed with {:?}", status);
-        }
+        cmd.arg("--deterministic").arg(kernel_blob_bin);
+        task::run(cmd, self.verbose)?;
         Ok(())
     }
 

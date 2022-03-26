@@ -1,4 +1,4 @@
-use crate::{BuildEnv, Opt};
+use crate::{task, BuildEnv, Opt};
 use anyhow::Result;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -21,16 +21,13 @@ pub fn build_classes_dex(env: &BuildEnv, r8: &Path, deps: Vec<PathBuf>) -> Resul
         .collect::<Vec<_>>()
         .join(separator);
     let java = platform_dir.join("java");
-    let status = Command::new("javac")
-        .arg("--class-path")
+    let mut cmd = Command::new("javac");
+    cmd.arg("--class-path")
         .arg(classpath)
         .arg(plugins)
         .arg("-d")
-        .arg(&java)
-        .status()?;
-    if !status.success() {
-        anyhow::bail!("javac exited with nonzero exit code.");
-    }
+        .arg(&java);
+    task::run(cmd, env.verbose())?;
 
     // build classes.dex
     let pg = platform_dir.join("proguard-rules.pro");
@@ -55,8 +52,6 @@ pub fn build_classes_dex(env: &BuildEnv, r8: &Path, deps: Vec<PathBuf>) -> Resul
     if env.target().opt() == Opt::Release {
         java.arg("--release");
     }
-    if !java.status()?.success() {
-        anyhow::bail!("`{:?}` exited with nonzero exit code.", java);
-    }
+    task::run(java, env.verbose())?;
     Ok(())
 }

@@ -16,10 +16,6 @@ pub struct DownloadManager<'a> {
 
 impl<'a> Download for DownloadManager<'a> {
     fn download(&self, url: &str, dest: &Path) -> Result<()> {
-        if dest.exists() {
-            return Ok(());
-        }
-
         let pb = ProgressBar::with_draw_target(0, ProgressDrawTarget::stdout())
         .with_style(
             ProgressStyle::default_bar()
@@ -64,6 +60,9 @@ impl<'a> DownloadManager<'a> {
     }
 
     pub(crate) fn fetch(&self, item: WorkItem) -> Result<()> {
+        if item.output.exists() {
+            return Ok(());
+        }
         let name = item.url.rsplit_once('/').unwrap().1;
         let result: Result<()> = (|| {
             if name.ends_with(".tar.zst") {
@@ -90,7 +89,9 @@ impl<'a> DownloadManager<'a> {
                 let framework_dir = download_dir.join("framework");
                 xcommon::extract_zip(&archive, &framework_dir)?;
                 let archive = framework_dir.join(name);
-                xcommon::extract_zip(&archive, &item.output)?;
+                let output = item.output.join(name.strip_suffix(".zip").unwrap());
+                std::fs::create_dir_all(&output)?;
+                xcommon::extract_zip(&archive, &output)?;
             } else if name.ends_with(".zip") {
                 let archive = self.env().cache_dir().join("download").join(name);
                 self.download(&item.url, &archive)?;
@@ -224,13 +225,8 @@ impl<'a> DownloadManager<'a> {
 
     pub fn windows_sdk(&self) -> Result<()> {
         let output = self.env.windows_sdk();
-        let mut item = WorkItem::github_release(
-            output,
-            "cloudpeers",
-            "x",
-            "v0.1.0+2",
-            "Windows.sdk.tar.zst",
-        );
+        let mut item =
+            WorkItem::github_release(output, "cloudpeers", "x", "v0.1.0+2", "Windows.sdk.tar.zst");
         if !cfg!(target_os = "linux") {
             item.no_symlinks();
         }
@@ -239,13 +235,8 @@ impl<'a> DownloadManager<'a> {
 
     pub fn macos_sdk(&self) -> Result<()> {
         let output = self.env.macos_sdk();
-        let mut item = WorkItem::github_release(
-            output,
-            "cloudpeers",
-            "x",
-            "v0.1.0+2",
-            "MacOSX.sdk.tar.zst",
-        );
+        let mut item =
+            WorkItem::github_release(output, "cloudpeers", "x", "v0.1.0+2", "MacOSX.sdk.tar.zst");
         if cfg!(target_os = "windows") {
             item.no_colons();
         }

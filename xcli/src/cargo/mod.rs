@@ -322,7 +322,7 @@ impl CargoBuild {
         self.cc_triple_env("CFLAGS", &self.c_flags.clone());
         self.cc_triple_env("CXXFLAGS", &self.c_flags.clone());
         if !self.cmd.status()?.success() {
-            anyhow::bail!("cargo build failed");
+            std::process::exit(1);
         }
         Ok(())
     }

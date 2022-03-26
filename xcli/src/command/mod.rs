@@ -3,12 +3,12 @@ use crate::devices::Device;
 use crate::{BuildEnv, CompileTarget};
 use anyhow::Result;
 
-mod attach;
+//mod attach;
 mod build;
 mod doctor;
 mod new;
 
-pub use attach::attach;
+//pub use attach::attach;
 pub use build::build;
 pub use doctor::doctor;
 pub use new::new;
@@ -26,17 +26,17 @@ pub fn devices() -> Result<()> {
     Ok(())
 }
 
-pub async fn run(env: &BuildEnv) -> Result<()> {
+pub fn run(env: &BuildEnv) -> Result<()> {
     let out = env.executable();
     if let Some(device) = env.target().device() {
-        device.run(&out, &env, env.has_dart_code()).await?;
+        device.run(&out, &env, env.has_dart_code())?;
     } else {
         anyhow::bail!("no device specified");
     }
     Ok(())
 }
 
-pub async fn lldb(env: &BuildEnv) -> Result<()> {
+pub fn lldb(env: &BuildEnv) -> Result<()> {
     if let Some(device) = env.target().device() {
         let target = CompileTarget::new(device.platform()?, device.arch()?, env.target().opt());
         let cargo_dir = env

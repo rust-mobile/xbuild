@@ -1,6 +1,5 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use std::path::PathBuf;
 use xcli::{command, BuildArgs, BuildEnv};
 
 #[derive(Parser)]
@@ -10,11 +9,10 @@ struct Args {
     command: Commands,
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
     tracing_log::LogTracer::init().ok();
-    let env = std::env::var(EnvFilter::DEFAULT_ENV).unwrap_or_else(|_| "error".into());
+    let env = std::env::var("X_LOG").unwrap_or_else(|_| "error".into());
     let subscriber = tracing_subscriber::FmtSubscriber::builder()
         .with_span_events(FmtSpan::ACTIVE | FmtSpan::CLOSE)
         .with_env_filter(EnvFilter::new(env))
@@ -23,7 +21,7 @@ async fn main() -> Result<()> {
     tracing::subscriber::set_global_default(subscriber).ok();
     log_panics::init();
     let args = Args::parse();
-    args.command.run().await
+    args.command.run()
 }
 
 #[derive(Subcommand)]
@@ -47,7 +45,7 @@ enum Commands {
         #[clap(flatten)]
         args: BuildArgs,
     },
-    Attach {
+    /*Attach {
         #[clap(long)]
         url: String,
         #[clap(long)]
@@ -56,37 +54,36 @@ enum Commands {
         target_file: PathBuf,
         #[clap(long)]
         host_vmservice_port: Option<u16>,
-    },
+    },*/
 }
 
 impl Commands {
-    pub async fn run(self) -> Result<()> {
+    pub fn run(self) -> Result<()> {
         match self {
             Self::Doctor => command::doctor(),
             Self::Devices => command::devices()?,
             Self::New { name } => command::new(&name)?,
             Self::Build { args } => {
                 let env = BuildEnv::new(args)?;
-                command::build(&env).await?;
+                command::build(&env)?;
             }
             Self::Run { args, no_build } => {
                 let env = BuildEnv::new(args)?;
                 if !no_build {
-                    command::build(&env).await?;
+                    command::build(&env)?;
                 }
-                command::run(&env).await?;
+                command::run(&env)?;
             }
             Self::Lldb { args } => {
                 let env = BuildEnv::new(args)?;
-                command::build(&env).await?;
-                command::lldb(&env).await?;
-            }
-            Self::Attach {
-                url,
-                root_dir,
-                target_file,
-                host_vmservice_port,
-            } => command::attach(&url, &root_dir, &target_file, host_vmservice_port).await?,
+                command::build(&env)?;
+                command::lldb(&env)?;
+            } /*Self::Attach {
+                  url,
+                  root_dir,
+                  target_file,
+                  host_vmservice_port,
+              } => command::attach(&url, &root_dir, &target_file, host_vmservice_port)?,*/
         }
         Ok(())
     }
