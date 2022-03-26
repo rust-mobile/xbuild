@@ -1,124 +1,149 @@
-use crate::{Arch, BuildEnv, CompileTarget, Flutter, Opt, Platform};
+use crate::{Arch, BuildEnv, CompileTarget, Opt, Platform};
 use anyhow::Result;
-use std::collections::VecDeque;
+use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
+use maven::Download;
+use reqwest::blocking::Client;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tar::{Archive, EntryType};
 use zstd::Decoder;
 
-pub async fn download_artifacts(env: &BuildEnv) -> Result<()> {
-    let mut manager = DownloadManager::new(env);
-    match env.target().platform() {
-        Platform::Linux if Platform::host()? != Platform::Linux => {
-            anyhow::bail!("cross compiling to linux is not yet supported");
-        }
-        Platform::Windows if Platform::host()? != Platform::Windows => {
-            manager.windows_sdk();
-        }
-        Platform::Macos if Platform::host()? != Platform::Macos => {
-            manager.macos_sdk();
-        }
-        Platform::Android => {
-            manager.android_ndk();
-            manager.android_jar()?;
-        }
-        Platform::Ios if Platform::host()? != Platform::Macos => {
-            manager.ios_sdk();
-        }
-        _ => {}
-    }
-    if env.flutter().is_some() {
-        let host = CompileTarget::new(Platform::host()?, Arch::host()?, Opt::Debug);
-        for target in env.target().compile_targets().chain(std::iter::once(host)) {
-            manager.flutter_engine(target)?;
-        }
-        manager.material_fonts()?;
-    }
-    manager.complete().await
-}
-
 pub struct DownloadManager<'a> {
     env: &'a BuildEnv,
-    queue: VecDeque<WorkItem>,
-    client: reqwest::blocking::Client,
+    client: Client,
+}
+
+impl<'a> Download for DownloadManager<'a> {
+    fn download(&self, url: &str, dest: &Path) -> Result<()> {
+        if dest.exists() {
+            return Ok(());
+        }
+
+        let pb = ProgressBar::with_draw_target(0, ProgressDrawTarget::stdout())
+        .with_style(
+            ProgressStyle::default_bar()
+                .template("{spinner:.green} {prefix:.bold} [{elapsed}] {wide_bar:.green} {bytes}/{total_bytes} {msg}")
+                .progress_chars("█▇▆▅▄▃▂▁  ")
+        );
+        let file_name = dest.file_name().unwrap().to_str().unwrap().to_string();
+        pb.set_prefix(file_name);
+        pb.set_message("📥 downloading");
+
+        let mut resp = self.client.get(url).send()?;
+        if !resp.status().is_success() {
+            anyhow::bail!("GET {} returned status code {}", url, resp.status());
+        }
+        let len = resp.content_length().unwrap_or_default();
+        pb.set_length(len);
+
+        let dest = BufWriter::new(File::create(&dest)?);
+        std::io::copy(&mut resp, &mut pb.wrap_write(dest))?;
+        pb.finish_with_message("📥 downloaded");
+
+        Ok(())
+    }
+}
+
+impl<'a> Download for &'a DownloadManager<'a> {
+    fn download(&self, url: &str, dest: &Path) -> Result<()> {
+        (*self).download(url, dest)
+    }
 }
 
 impl<'a> DownloadManager<'a> {
-    pub fn new(env: &'a BuildEnv) -> Self {
-        let client = reqwest::blocking::Client::new();
-        Self {
-            env,
-            client,
-            queue: Default::default(),
-        }
-    }
-
-    pub(crate) fn download(&mut self, item: WorkItem) {
-        if !item.output.exists() {
-            self.queue.push_back(item);
-        }
-    }
-
-    pub(crate) fn flutter(&self) -> Option<&Flutter> {
-        self.env.flutter()
-    }
-
-    pub async fn complete(mut self) -> Result<()> {
-        let download_dir = self.env.cache_dir().join("download");
+    pub fn new(env: &'a BuildEnv) -> Result<Self> {
+        let client = Client::new();
+        let download_dir = env.cache_dir().join("download");
         std::fs::create_dir_all(&download_dir)?;
-        while let Some(item) = self.queue.pop_front() {
-            let name = item.url.rsplit_once('/').unwrap().1;
-            let ext = name.split_once('.').map(|x| x.1);
-            let result = (|| {
-                let mut resp = self.client.get(&item.url).send()?;
-                if !resp.status().is_success() {
-                    anyhow::bail!("GET {} returned status code {}", &item.url, resp.status());
-                }
-                if let Some(ext) = ext {
-                    let archive = download_dir.join(name);
-                    std::io::copy(&mut resp, &mut BufWriter::new(File::create(&archive)?))?;
-                    match ext {
-                        "tar.zst" => {
-                            let archive = BufReader::new(File::open(&archive)?);
-                            let mut archive = Archive::new(Decoder::new(archive)?);
-                            for entry in archive.entries()? {
-                                let mut entry = entry?;
-                                if item.no_symlinks
-                                    && entry.header().entry_type() == EntryType::Symlink
-                                {
-                                    continue;
-                                }
-                                if item.no_colons
-                                    && entry.header().path()?.to_str().unwrap().contains(':')
-                                {
-                                    continue;
-                                }
-                                entry.unpack(&item.output)?;
-                            }
-                        }
-                        "framework.zip" => {
-                            let framework_dir = download_dir.join("framework");
-                            xcommon::extract_zip(&archive, &framework_dir)?;
-                            let archive = framework_dir.join(name);
-                            xcommon::extract_zip(&archive, &item.output)?;
-                        }
-                        "zip" => {
-                            xcommon::extract_zip(&archive, &item.output)?;
-                        }
-                        _ => unimplemented!(),
+        Ok(Self { env, client })
+    }
+
+    pub(crate) fn env(&self) -> &BuildEnv {
+        &self.env
+    }
+
+    pub(crate) fn fetch(&self, item: WorkItem) -> Result<()> {
+        let name = item.url.rsplit_once('/').unwrap().1;
+        let result: Result<()> = (|| {
+            if name.ends_with(".tar.zst") {
+                let archive = self.env().cache_dir().join("download").join(name);
+                self.download(&item.url, &archive)?;
+                let archive = BufReader::new(File::open(&archive)?);
+                let mut archive = Archive::new(Decoder::new(archive)?);
+                let dest = item.output.parent().unwrap();
+                std::fs::create_dir_all(&dest)?;
+                for entry in archive.entries()? {
+                    let mut entry = entry?;
+                    if item.no_symlinks && entry.header().entry_type() == EntryType::Symlink {
+                        continue;
                     }
-                } else {
-                    std::io::copy(&mut resp, &mut BufWriter::new(File::create(&item.output)?))?;
+                    if item.no_colons && entry.header().path()?.to_str().unwrap().contains(':') {
+                        continue;
+                    }
+                    entry.unpack_in(&dest)?;
                 }
-                Ok(())
-            })();
-            if result.is_err() {
-                if item.output.is_dir() {
-                    std::fs::remove_dir_all(&item.output).ok();
-                } else {
-                    std::fs::remove_file(&item.output).ok();
-                }
+            } else if name.ends_with(".framework.zip") {
+                let download_dir = self.env().cache_dir().join("download");
+                let archive = download_dir.join(name);
+                self.download(&item.url, &archive)?;
+                let framework_dir = download_dir.join("framework");
+                xcommon::extract_zip(&archive, &framework_dir)?;
+                let archive = framework_dir.join(name);
+                xcommon::extract_zip(&archive, &item.output)?;
+            } else if name.ends_with(".zip") {
+                let archive = self.env().cache_dir().join("download").join(name);
+                self.download(&item.url, &archive)?;
+                xcommon::extract_zip(&archive, &item.output)?;
+            } else {
+                self.download(&item.url, &item.output)?;
+            }
+            Ok(())
+        })();
+        if result.is_err() {
+            if item.output.is_dir() {
+                std::fs::remove_dir_all(&item.output).ok();
+            } else {
+                std::fs::remove_file(&item.output).ok();
+            }
+        }
+        result
+    }
+
+    pub fn prefetch(&self) -> Result<()> {
+        match self.env().target().platform() {
+            Platform::Linux if Platform::host()? != Platform::Linux => {
+                anyhow::bail!("cross compiling to linux is not yet supported");
+            }
+            Platform::Windows if Platform::host()? != Platform::Windows => {
+                self.windows_sdk()?;
+            }
+            Platform::Macos if Platform::host()? != Platform::Macos => {
+                self.macos_sdk()?;
+            }
+            Platform::Android => {
+                self.android_ndk()?;
+                self.android_jar()?;
+            }
+            Platform::Ios if Platform::host()? != Platform::Macos => {
+                self.ios_sdk()?;
+            }
+            _ => {}
+        }
+        if self.env.flutter().is_some() {
+            let host = CompileTarget::new(Platform::host()?, Arch::host()?, Opt::Debug);
+            for target in self
+                .env
+                .target()
+                .compile_targets()
+                .chain(std::iter::once(host))
+            {
+                self.flutter_engine(target)?;
+            }
+            self.material_fonts()?;
+            if self.env().target().platform() == Platform::Android {
+                self.r8()?;
+                self.flutter_embedding()?;
             }
         }
         Ok(())
@@ -178,7 +203,7 @@ impl WorkItem {
 }
 
 impl<'a> DownloadManager<'a> {
-    pub fn android_jar(&self) -> Result<PathBuf> {
+    pub fn android_jar(&self) -> Result<()> {
         let dir = self.env.android_sdk();
         let sdk = self.env.target_sdk_version();
         let path = dir
@@ -194,14 +219,14 @@ impl<'a> DownloadManager<'a> {
                 Some(&[android_sdkmanager::MatchType::EntireName("android.jar")]),
             )
         }
-        Ok(path)
+        Ok(())
     }
 
-    pub fn windows_sdk(&mut self) -> PathBuf {
+    pub fn windows_sdk(&self) -> Result<()> {
         let output = self.env.windows_sdk();
         let mut item = WorkItem::github_release(
-            output.clone(),
-            "cloudpeer",
+            output,
+            "cloudpeers",
             "x",
             "v0.1.0+2",
             "Windows.sdk.tar.zst",
@@ -209,15 +234,14 @@ impl<'a> DownloadManager<'a> {
         if !cfg!(target_os = "linux") {
             item.no_symlinks();
         }
-        self.download(item);
-        output
+        self.fetch(item)
     }
 
-    pub fn macos_sdk(&mut self) -> PathBuf {
+    pub fn macos_sdk(&self) -> Result<()> {
         let output = self.env.macos_sdk();
         let mut item = WorkItem::github_release(
-            output.clone(),
-            "cloudpeer",
+            output,
+            "cloudpeers",
             "x",
             "v0.1.0+2",
             "MacOSX.sdk.tar.zst",
@@ -225,28 +249,21 @@ impl<'a> DownloadManager<'a> {
         if cfg!(target_os = "windows") {
             item.no_colons();
         }
-        self.download(item);
-        output
+        self.fetch(item)
     }
 
-    pub fn android_ndk(&mut self) -> PathBuf {
+    pub fn android_ndk(&self) -> Result<()> {
         let output = self.env.android_ndk();
-        let item = WorkItem::github_release(
-            output.clone(),
-            "cloudpeer",
-            "x",
-            "v0.1.0+2",
-            "Android.ndk.tar.zst",
-        );
-        self.download(item);
-        output
+        let item =
+            WorkItem::github_release(output, "cloudpeers", "x", "v0.1.0+2", "Android.ndk.tar.zst");
+        self.fetch(item)
     }
 
-    pub fn ios_sdk(&mut self) -> PathBuf {
+    pub fn ios_sdk(&self) -> Result<()> {
         let output = self.env.ios_sdk();
         let mut item = WorkItem::github_release(
-            output.clone(),
-            "cloudpeer",
+            output,
+            "cloudpeers",
             "x",
             "v0.1.0+2",
             "iPhoneOS.sdk.tar.zst",
@@ -254,7 +271,6 @@ impl<'a> DownloadManager<'a> {
         if cfg!(target_os = "windows") {
             item.no_colons();
         }
-        self.download(item);
-        output
+        self.fetch(item)
     }
 }

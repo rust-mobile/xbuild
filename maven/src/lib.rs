@@ -8,8 +8,6 @@ use pubgrub::report::{DefaultStringReporter, Reporter};
 use pubgrub::solver::{Dependencies, DependencyProvider};
 use std::borrow::Borrow;
 use std::error::Error;
-use std::fs::File;
-use std::io::{BufReader, BufWriter};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -20,18 +18,22 @@ mod range;
 
 pub use package::{Package, Version};
 
-pub struct Maven {
-    client: reqwest::blocking::Client,
+pub trait Download {
+    fn download(&self, url: &str, dest: &Path) -> Result<()>;
+}
+
+pub struct Maven<D: Download> {
+    client: D,
     cache_dir: PathBuf,
     repositories: Vec<&'static str>,
 }
 
-impl Maven {
-    pub fn new(cache_dir: PathBuf) -> Result<Self> {
+impl<D: Download> Maven<D> {
+    pub fn new(cache_dir: PathBuf, client: D) -> Result<Self> {
         std::fs::create_dir_all(&cache_dir)?;
         Ok(Self {
             cache_dir,
-            client: reqwest::blocking::Client::new(),
+            client,
             repositories: vec![],
         })
     }
@@ -116,7 +118,7 @@ impl Maven {
             let mut downloaded = false;
             for repo in &self.repositories {
                 let url = package.url(repo);
-                if self.download(&url, &path).is_ok() {
+                if self.client.download(&url, &path).is_ok() {
                     downloaded = true;
                     break;
                 }
@@ -153,7 +155,7 @@ impl Maven {
             let mut downloaded = false;
             for repo in &self.repositories {
                 let url = artifact.url(repo, ext);
-                if self.download(&url, &path).is_ok() {
+                if self.client.download(&url, &path).is_ok() {
                     downloaded = true;
                     break;
                 }
@@ -164,21 +166,9 @@ impl Maven {
         }
         Ok(path)
     }
-
-    fn download(&self, url: &str, path: &Path) -> Result<()> {
-        log::debug!("get {}", url);
-        let resp = self.client.get(url).send()?;
-        if !resp.status().is_success() {
-            anyhow::bail!("GET {} returned status code {}", url, resp.status());
-        }
-        let mut r = BufReader::new(resp);
-        let mut w = BufWriter::new(File::create(&path)?);
-        std::io::copy(&mut r, &mut w)?;
-        Ok(())
-    }
 }
 
-impl DependencyProvider<Package, Version> for Maven {
+impl<D: Download> DependencyProvider<Package, Version> for Maven<D> {
     fn choose_package_version<T: Borrow<Package>, U: Borrow<Range<Version>>>(
         &self,
         potential_packages: impl Iterator<Item = (T, U)>,

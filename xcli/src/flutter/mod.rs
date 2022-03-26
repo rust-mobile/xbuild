@@ -235,8 +235,8 @@ impl Flutter {
         Ok(())
     }
 
-    pub fn build_classes_dex(&self, env: &BuildEnv) -> Result<()> {
-        android::build_classes_dex(env, self)
+    pub fn build_classes_dex(&self, env: &BuildEnv, r8: &Path, deps: Vec<PathBuf>) -> Result<()> {
+        android::build_classes_dex(env, r8, deps)
     }
 
     pub fn build_ios_main(&self, env: &BuildEnv, target: CompileTarget) -> Result<()> {

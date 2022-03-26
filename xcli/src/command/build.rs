@@ -1,4 +1,5 @@
 use crate::cargo::CrateType;
+use crate::download::DownloadManager;
 use crate::{BuildEnv, Format, Opt, Platform};
 use anyhow::Result;
 use appbundle::AppBundle;
@@ -16,13 +17,18 @@ pub async fn build(env: &BuildEnv) -> Result<()> {
     let platform_dir = env.platform_dir();
     std::fs::create_dir_all(&platform_dir)?;
 
+    println!("starting upgrade");
     if let Some(flutter) = env.flutter() {
         flutter.upgrade()?;
     }
+    println!("finished upgrade");
 
     // if engine version changed clean
 
-    crate::download::download_artifacts(env).await?;
+    println!("prefetching artifacts");
+    let manager = DownloadManager::new(&env)?;
+    manager.prefetch()?;
+    println!("finished prefetching artifacts");
 
     if let Some(flutter) = env.flutter() {
         if !env
@@ -38,7 +44,9 @@ pub async fn build(env: &BuildEnv) -> Result<()> {
         if env.target().platform() == Platform::Android {
             if !platform_dir.join("classes.dex").exists() {
                 println!("building classes.dex");
-                flutter.build_classes_dex(&env)?;
+                let r8 = manager.r8()?;
+                let deps = manager.flutter_embedding()?;
+                flutter.build_classes_dex(&env, &r8, deps)?;
             }
         }
         println!("building flutter_assets");
