@@ -13,7 +13,10 @@ pub fn depfile_is_dirty(path: &Path) -> Result<bool> {
     let len = buffer.len();
     if buffer[len - 2] != ':' as u8 {
         let target = std::str::from_utf8(&buffer)?;
-        anyhow::bail!("invalid depfile: target `{}` doesn't end with a `:`", target);
+        anyhow::bail!(
+            "invalid depfile: target `{}` doesn't end with a `:`",
+            target
+        );
     }
     let target = Path::new(std::str::from_utf8(&buffer[..(len - 2)])?);
     if !target.exists() {

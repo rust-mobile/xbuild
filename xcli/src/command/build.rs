@@ -12,15 +12,24 @@ use xcommon::ZipFileOptions;
 use xmsix::Msix;
 
 pub fn build(env: &BuildEnv) -> Result<()> {
-    let mut runner = TaskRunner::new(9, env.verbose());
+    let mut num_tasks = 8;
+    if env.target().platform() == Platform::Android {
+        num_tasks += 1;
+    }
+
+    let mut runner = TaskRunner::new(num_tasks, env.verbose());
     let platform_dir = env.platform_dir();
     std::fs::create_dir_all(&platform_dir)?;
 
     runner.start_task("Fetch flutter repo");
     if let Some(flutter) = env.flutter() {
         if !flutter.root().exists() {
-            flutter.clone()?;
-            runner.end_task();
+            if !env.offline() {
+                flutter.clone()?;
+                runner.end_task();
+            } else {
+                anyhow::bail!("flutter repo missing. Run `x` without `--offline`");
+            }
         }
     }
 
@@ -28,8 +37,10 @@ pub fn build(env: &BuildEnv) -> Result<()> {
 
     runner.start_task("Fetch precompiled artefacts");
     let manager = DownloadManager::new(&env)?;
-    manager.prefetch()?;
-    runner.end_verbose_task();
+    if !env.offline() {
+        manager.prefetch()?;
+        runner.end_verbose_task();
+    }
 
     runner.start_task("Run pub get");
     if let Some(flutter) = env.flutter() {
@@ -40,9 +51,27 @@ pub fn build(env: &BuildEnv) -> Result<()> {
             .exists()
             || xcommon::stamp_file(env.pubspec(), &env.build_dir().join("pubspec.stamp"))?
         {
-            flutter.pub_get(env.root_dir())?;
-            runner.end_task();
+            if !env.offline() {
+                flutter.pub_get(env.root_dir())?;
+                runner.end_task();
+            }
         }
+    }
+
+    runner.start_task("Build rust");
+    let bin_target = env.target().platform() != Platform::Android
+        && (env.flutter().is_some() || env.target().platform() != Platform::Ios);
+    let has_lib = env.root_dir().join("src").join("lib.rs").exists();
+    if bin_target || has_lib {
+        for target in env.target().compile_targets() {
+            let arch_dir = platform_dir.join(target.arch().to_string());
+            let mut cargo = env.cargo_build(target, &arch_dir.join("cargo"))?;
+            if !bin_target {
+                cargo.arg("--lib");
+            }
+            cargo.exec()?;
+        }
+        runner.end_verbose_task();
     }
 
     if env.target().platform() == Platform::Android {
@@ -59,11 +88,7 @@ pub fn build(env: &BuildEnv) -> Result<()> {
 
     runner.start_task("Build flutter assets");
     if let Some(flutter) = env.flutter() {
-        flutter.build_flutter_assets(
-            env.root_dir(),
-            &env.build_dir().join("flutter_assets"),
-            &env.build_dir().join("flutter_assets.d"),
-        )?;
+        flutter.build_flutter_assets(env.root_dir(), &env.build_dir().join("flutter_assets"))?;
         runner.end_task();
     }
 
@@ -103,22 +128,6 @@ pub fn build(env: &BuildEnv) -> Result<()> {
             }
             runner.end_task();
         }
-    }
-
-    runner.start_task("Build rust");
-    let bin_target = env.target().platform() != Platform::Android
-        && (env.flutter().is_some() || env.target().platform() != Platform::Ios);
-    let has_lib = env.root_dir().join("src").join("lib.rs").exists();
-    if bin_target || has_lib {
-        for target in env.target().compile_targets() {
-            let arch_dir = platform_dir.join(target.arch().to_string());
-            let mut cargo = env.cargo_build(target, &arch_dir.join("cargo"))?;
-            if !bin_target {
-                cargo.arg("--lib");
-            }
-            cargo.exec()?;
-        }
-        runner.end_verbose_task();
     }
 
     runner.start_task(format!("Create {}", env.target().format()));

@@ -339,11 +339,18 @@ pub struct CargoArgs {
     manifest_path: Option<PathBuf>,
     #[clap(long)]
     target_dir: Option<PathBuf>,
+    #[clap(long)]
+    offline: bool,
 }
 
 impl CargoArgs {
     pub fn cargo(self) -> Result<Cargo> {
-        Cargo::new(self.package.as_deref(), self.manifest_path, self.target_dir)
+        Cargo::new(
+            self.package.as_deref(),
+            self.manifest_path,
+            self.target_dir,
+            self.offline,
+        )
     }
 }
 
@@ -522,11 +529,13 @@ pub struct BuildEnv {
     manifest: Manifest,
     flutter: Option<Flutter>,
     verbose: bool,
+    offline: bool,
 }
 
 impl BuildEnv {
     pub fn new(args: BuildArgs) -> Result<Self> {
         let verbose = args.verbose;
+        let offline = args.cargo.offline;
         let cargo = args.cargo.cargo()?;
         let build_target = args.build_target.build_target()?;
         let build_dir = cargo.target_dir().join("x");
@@ -562,6 +571,7 @@ impl BuildEnv {
             manifest,
             build_dir,
             verbose,
+            offline,
         })
     }
 
@@ -575,6 +585,10 @@ impl BuildEnv {
 
     pub fn verbose(&self) -> bool {
         self.verbose
+    }
+
+    pub fn offline(&self) -> bool {
+        self.offline
     }
 
     pub fn has_dart_code(&self) -> bool {

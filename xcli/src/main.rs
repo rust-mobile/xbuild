@@ -26,23 +26,28 @@ fn main() -> Result<()> {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Show information about the installed tooling
     Doctor,
+    /// List all connected devices
     Devices,
-    New {
-        name: String,
-    },
+    /// Creates a new flutter/rust project
+    New { name: String },
+    /// Updates the flutter sdk and cargo/pub dependencies
     Update {
         #[clap(flatten)]
         args: BuildArgs,
     },
+    /// Build an executable app or install bundle
     Build {
         #[clap(flatten)]
         args: BuildArgs,
     },
+    /// Run app on an attached device
     Run {
         #[clap(flatten)]
         args: BuildArgs,
     },
+    /// Launch app in a debugger on an attached device
     Lldb {
         #[clap(flatten)]
         args: BuildArgs,

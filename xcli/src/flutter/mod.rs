@@ -168,12 +168,7 @@ impl Flutter {
         Ok(())
     }
 
-    pub fn build_flutter_assets(
-        &self,
-        root_dir: &Path,
-        flutter_assets: &Path,
-        _depfile: &Path,
-    ) -> Result<()> {
+    pub fn build_flutter_assets(&self, root_dir: &Path, flutter_assets: &Path) -> Result<()> {
         let bundle = AssetBundle::new(root_dir, &self.material_fonts()?)?;
         bundle.assemble(flutter_assets)?;
         Ok(())

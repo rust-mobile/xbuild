@@ -15,6 +15,7 @@ pub struct Cargo {
     package: String,
     manifest: PathBuf,
     target_dir: PathBuf,
+    offline: bool,
 }
 
 impl Cargo {
@@ -22,6 +23,7 @@ impl Cargo {
         package: Option<&str>,
         manifest_path: Option<PathBuf>,
         target_dir: Option<PathBuf>,
+        offline: bool,
     ) -> Result<Self> {
         let (manifest, package) = utils::find_package(
             &manifest_path.unwrap_or_else(|| std::env::current_dir().unwrap()),
@@ -53,6 +55,7 @@ impl Cargo {
             package,
             manifest,
             target_dir,
+            offline,
         })
     }
 
@@ -89,7 +92,7 @@ impl Cargo {
     }
 
     pub fn build(&self, target: CompileTarget, target_dir: &Path) -> Result<CargoBuild> {
-        CargoBuild::new(target, self.root_dir(), target_dir)
+        CargoBuild::new(target, self.root_dir(), target_dir, self.offline)
     }
 
     pub fn artifact(
@@ -126,7 +129,12 @@ pub struct CargoBuild {
 }
 
 impl CargoBuild {
-    fn new(target: CompileTarget, root_dir: &Path, target_dir: &Path) -> Result<Self> {
+    fn new(
+        target: CompileTarget,
+        root_dir: &Path,
+        target_dir: &Path,
+        offline: bool,
+    ) -> Result<Self> {
         let triple = if target.platform() != Platform::host()? || target.arch() != Arch::host()? {
             Some(target.rust_triple()?)
         } else {
@@ -141,6 +149,9 @@ impl CargoBuild {
         }
         if let Some(triple) = triple.as_ref() {
             cmd.arg("--target").arg(triple);
+        }
+        if offline {
+            cmd.arg("--offline");
         }
         Ok(Self {
             cmd,
