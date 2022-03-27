@@ -44,15 +44,15 @@ pub fn build(env: &BuildEnv) -> Result<()> {
 
     runner.start_task("Run pub get");
     if let Some(flutter) = env.flutter() {
-        if !env
-            .root_dir()
-            .join(".dart_tool")
-            .join("package_config.json")
-            .exists()
-            || xcommon::stamp_file(env.pubspec(), &env.build_dir().join("pubspec.stamp"))?
-        {
-            if !env.offline() {
+        if !env.offline() {
+            let package_config = env
+                .root_dir()
+                .join(".dart_tool")
+                .join("package_config.json");
+            let pubspec_stamp = env.build_dir().join("pubspec.stamp");
+            if !package_config.exists() || xcommon::is_stamp_dirty(env.pubspec(), &pubspec_stamp)? {
                 flutter.pub_get(env.root_dir())?;
+                xcommon::create_stamp(&pubspec_stamp)?;
                 runner.end_task();
             }
         }
@@ -93,10 +93,12 @@ pub fn build(env: &BuildEnv) -> Result<()> {
     }
 
     runner.start_task("Build kernel_blob.bin");
+    let mut aot_snapshot = false;
     let kernel_blob = if let Some(flutter) = env.flutter() {
         let kernel_blob = platform_dir.join("kernel_blob.bin");
         let kernel_blob_d = platform_dir.join("kernel_blob.bin.d");
         if !kernel_blob_d.exists() || depfile_is_dirty(&kernel_blob_d)? {
+            aot_snapshot = true;
             flutter.kernel_blob_bin(
                 env.root_dir(),
                 env.target_file(),
@@ -113,18 +115,14 @@ pub fn build(env: &BuildEnv) -> Result<()> {
 
     runner.start_task("Build aot snapshot");
     if let Some(flutter) = env.flutter() {
-        if env.target().opt() == Opt::Release
-            && xcommon::stamp_file(&kernel_blob, &platform_dir.join("kernel_blob.bin.stamp"))?
-        {
+        if env.target().opt() == Opt::Release {
             for target in env.target().compile_targets() {
                 let arch_dir = platform_dir.join(target.arch().to_string());
-                std::fs::create_dir_all(&arch_dir)?;
-                flutter.aot_snapshot(
-                    env.root_dir(),
-                    &kernel_blob,
-                    &arch_dir.join("libapp.so"),
-                    target,
-                )?;
+                let output = arch_dir.join("libapp.so");
+                if !output.exists() || aot_snapshot {
+                    std::fs::create_dir_all(&arch_dir)?;
+                    flutter.aot_snapshot(env.root_dir(), &kernel_blob, &output, target)?;
+                }
             }
             runner.end_task();
         }

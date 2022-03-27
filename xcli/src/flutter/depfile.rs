@@ -8,7 +8,7 @@ pub fn depfile_is_dirty(path: &Path) -> Result<bool> {
     let mut buffer = Vec::with_capacity(256);
     let n = f.read_until(' ' as u8, &mut buffer)?;
     if n == 0 {
-        anyhow::bail!("invalid depfile: unexpected eof");
+        return Ok(true);
     }
     let len = buffer.len();
     if buffer[len - 2] != ':' as u8 {

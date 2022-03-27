@@ -76,7 +76,7 @@ impl<'a> DownloadManager<'a> {
                 target.platform().to_string()
             };
             artifacts.push(format!("{}-{}/artifacts.zip", &platform, target.arch()));
-            artifacts.push(format!("dart-sdk-{}-{}.zip", &platform, target.arch(),));
+            artifacts.push(format!("dart-sdk-{}-{}.zip", &platform, target.arch()));
         }
         match (target.platform(), target.arch(), target.opt()) {
             (Platform::Linux, arch, Opt::Debug) => {
@@ -150,10 +150,10 @@ impl<'a> DownloadManager<'a> {
                 }
             }
             (Platform::Ios, _, Opt::Debug) => {
-                artifacts.push("ios/artifacts.zip".to_string());
+                //artifacts.push("ios/artifacts.zip".to_string());
             }
             (Platform::Ios, _, Opt::Release) => {
-                artifacts.push("ios-release/artifacts.zip".to_string());
+                //artifacts.push("ios-release/artifacts.zip".to_string());
             }
         }
         for artifact in &artifacts {

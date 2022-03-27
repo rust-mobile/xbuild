@@ -389,16 +389,21 @@ pub fn symlink(target: &Path, dest: &Path) -> Result<()> {
     Ok(())
 }
 
-pub fn stamp_file(file: &Path, stamp: &Path) -> Result<bool> {
-    let stamp_exists = stamp.exists();
-    if !stamp_exists {
-        if let Some(parent) = stamp.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
+pub fn is_stamp_dirty(file: &Path, stamp: &Path) -> Result<bool> {
+    if !stamp.exists() {
+        return Ok(true)
     }
-    let stamp_time = File::create(stamp)?.metadata()?.modified()?;
-    let file_time = File::open(file)?.metadata()?.modified()?;
-    Ok(!stamp_exists || file_time > stamp_time)
+    let stamp_time = std::fs::metadata(stamp)?.modified()?;
+    let file_time = std::fs::metadata(file)?.modified()?;
+    Ok(file_time > stamp_time)
+}
+
+pub fn create_stamp(stamp: &Path) -> Result<()> {
+    if let Some(parent) = stamp.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    File::create(stamp)?;
+    Ok(())
 }
 
 fn get_symlink_source(entry: &mut ZipFile<'_>) -> Result<Option<PathBuf>> {
