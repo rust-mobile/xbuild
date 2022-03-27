@@ -22,9 +22,13 @@ impl Flutter {
         Ok(Self { git, sdk, verbose })
     }
 
+    pub fn root(&self) -> PathBuf {
+        self.sdk.join("flutter")
+    }
+
     pub fn version(&self) -> Result<String> {
         let output = Command::new(&self.git)
-            .current_dir(self.sdk.join("flutter"))
+            .current_dir(self.root())
             .arg("tag")
             .arg("--points-at")
             .arg("HEAD")
@@ -36,31 +40,35 @@ impl Flutter {
         Ok(version.to_string())
     }
 
-    pub fn upgrade(&self) -> Result<()> {
-        let flutter = self.sdk.join("flutter");
+    pub fn clone(&self) -> Result<()> {
+        std::fs::create_dir_all(&self.sdk)?;
+        let mut cmd = Command::new(&self.git);
+        cmd.current_dir(&self.sdk)
+            .arg("clone")
+            .arg("https://github.com/flutter/flutter")
+            .arg("--depth")
+            .arg("1")
+            .arg("--branch")
+            .arg("stable");
+        task::run(cmd, self.verbose)?;
+        Ok(())
+    }
+
+    pub fn pull(&self) -> Result<()> {
+        let flutter = self.root();
         if !flutter.exists() {
-            std::fs::create_dir_all(&self.sdk)?;
-            let mut cmd = Command::new(&self.git);
-            cmd.current_dir(&self.sdk)
-                .arg("clone")
-                .arg("https://github.com/flutter/flutter")
-                .arg("--depth")
-                .arg("1")
-                .arg("--branch")
-                .arg("stable");
-            task::run(cmd, self.verbose)?;
+            self.clone()?
         } else {
             let mut cmd = Command::new(&self.git);
             cmd.current_dir(&flutter).arg("pull");
-            task::run(cmd, self.verbose)?;
+            task::run(cmd, true)?;
         }
         Ok(())
     }
 
     fn artifact_version(&self, artifact: &str) -> Result<String> {
         let path = self
-            .sdk
-            .join("flutter")
+            .root()
             .join("bin")
             .join("internal")
             .join(format!("{}.version", artifact));
@@ -126,8 +134,8 @@ impl Flutter {
         Ok(Command::new(self.host_file(&path)?))
     }
 
-    pub fn pub_get(&self, root_dir: &Path) -> Result<()> {
-        let flutter_root = self.sdk.join("flutter");
+    pub fn dart_pub(&self, root_dir: &Path) -> Result<Command> {
+        let flutter_root = self.root();
         let version = self.version()?;
         std::fs::write(flutter_root.join("version"), version)?;
         let pkg_dir = flutter_root.join("bin").join("cache").join("pkg");
@@ -141,10 +149,21 @@ impl Flutter {
         let mut cmd = self.dart()?;
         cmd.current_dir(root_dir)
             .env("FLUTTER_ROOT", flutter_root)
-            .arg("pub")
-            .arg("get")
-            .arg("--no-precompile");
+            .arg("pub");
+        Ok(cmd)
+    }
+
+    pub fn pub_get(&self, root_dir: &Path) -> Result<()> {
+        let mut cmd = self.dart_pub(root_dir)?;
+        cmd.arg("get").arg("--no-precompile");
         task::run(cmd, self.verbose)?;
+        Ok(())
+    }
+
+    pub fn pub_upgrade(&self, root_dir: &Path) -> Result<()> {
+        let mut cmd = self.dart_pub(root_dir)?;
+        cmd.arg("upgrade").arg("--no-precompile");
+        task::run(cmd, true)?;
         Ok(())
     }
 

@@ -1,7 +1,9 @@
 use crate::cargo::CrateType;
 use crate::devices::Device;
+use crate::task::TaskRunner;
 use crate::{BuildEnv, CompileTarget};
 use anyhow::Result;
+use std::process::Command;
 
 //mod attach;
 mod build;
@@ -23,6 +25,31 @@ pub fn devices() -> Result<()> {
             device.details()?,
         );
     }
+    Ok(())
+}
+
+pub fn update(env: &BuildEnv) -> Result<()> {
+    let mut runner = TaskRunner::new(3, env.verbose());
+
+    runner.start_task("Update flutter");
+    if let Some(flutter) = env.flutter() {
+        flutter.pull()?;
+        runner.end_verbose_task();
+    }
+
+    runner.start_task("Run pub upgrade");
+    if let Some(flutter) = env.flutter() {
+        flutter.pub_upgrade(env.root_dir())?;
+        runner.end_verbose_task();
+    }
+
+    runner.start_task("Run cargo update");
+    Command::new("cargo")
+        .current_dir(env.root_dir())
+        .arg("update")
+        .status()?;
+    runner.end_verbose_task();
+
     Ok(())
 }
 

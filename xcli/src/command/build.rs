@@ -17,8 +17,10 @@ pub fn build(env: &BuildEnv) -> Result<()> {
 
     runner.start_task("Fetch flutter repo");
     if let Some(flutter) = env.flutter() {
-        flutter.upgrade()?;
-        runner.end_task();
+        if !flutter.root().exists() {
+            flutter.clone()?;
+            runner.end_task();
+        }
     }
 
     // if engine version changed clean

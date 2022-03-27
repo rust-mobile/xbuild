@@ -31,6 +31,10 @@ enum Commands {
     New {
         name: String,
     },
+    Update {
+        #[clap(flatten)]
+        args: BuildArgs,
+    },
     Build {
         #[clap(flatten)]
         args: BuildArgs,
@@ -63,6 +67,10 @@ impl Commands {
             Self::Doctor => command::doctor(),
             Self::Devices => command::devices()?,
             Self::New { name } => command::new(&name)?,
+            Self::Update { args } => {
+                let env = BuildEnv::new(args)?;
+                command::update(&env)?;
+            }
             Self::Build { args } => {
                 let env = BuildEnv::new(args)?;
                 command::build(&env)?;
