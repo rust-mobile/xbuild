@@ -23,3 +23,10 @@ Kotlin/Java or integrate with existing Kotlin/Java code you likely need a differ
 
 Currently not all manifest features are supported yet. If something is missing please open an
 issue or PR.
+
+## Troubleshooting
+
+### Dart Error: Can't load Kernel binary: Invalid SDK hash.
+
+This happens when `flutter attach` and `x` use different flutter versions. To fix this run
+`x update` in your project folder and `git checkout stable && git pull` in your flutter sdk.
