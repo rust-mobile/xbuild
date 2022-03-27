@@ -42,8 +42,6 @@ enum Commands {
     Run {
         #[clap(flatten)]
         args: BuildArgs,
-        #[clap(long)]
-        no_build: bool,
     },
     Lldb {
         #[clap(flatten)]
@@ -75,11 +73,9 @@ impl Commands {
                 let env = BuildEnv::new(args)?;
                 command::build(&env)?;
             }
-            Self::Run { args, no_build } => {
+            Self::Run { args } => {
                 let env = BuildEnv::new(args)?;
-                if !no_build {
-                    command::build(&env)?;
-                }
+                command::build(&env)?;
                 command::run(&env)?;
             }
             Self::Lldb { args } => {

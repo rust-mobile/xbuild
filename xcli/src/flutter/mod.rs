@@ -8,6 +8,7 @@ mod android;
 pub mod artifacts;
 pub mod assets;
 pub mod attach;
+pub mod depfile;
 mod ios;
 
 pub struct Flutter {

@@ -1,5 +1,6 @@
 use crate::cargo::CrateType;
 use crate::download::DownloadManager;
+use crate::flutter::depfile::depfile_is_dirty;
 use crate::task::TaskRunner;
 use crate::{BuildEnv, Format, Opt, Platform};
 use anyhow::Result;
@@ -44,15 +45,15 @@ pub fn build(env: &BuildEnv) -> Result<()> {
         }
     }
 
-    runner.start_task("Build classes.dex");
-    if let Some(flutter) = env.flutter() {
-        if env.target().platform() == Platform::Android
-            && !platform_dir.join("classes.dex").exists()
-        {
-            let r8 = manager.r8()?;
-            let deps = manager.flutter_embedding()?;
-            flutter.build_classes_dex(&env, &r8, deps)?;
-            runner.end_task();
+    if env.target().platform() == Platform::Android {
+        runner.start_task("Build classes.dex");
+        if let Some(flutter) = env.flutter() {
+            if !platform_dir.join("classes.dex").exists() {
+                let r8 = manager.r8()?;
+                let deps = manager.flutter_embedding()?;
+                flutter.build_classes_dex(&env, &r8, deps)?;
+                runner.end_task();
+            }
         }
     }
 
@@ -69,14 +70,17 @@ pub fn build(env: &BuildEnv) -> Result<()> {
     runner.start_task("Build kernel_blob.bin");
     let kernel_blob = if let Some(flutter) = env.flutter() {
         let kernel_blob = platform_dir.join("kernel_blob.bin");
-        flutter.kernel_blob_bin(
-            env.root_dir(),
-            env.target_file(),
-            &kernel_blob,
-            &platform_dir.join("kernel_blob.bin.d"),
-            env.target().opt(),
-        )?;
-        runner.end_task();
+        let kernel_blob_d = platform_dir.join("kernel_blob.bin.d");
+        if !kernel_blob_d.exists() || depfile_is_dirty(&kernel_blob_d)? {
+            flutter.kernel_blob_bin(
+                env.root_dir(),
+                env.target_file(),
+                &kernel_blob,
+                &kernel_blob_d,
+                env.target().opt(),
+            )?;
+            runner.end_task();
+        }
         kernel_blob
     } else {
         Default::default()
