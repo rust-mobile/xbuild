@@ -12,4 +12,4 @@ rasn = "0.5.0"
 rasn-pkix = "0.5.0"
 rsa = "0.5.0"
 sha2 = "0.10.1"
-zip = "0.5.13"
+zip = { version = "0.6.0", default-features = false, features = ["deflate"] }

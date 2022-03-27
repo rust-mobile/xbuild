@@ -4,7 +4,6 @@ use icns::{IconFamily, Image};
 use pkcs8::ToPrivateKey;
 use plist::Value;
 use rasn_cms::{ContentInfo, SignedData};
-use slog::{o, Drain};
 use std::fs::File;
 use std::io::{BufWriter, Cursor};
 use std::path::{Path, PathBuf};
@@ -172,10 +171,6 @@ impl AppBundle {
         plist::to_file_xml(path, &self.info)?;
 
         if let Some(signer) = signer {
-            let decorator = slog_term::TermDecorator::new().build();
-            let drain = slog_term::CompactFormat::new(decorator).build();
-            let drain = std::sync::Mutex::new(drain).fuse();
-            let logger = slog::Logger::root(drain, o!());
             let mut signing_settings = SigningSettings::default();
             signing_settings.set_executable_segment_flags(
                 SettingsScope::Main,
@@ -190,13 +185,13 @@ impl AppBundle {
                 let mut buf = vec![];
                 entitlements.to_writer_xml(&mut buf)?;
                 let entitlements = std::str::from_utf8(&buf)?;
-                signing_settings.set_entitlements_xml(SettingsScope::Main, entitlements);
+                signing_settings.set_entitlements_xml(SettingsScope::Main, entitlements)?;
             }
             if let Some(team_id) = self.team_id.as_ref() {
                 signing_settings.set_team_id(team_id)
             }
             let bundle_signer = BundleSigner::new_from_path(self.appdir())?;
-            bundle_signer.write_signed_bundle(&logger, self.appdir(), &signing_settings)?;
+            bundle_signer.write_signed_bundle(self.appdir(), &signing_settings)?;
         }
 
         Ok(self.appdir)
