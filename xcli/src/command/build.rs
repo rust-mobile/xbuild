@@ -176,6 +176,11 @@ pub fn build(env: &BuildEnv) -> Result<()> {
             let main = env.cargo_artefact(&arch_dir.join("cargo"), target, CrateType::Bin)?;
             appimage.add_file(&main, Path::new(env.name()))?;
 
+            if has_lib {
+                let lib = env.cargo_artefact(&arch_dir.join("cargo"), target, CrateType::Cdylib)?;
+                appimage.add_file(&lib, &Path::new("lib").join(lib.file_name().unwrap()))?;
+            }
+
             if env.target().format() == Format::Appimage {
                 let out = arch_dir.join(format!("{}.AppImage", env.name()));
                 appimage.build(&out, env.target().signer().cloned())?;

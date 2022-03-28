@@ -18,6 +18,10 @@ ffi-gen = "0.1.13"
 anyhow = "1.0.56"
 ffi-gen-macro = "0.1.2"
 futures = "0.3.21"
+
+[target.'cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))'.dependencies]
+env_logger = "0.9.0"
+nativeshell = {{ git = "https://github.com/nativeshell/nativeshell" }}
 "#,
         name = name,
     )
@@ -34,6 +38,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  nativeshell: ^0.1.13
 
 flutter:
   uses-material-design: true
@@ -88,6 +93,10 @@ pub fn new(name: &str) -> Result<()> {
     std::fs::write(
         src.join("lib.rs"),
         include_bytes!("../../assets/template/lib.rs"),
+    )?;
+    std::fs::write(
+        src.join("main.rs"),
+        include_bytes!("../../assets/template/main.rs"),
     )?;
     std::fs::write(
         lib.join("main.dart"),

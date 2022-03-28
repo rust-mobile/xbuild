@@ -1,20 +1,25 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
+import 'package:nativeshell/nativeshell.dart';
 import './bindings.dart';
 
 void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'FlutterDemo',
-      home: CounterPage(state: Api.load().createCounterState()),
-    );
-  }
+  final title = 'FlutterDemo';
+  final home = CounterPage(state: Api.load().createCounterState());
+  final app = Platform.isAndroid || Platform.isIOS
+      ? MaterialApp(
+          title: title,
+          home: home,
+        )
+      : WindowWidget(onCreateState: (initData) {
+          WindowState? state;
+          state ??= MainWindow(
+            title: title,
+            home: home,
+          );
+          return state;
+        });
+  runApp(app);
 }
 
 class CounterPage extends StatelessWidget {
@@ -37,7 +42,8 @@ class CounterPage extends StatelessWidget {
               stream: state.subscribe(),
               builder: (BuildContext context, AsyncSnapshot snapshot) {
                 final counter = state.counter();
-                return Text('$counter', style: Theme.of(context).textTheme.headline4);
+                return Text('$counter',
+                    style: Theme.of(context).textTheme.headline4);
               },
             ),
           ],
@@ -47,6 +53,27 @@ class CounterPage extends StatelessWidget {
         onPressed: state.increment,
         tooltip: 'Increment',
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+class MainWindow extends WindowState {
+  MainWindow({required this.title, required this.home});
+
+  final String title;
+  final Widget home;
+
+  @override
+  WindowSizingMode get windowSizingMode =>
+      WindowSizingMode.atLeastIntrinsicSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: title,
+      home: WindowLayoutProbe(
+        child: home,
       ),
     );
   }
