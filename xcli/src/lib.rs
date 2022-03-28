@@ -750,6 +750,7 @@ impl BuildEnv {
                 }
                 Platform::Windows => {
                     cargo.add_lib_dir(&flutter.engine_dir(target)?);
+                    cargo.link_lib("flutter_windows.dll");
                 }
                 _ => {}
             }

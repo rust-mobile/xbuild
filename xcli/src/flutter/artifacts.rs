@@ -67,46 +67,61 @@ impl<'a> DownloadManager<'a> {
             && target.arch() == Arch::host()?
             && target.opt() == Opt::Debug
         {
-            artifacts.push("sky_engine.zip".to_string());
-            artifacts.push("flutter_patched_sdk.zip".to_string());
-            artifacts.push("flutter_patched_sdk_product.zip".to_string());
+            artifacts.push(("sky_engine.zip".to_string(), "sky_engine"));
+            artifacts.push(("flutter_patched_sdk.zip".to_string(), "flutter_patched_sdk"));
+            artifacts.push((
+                "flutter_patched_sdk_product.zip".to_string(),
+                "flutter_patched_sdk_product",
+            ));
             let platform = if target.platform() == Platform::Macos {
                 "darwin".to_string()
             } else {
                 target.platform().to_string()
             };
-            artifacts.push(format!("{}-{}/artifacts.zip", &platform, target.arch()));
-            artifacts.push(format!("dart-sdk-{}-{}.zip", &platform, target.arch()));
+            artifacts.push((
+                format!("{}-{}/artifacts.zip", &platform, target.arch()),
+                "frontend_server.dart.snapshot",
+            ));
+            artifacts.push((
+                format!("dart-sdk-{}-{}.zip", &platform, target.arch()),
+                "dart-sdk",
+            ));
         }
         match (target.platform(), target.arch(), target.opt()) {
             (Platform::Linux, arch, Opt::Debug) => {
-                artifacts.push(format!(
-                    "linux-{arch}/linux-{arch}-flutter-gtk.zip",
-                    arch = arch
+                artifacts.push((
+                    format!("linux-{arch}/linux-{arch}-flutter-gtk.zip", arch = arch),
+                    "libflutter_linux_gtk.so",
                 ));
             }
             (Platform::Linux, arch, Opt::Release) => {
-                artifacts.push(format!(
-                    "linux-{arch}-release/linux-{arch}-flutter-gtk.zip",
-                    arch = arch
+                artifacts.push((
+                    format!(
+                        "linux-{arch}-release/linux-{arch}-flutter-gtk.zip",
+                        arch = arch
+                    ),
+                    "libflutter_linux_gtk.so",
                 ));
             }
-            (Platform::Macos, arch, Opt::Debug) => {
-                artifacts.push(format!("darwin-{}/FlutterMacOS.framework.zip", arch));
-            }
-            (Platform::Macos, arch, Opt::Release) => {
-                artifacts.push(format!("darwin-{}/FlutterMacOS.framework.zip", arch));
+            (Platform::Macos, arch, _) => {
+                artifacts.push((
+                    format!("darwin-{}/FlutterMacOS.framework.zip", arch),
+                    "FlutterMacOS.framework",
+                ));
             }
             (Platform::Windows, arch, Opt::Debug) => {
-                artifacts.push(format!(
-                    "windows-{arch}/windows-{arch}-flutter.zip",
-                    arch = arch
+                artifacts.push((
+                    format!("windows-{arch}/windows-{arch}-flutter.zip", arch = arch),
+                    "flutter_windows.dll",
                 ));
             }
             (Platform::Windows, arch, Opt::Release) => {
-                artifacts.push(format!(
-                    "windows-{arch}-release/windows-{arch}-flutter.zip",
-                    arch = arch
+                artifacts.push((
+                    format!(
+                        "windows-{arch}-release/windows-{arch}-flutter.zip",
+                        arch = arch
+                    ),
+                    "flutter_windows.dll",
                 ));
             }
             (Platform::Android, arch, opt) => {
@@ -141,11 +156,14 @@ impl<'a> DownloadManager<'a> {
                     } else {
                         host.to_string()
                     };
-                    artifacts.push(format!(
-                        "android-{}-release/{}-{}.zip",
-                        arch,
-                        &platform,
-                        Arch::host()?
+                    artifacts.push((
+                        format!(
+                            "android-{}-release/{}-{}.zip",
+                            arch,
+                            &platform,
+                            Arch::host()?
+                        ),
+                        exe!("gen_snapshot"),
                     ));
                 }
             }
@@ -156,12 +174,12 @@ impl<'a> DownloadManager<'a> {
                 //artifacts.push("ios-release/artifacts.zip".to_string());
             }
         }
-        for artifact in &artifacts {
+        for (artifact, output) in &artifacts {
             let url = format!(
                 "https://storage.googleapis.com/flutter_infra_release/flutter/{}/{}",
                 &engine_version, artifact
             );
-            self.fetch(WorkItem::new(engine_dir.clone(), url))?;
+            self.fetch(WorkItem::new(engine_dir.join(output), url))?;
         }
         Ok(())
     }
@@ -174,6 +192,6 @@ impl<'a> DownloadManager<'a> {
             "https://storage.googleapis.com/flutter_infra_release/flutter/fonts/{}/fonts.zip",
             version,
         );
-        self.fetch(WorkItem::new(output.clone(), url))
+        self.fetch(WorkItem::new(output.join("MaterialIcons-Regular.otf"), url))
     }
 }

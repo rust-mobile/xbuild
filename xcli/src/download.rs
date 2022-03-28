@@ -60,12 +60,12 @@ impl<'a> DownloadManager<'a> {
     }
 
     pub(crate) fn fetch(&self, item: WorkItem) -> Result<()> {
+        if item.output.exists() {
+            return Ok(());
+        }
         let name = item.url.rsplit_once('/').unwrap().1;
         let result: Result<()> = (|| {
             if name.ends_with(".tar.zst") {
-                if item.output.exists() {
-                    return Ok(());
-                }
                 let archive = self.env().cache_dir().join("download").join(name);
                 self.download(&item.url, &archive)?;
                 let archive = BufReader::new(File::open(&archive)?);
@@ -83,25 +83,18 @@ impl<'a> DownloadManager<'a> {
                     entry.unpack_in(&dest)?;
                 }
             } else if name.ends_with(".framework.zip") {
-                let output = item.output.join(name.strip_suffix(".zip").unwrap());
-                if output.exists() {
-                    return Ok(());
-                }
                 let download_dir = self.env().cache_dir().join("download");
                 let archive = download_dir.join(name);
                 self.download(&item.url, &archive)?;
                 let framework_dir = download_dir.join("framework");
                 xcommon::extract_zip(&archive, &framework_dir)?;
                 let archive = framework_dir.join(name);
-                std::fs::create_dir_all(&output)?;
-                xcommon::extract_zip(&archive, &output)?;
+                std::fs::create_dir_all(&item.output)?;
+                xcommon::extract_zip(&archive, &item.output)?;
             } else if name.ends_with(".zip") {
                 let archive = self.env().cache_dir().join("download").join(name);
-                if archive.exists() {
-                    return Ok(());
-                }
                 self.download(&item.url, &archive)?;
-                xcommon::extract_zip(&archive, &item.output)?;
+                xcommon::extract_zip(&archive, &item.output.parent().unwrap())?;
             } else {
                 self.download(&item.url, &item.output)?;
             }
