@@ -125,29 +125,32 @@ impl<'a> DownloadManager<'a> {
                 ));
             }
             (Platform::Android, arch, opt) => {
-                let maven = self.maven()?;
-                let abi = target.android_abi();
-                let pabi = match abi {
-                    Target::Arm64V8a => "arm64_v8a",
-                    Target::ArmV7a => "armeabi_v7a",
-                    Target::X86 => "x86",
-                    Target::X86_64 => "x86_64",
-                };
-                let package = Package {
-                    group: "io.flutter".into(),
-                    name: format!("{}_{}", pabi, target.opt()),
-                };
-                let version = Version {
-                    major: 1,
-                    minor: 0,
-                    patch: 0,
-                    suffix: Some(engine_version.clone()),
-                };
-                let flutter_jar = maven.package(&package, &version)?;
-                let mut zip = ZipArchive::new(BufReader::new(File::open(flutter_jar)?))?;
-                let mut f = zip.by_name(&format!("lib/{}/libflutter.so", abi.android_abi()))?;
-                std::fs::create_dir_all(&engine_dir)?;
-                std::io::copy(&mut f, &mut File::create(engine_dir.join("libflutter.so"))?)?;
+                let output = engine_dir.join("libflutter.so");
+                if !output.exists() {
+                    let maven = self.maven()?;
+                    let abi = target.android_abi();
+                    let pabi = match abi {
+                        Target::Arm64V8a => "arm64_v8a",
+                        Target::ArmV7a => "armeabi_v7a",
+                        Target::X86 => "x86",
+                        Target::X86_64 => "x86_64",
+                    };
+                    let package = Package {
+                        group: "io.flutter".into(),
+                        name: format!("{}_{}", pabi, target.opt()),
+                    };
+                    let version = Version {
+                        major: 1,
+                        minor: 0,
+                        patch: 0,
+                        suffix: Some(engine_version.clone()),
+                    };
+                    let flutter_jar = maven.package(&package, &version)?;
+                    let mut zip = ZipArchive::new(BufReader::new(File::open(flutter_jar)?))?;
+                    let mut f = zip.by_name(&format!("lib/{}/libflutter.so", abi.android_abi()))?;
+                    std::fs::create_dir_all(&engine_dir)?;
+                    std::io::copy(&mut f, &mut File::create(output)?)?;
+                }
 
                 if opt == Opt::Release {
                     let host = Platform::host()?;

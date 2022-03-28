@@ -110,7 +110,7 @@ impl<'a> DownloadManager<'a> {
         result
     }
 
-    pub fn prefetch(&self) -> Result<()> {
+    pub fn prefetch(&self, build_classes_dex: bool) -> Result<()> {
         match self.env().target().platform() {
             Platform::Linux if Platform::host()? != Platform::Linux => {
                 anyhow::bail!("cross compiling to linux is not yet supported");
@@ -141,7 +141,7 @@ impl<'a> DownloadManager<'a> {
                 self.flutter_engine(target)?;
             }
             self.material_fonts()?;
-            if self.env().target().platform() == Platform::Android {
+            if build_classes_dex && self.env().target().platform() == Platform::Android {
                 self.r8()?;
                 self.flutter_embedding()?;
             }

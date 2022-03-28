@@ -12,14 +12,19 @@ use xcommon::ZipFileOptions;
 use xmsix::Msix;
 
 pub fn build(env: &BuildEnv) -> Result<()> {
+    let platform_dir = env.platform_dir();
+    std::fs::create_dir_all(&platform_dir)?;
+
     let mut num_tasks = 8;
+    let mut build_classes_dex = false;
     if env.target().platform() == Platform::Android {
         num_tasks += 1;
+        if !platform_dir.join("classes.dex").exists() {
+            build_classes_dex = true;
+        }
     }
 
     let mut runner = TaskRunner::new(num_tasks, env.verbose());
-    let platform_dir = env.platform_dir();
-    std::fs::create_dir_all(&platform_dir)?;
 
     runner.start_task("Fetch flutter repo");
     if let Some(flutter) = env.flutter() {
@@ -38,7 +43,7 @@ pub fn build(env: &BuildEnv) -> Result<()> {
     runner.start_task("Fetch precompiled artefacts");
     let manager = DownloadManager::new(&env)?;
     if !env.offline() {
-        manager.prefetch()?;
+        manager.prefetch(build_classes_dex)?;
         runner.end_verbose_task();
     }
 
