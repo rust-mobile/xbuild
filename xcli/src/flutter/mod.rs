@@ -231,16 +231,61 @@ impl Flutter {
         };
         let gen_snapshot = self.engine_dir(target)?.join(exe!("gen_snapshot"));
         let mut cmd = Command::new(gen_snapshot);
-        cmd.current_dir(root_dir);
+        cmd.current_dir(root_dir)
+            .arg("--deterministic");
         if target.platform() == Platform::Ios || target.platform() == Platform::Macos {
+            let build_dir = snapshot.parent().unwrap();
+            let file_name = snapshot.file_name().unwrap().to_str().unwrap();
+            let assembly = build_dir.join(format!("{}.S", file_name));
             cmd.arg("--snapshot_kind=app-aot-assembly")
-                .arg(format!("--assembly={}", snapshot.display()));
+                .arg(format!("--assembly={}", assembly.display()))
+                .arg(kernel_blob_bin);
+            task::run(cmd, self.verbose)?;
+            let object = build_dir.join(format!("{}.o", file_name));
+            let arch = match target.arch() {
+                Arch::X64 => "x86_64",
+                Arch::Arm64 => "arm64",
+            };
+            let mut cmd = Command::new("clang");
+            cmd.arg("-c")
+                .arg(assembly)
+                .arg("-o")
+                .arg(&object)
+                .arg("-arch")
+                .arg(arch);
+            if target.platform() == Platform::Ios {
+                cmd.arg("-miphoneos-version-min=9.0");
+            }
+            task::run(cmd, self.verbose)?;
+            std::fs::create_dir_all(&snapshot)?;
+            let applib = snapshot.join("App");
+            let mut cmd = Command::new("clang");
+            cmd.arg("-arch")
+                .arg(arch)
+                .arg("-dynamiclib")
+                .arg("-Xlinker")
+                .arg("-rpath")
+                .arg("-Xlinker")
+                .arg("@executable_path/Frameworks")
+                .arg("-Xlinker")
+                .arg("-rpath")
+                .arg("-Xlinker")
+                .arg("@loader_path/Frameworks")
+                .arg("-install_name")
+                .arg(format!("@rpath/{}/App", file_name))
+                .arg("-o")
+                .arg(applib)
+                .arg(object);
+            if target.platform() == Platform::Ios {
+                cmd.arg("-miphoneos-version-min=9.0");
+            }
+            task::run(cmd, self.verbose)?;
         } else {
             cmd.arg("--snapshot_kind=app-aot-elf")
-                .arg(format!("--elf={}", snapshot.display()));
+                .arg(format!("--elf={}", snapshot.display()))
+                .arg(kernel_blob_bin);
+            task::run(cmd, self.verbose)?;
         }
-        cmd.arg("--deterministic").arg(kernel_blob_bin);
-        task::run(cmd, self.verbose)?;
         Ok(())
     }
 

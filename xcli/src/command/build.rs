@@ -123,7 +123,12 @@ pub fn build(env: &BuildEnv) -> Result<()> {
         if env.target().opt() == Opt::Release {
             for target in env.target().compile_targets() {
                 let arch_dir = platform_dir.join(target.arch().to_string());
-                let output = arch_dir.join("libapp.so");
+                let output =
+                    if target.platform() == Platform::Macos || target.platform() == Platform::Ios {
+                        arch_dir.join("App.framework")
+                    } else {
+                        arch_dir.join("libapp.so")
+                    };
                 if !output.exists() || aot_snapshot {
                     std::fs::create_dir_all(&arch_dir)?;
                     flutter.aot_snapshot(env.root_dir(), &kernel_blob, &output, target)?;
@@ -276,10 +281,7 @@ pub fn build(env: &BuildEnv) -> Result<()> {
                         )?;
                     }
                     Opt::Release => {
-                        /*app.add_file(
-                            &arch_dir.join("libapp.so"),
-                            &Path::new("flutter_assets").join("libapp.so"),
-                        )?;*/
+                        app.add_framework(&arch_dir.join("App.framework"))?;
                     }
                 }
             }
@@ -326,10 +328,7 @@ pub fn build(env: &BuildEnv) -> Result<()> {
                         )?;
                     }
                     Opt::Release => {
-                        app.add_file(
-                            &arch_dir.join("libapp.so"),
-                            &Path::new("flutter_assets").join("libapp.so"),
-                        )?;
+                        app.add_framework(&arch_dir.join("App.framework"))?;
                     }
                 }
                 flutter.build_ios_main(&env, target)?;

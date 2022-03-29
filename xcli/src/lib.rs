@@ -638,7 +638,9 @@ impl BuildEnv {
         let out = self.output();
         match (self.target().format(), self.target().platform()) {
             (Format::Appdir, _) => out.join("AppRun"),
-            (Format::Appbundle, Platform::Macos) => out.join("Contents").join("MacOS").join(self.name()),
+            (Format::Appbundle, Platform::Macos) => {
+                out.join("Contents").join("MacOS").join(self.name())
+            }
             _ => out,
         }
     }
