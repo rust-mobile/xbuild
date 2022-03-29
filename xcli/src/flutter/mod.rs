@@ -206,7 +206,7 @@ impl Flutter {
                 cmd.arg("--sdk-root")
                     .arg(self.host_file(Path::new("flutter_patched_sdk"))?)
                     .arg("-Ddart.vm.profile=false")
-                    .arg("-Ddart.vm.product=true")
+                    .arg("-Ddart.vm.product=false")
                     .arg("--track-widget-creation");
             }
         }
@@ -218,30 +218,24 @@ impl Flutter {
     pub fn aot_snapshot(
         &self,
         root_dir: &Path,
+        build_dir: &Path,
         kernel_blob_bin: &Path,
         snapshot: &Path,
         target: CompileTarget,
     ) -> Result<()> {
-        let target = if target.platform() == Platform::Macos {
-            // flutter packages gen_snapshot in artifacts.zip on macos so it's
-            // located in the debug engine dir
-            CompileTarget::new(target.platform(), target.arch(), Opt::Debug)
-        } else {
-            target
-        };
         let gen_snapshot = self.engine_dir(target)?.join(exe!("gen_snapshot"));
         let mut cmd = Command::new(gen_snapshot);
         cmd.current_dir(root_dir)
-            .arg("--deterministic");
+            .arg("--deterministic")
+            .arg("--strip");
         if target.platform() == Platform::Ios || target.platform() == Platform::Macos {
-            let build_dir = snapshot.parent().unwrap();
             let file_name = snapshot.file_name().unwrap().to_str().unwrap();
-            let assembly = build_dir.join(format!("{}.S", file_name));
+            let assembly = build_dir.join("snapshot.S");
             cmd.arg("--snapshot_kind=app-aot-assembly")
                 .arg(format!("--assembly={}", assembly.display()))
                 .arg(kernel_blob_bin);
             task::run(cmd, self.verbose)?;
-            let object = build_dir.join(format!("{}.o", file_name));
+            let object = build_dir.join("snapshot.o");
             let arch = match target.arch() {
                 Arch::X64 => "x86_64",
                 Arch::Arm64 => "arm64",
@@ -257,8 +251,6 @@ impl Flutter {
                 cmd.arg("-miphoneos-version-min=9.0");
             }
             task::run(cmd, self.verbose)?;
-            std::fs::create_dir_all(&snapshot)?;
-            let applib = snapshot.join("App");
             let mut cmd = Command::new("clang");
             cmd.arg("-arch")
                 .arg(arch)
@@ -272,9 +264,9 @@ impl Flutter {
                 .arg("-Xlinker")
                 .arg("@loader_path/Frameworks")
                 .arg("-install_name")
-                .arg(format!("@rpath/{}/App", file_name))
+                .arg(format!("@rpath/{name}.framework/{name}", name = file_name))
                 .arg("-o")
-                .arg(applib)
+                .arg(snapshot)
                 .arg(object);
             if target.platform() == Platform::Ios {
                 cmd.arg("-miphoneos-version-min=9.0");

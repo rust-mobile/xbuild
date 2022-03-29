@@ -103,10 +103,20 @@ impl<'a> DownloadManager<'a> {
                     "libflutter_linux_gtk.so",
                 ));
             }
-            (Platform::Macos, arch, _) => {
+            (Platform::Macos, arch, Opt::Debug) => {
                 artifacts.push((
                     format!("darwin-{}/FlutterMacOS.framework.zip", arch),
                     "FlutterMacOS.framework",
+                ));
+            }
+            (Platform::Macos, arch, Opt::Release) => {
+                artifacts.push((
+                    format!("darwin-{}-release/FlutterMacOS.framework.zip", arch),
+                    "FlutterMacOS.framework",
+                ));
+                artifacts.push((
+                    format!("darwin-{}-release/artifacts.zip", arch),
+                    "gen_snapshot",
                 ));
             }
             (Platform::Windows, arch, Opt::Debug) => {
