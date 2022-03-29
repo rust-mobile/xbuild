@@ -109,19 +109,6 @@ impl AppBundle {
         Ok(())
     }
 
-    pub fn add_framework_directory(&self, framework: &str, source: &Path, dest: &Path) -> Result<()> {
-        let framework = self.framework_dir().join(framework);
-        let resource_dir = if self.info.requires_ios == Some(true) {
-            framework
-        } else {
-            framework.join("Resources")
-        };
-        let dest = resource_dir.join(dest);
-        std::fs::create_dir_all(&dest)?;
-        xcommon::copy_dir_all(source, &dest)?;
-        Ok(())
-    }
-
     pub fn add_executable(&mut self, path: &Path) -> Result<()> {
         let file_name = path.file_name().unwrap().to_str().unwrap();
         let exe_dir = self.executable_dir();

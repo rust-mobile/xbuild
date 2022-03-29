@@ -134,13 +134,14 @@ pub fn build(env: &BuildEnv) -> Result<()> {
                     snapshot_dir.join("libapp.so")
                 };
                 if !output.exists() || aot_snapshot {
-                    if output.exists() {
+                    if framework && output.exists() {
                         std::fs::remove_dir_all(&snapshot_dir)?;
                     }
                     std::fs::create_dir_all(&snapshot_dir)?;
                     if framework {
                         let framework_dir = arch_dir.join("App.framework");
                         let assets_dest = snapshot_dir.join("Resources").join("flutter_assets");
+                        std::fs::create_dir_all(&assets_dest)?;
                         xcommon::copy_dir_all(&flutter_assets, &assets_dest)?;
                         let current = framework_dir.join("Versions").join("Current");
                         symlink::symlink_dir(Path::new("A"), current)?;
@@ -359,11 +360,6 @@ pub fn build(env: &BuildEnv) -> Result<()> {
                     }
                     Opt::Release => {
                         app.add_framework(&arch_dir.join("App.framework"))?;
-                        app.add_framework_directory(
-                            "App.framework",
-                            &flutter_assets,
-                            Path::new("flutter_assets"),
-                        )?;
                     }
                 }
                 flutter.build_ios_main(&env, target)?;
