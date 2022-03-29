@@ -638,7 +638,7 @@ impl BuildEnv {
         let out = self.output();
         match (self.target().format(), self.target().platform()) {
             (Format::Appdir, _) => out.join("AppRun"),
-            (Format::Appbundle, Platform::Macos) => out.join("MacOS").join(self.name()),
+            (Format::Appbundle, Platform::Macos) => out.join("Contents").join("MacOS").join(self.name()),
             _ => out,
         }
     }
@@ -732,6 +732,9 @@ impl BuildEnv {
                     .as_ref()
                     .unwrap();
                 cargo.use_macos_sdk(&sdk, minimum_version)?;
+            } else {
+                cargo.add_link_arg("-rpath");
+                cargo.add_link_arg("@executable_path/../Frameworks");
             }
         }
         if target.platform() == Platform::Ios {
@@ -750,7 +753,6 @@ impl BuildEnv {
                 }
                 Platform::Windows => {
                     cargo.add_lib_dir(&flutter.engine_dir(target)?);
-                    cargo.link_lib("flutter_windows.dll");
                 }
                 _ => {}
             }

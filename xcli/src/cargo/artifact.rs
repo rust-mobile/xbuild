@@ -36,7 +36,16 @@ impl Artifact {
             }
             CrateType::Lib => format!("lib{}.rlib", self.name().replace("-", "_")),
             CrateType::Staticlib => format!("lib{}.a", self.name().replace("-", "_")),
-            CrateType::Cdylib => format!("lib{}.so", self.name().replace("-", "_")),
+            CrateType::Cdylib => {
+                let name = self.name().replace("-", "_");
+                if target.contains("windows") {
+                    format!("{}.dll", name)
+                } else if target.contains("darwin") {
+                    format!("lib{}.dylib", name)
+                } else {
+                    format!("lib{}.so", name)
+                }
+            }
         }
     }
 }
