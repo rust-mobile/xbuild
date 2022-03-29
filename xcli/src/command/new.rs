@@ -21,7 +21,7 @@ futures = "0.3.21"
 
 [target.'cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))'.dependencies]
 env_logger = "0.9.0"
-nativeshell = {{ git = "https://github.com/nativeshell/nativeshell" }}
+nativeshell = {{ git = "https://github.com/dvc94ch/nativeshell", branch = "cross" }}
 "#,
         name = name,
     )

@@ -222,6 +222,13 @@ impl Flutter {
         snapshot: &Path,
         target: CompileTarget,
     ) -> Result<()> {
+        let target = if target.platform() == Platform::Macos {
+            // flutter packages gen_snapshot in artifacts.zip on macos so it's
+            // located in the debug engine dir
+            CompileTarget::new(target.platform(), target.arch(), Opt::Debug)
+        } else {
+            target
+        };
         let gen_snapshot = self.engine_dir(target)?.join(exe!("gen_snapshot"));
         let mut cmd = Command::new(gen_snapshot);
         cmd.current_dir(root_dir);
