@@ -6,7 +6,6 @@ use std::process::Command;
 mod artifact;
 mod config;
 mod manifest;
-pub mod readelf;
 mod utils;
 
 pub use artifact::{Artifact, CrateType};
@@ -336,44 +335,6 @@ impl CargoBuild {
             std::process::exit(1);
         }
         Ok(())
-    }
-
-    pub fn search_paths(&self, target_dir: &Path) -> Result<Vec<PathBuf>> {
-        let mut paths = vec![];
-        let opt = self.target.opt().to_string();
-        let target_dir = if let Some(triple) = self.triple.as_ref() {
-            target_dir.join(triple).join(&opt)
-        } else {
-            target_dir.join(&opt)
-        };
-        let deps_dir = target_dir.join("build");
-
-        for dep_dir in deps_dir.read_dir()? {
-            let output_file = dep_dir?.path().join("output");
-            if output_file.is_file() {
-                use std::{
-                    fs::File,
-                    io::{BufRead, BufReader},
-                };
-                for line in BufReader::new(File::open(output_file)?).lines() {
-                    let line = line?;
-                    if let Some(link_search) = line.strip_prefix("cargo:rustc-link-search=") {
-                        let mut pie = link_search.split('=');
-                        let (kind, path) = match (pie.next(), pie.next()) {
-                            (Some(kind), Some(path)) => (kind, path),
-                            (Some(path), None) => ("all", path),
-                            _ => unreachable!(),
-                        };
-                        match kind {
-                            // FIXME: which kinds of search path we interested in
-                            "dependency" | "native" | "all" => paths.push(path.into()),
-                            _ => (),
-                        };
-                    }
-                }
-            }
-        }
-        Ok(paths)
     }
 }
 
