@@ -34,10 +34,10 @@ impl Artifact {
                     self.name().to_string()
                 }
             }
-            CrateType::Lib => format!("lib{}.rlib", self.name().replace("-", "_")),
-            CrateType::Staticlib => format!("lib{}.a", self.name().replace("-", "_")),
+            CrateType::Lib => format!("lib{}.rlib", self.name().replace('-', "_")),
+            CrateType::Staticlib => format!("lib{}.a", self.name().replace('-', "_")),
             CrateType::Cdylib => {
-                let name = self.name().replace("-", "_");
+                let name = self.name().replace('-', "_");
                 if target.contains("windows") {
                     format!("{}.dll", name)
                 } else if target.contains("darwin") {

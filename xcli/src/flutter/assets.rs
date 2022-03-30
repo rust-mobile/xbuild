@@ -1,4 +1,5 @@
 use anyhow::Result;
+use path_slash::PathBufExt;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -26,8 +27,7 @@ impl FlutterSection {
             .chain(
                 self.fonts
                     .iter()
-                    .map(|family| &family.fonts)
-                    .flatten()
+                    .flat_map(|family| &family.fonts)
                     .map(|font| &font.asset),
             )
             .map(|path| path.as_path())
@@ -106,7 +106,8 @@ impl AssetBundle {
         for package in pconf.packages {
             if let Some(path) = package.root_uri.strip_prefix("file://") {
                 let name = package.name;
-                bundle.add_pubspec_assets(Path::new(path), Some(name), material_icons)?;
+                let path = PathBuf::from_slash(&path);
+                bundle.add_pubspec_assets(&path, Some(name), material_icons)?;
             }
         }
         Ok(bundle)

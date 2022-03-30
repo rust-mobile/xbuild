@@ -121,7 +121,7 @@ impl Manifest {
         let manifest = &mut self.android.manifest;
         manifest
             .package
-            .get_or_insert_with(|| format!("com.example.{}", config.name.replace("-", "_")));
+            .get_or_insert_with(|| format!("com.example.{}", config.name.replace('-', "_")));
         manifest
             .version_name
             .get_or_insert_with(|| config.version.clone());
@@ -208,7 +208,7 @@ impl Manifest {
                 } else {
                     vec![MetaData {
                         name: "android.app.lib_name".into(),
-                        value: config.name.replace("-", "_"),
+                        value: config.name.replace('-', "_"),
                     }]
                 },
                 intent_filters: vec![IntentFilter {

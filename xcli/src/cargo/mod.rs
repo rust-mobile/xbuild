@@ -256,7 +256,7 @@ impl CargoBuild {
     /// Configures a cargo target specific environment variable.
     fn cargo_target_env(&mut self, name: &str, value: &str) {
         if let Some(triple) = self.triple {
-            let utarget = triple.replace("-", "_");
+            let utarget = triple.replace('-', "_");
             let env = format!("CARGO_TARGET_{}_{}", &utarget, name);
             self.cmd.env(env.to_uppercase(), value);
         } else {
