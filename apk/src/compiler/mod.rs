@@ -13,7 +13,7 @@ pub use table::Table;
 
 pub fn compile_manifest(manifest: &AndroidManifest, table: &Table) -> Result<Chunk> {
     let xml = quick_xml::se::to_string(manifest)?;
-    xml::compile_xml(&xml, &table)
+    xml::compile_xml(&xml, table)
 }
 
 const DPI_SIZE: [u32; 5] = [48, 72, 96, 144, 192];
@@ -33,9 +33,9 @@ pub fn compile_mipmap<'a>(package_name: &str, name: &'a str) -> Result<Mipmap<'a
                 ResTablePackageHeader {
                     id: 127,
                     name: package_name.to_string(),
-                    type_strings: 0,
+                    type_strings: 288,
                     last_public_type: 1,
-                    key_strings: 0,
+                    key_strings: 332,
                     last_public_key: 1,
                     type_id_offset: 0,
                 },
@@ -72,7 +72,7 @@ fn mipmap_table_type(type_id: u8, density: u16, string_id: u32) -> Chunk {
             entry_count: 1,
             entries_start: 88,
             config: ResTableConfig {
-                size: 28,
+                size: 28 + 36,
                 imsi: 0,
                 locale: 0,
                 screen_type: ScreenType {
@@ -120,19 +120,21 @@ impl<'a> Mipmap<'a> {
 mod tests {
     use super::*;
     use crate::compiler::table::Ref;
+    use crate::manifest::Activity;
     use std::io::Cursor;
 
     #[test]
     fn test_compile_mipmap() -> Result<()> {
+        crate::tests::init_logger();
         let mipmap = compile_mipmap("com.example.helloworld", "icon")?;
         let mut buf = vec![];
         let mut cursor = Cursor::new(&mut buf);
         mipmap.chunk().write(&mut cursor)?;
         let mut cursor = Cursor::new(&buf);
-        let _chunk = Chunk::parse(&mut cursor)?;
-        //println!("{:#?}", mipmap.chunk());
-        //println!("{:#?}", chunk);
-        //assert_eq!(*mipmap.chunk(), chunk);
+        let chunk = Chunk::parse(&mut cursor)?;
+        println!("{:#?}", mipmap.chunk());
+        println!("{:#?}", chunk);
+        assert_eq!(*mipmap.chunk(), chunk);
         Ok(())
     }
 
@@ -152,12 +154,16 @@ mod tests {
         let mut table = Table::default();
         table.import_apk(&android)?;
         let mut manifest = AndroidManifest::default();
-        manifest.application.label = "helloworld".into();
+        manifest.application.label = Some("helloworld".into());
         manifest.application.theme = Some("@android:style/Theme.Light.NoTitleBar".into());
         manifest.application.debuggable = Some(true);
-        manifest.application.activity.config_changes = Some("orientation|keyboardHidden".into());
-        manifest.application.activity.launch_mode = Some("singleTop".into());
-        let chunk = compile_manifest(manifest, &table)?;
-        panic!("{:?}", chunk);
+        let activity = Activity {
+            config_changes: Some("orientation|keyboardHidden".into()),
+            launch_mode: Some("singleTop".into()),
+            ..Default::default()
+        };
+        manifest.application.activities.push(activity);
+        let _chunk = compile_manifest(&manifest, &table)?;
+        Ok(())
     }
 }

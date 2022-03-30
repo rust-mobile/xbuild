@@ -9,6 +9,7 @@ pub const SPC_INDIRECT_DATA_OBJID: ConstOid = ConstOid(&[1, 3, 6, 1, 4, 1, 311, 
 pub const SPC_SP_OPUS_INFO_OBJID: ConstOid = ConstOid(&[1, 3, 6, 1, 4, 1, 311, 2, 1, 12]);
 pub const SPC_SIPINFO_OBJID: ConstOid = ConstOid(&[1, 3, 6, 1, 4, 1, 311, 2, 1, 30]);
 
+#[allow(clippy::mutable_key_type)]
 pub fn build_pkcs7(signer: &Signer, encap_content_info: EncapsulatedContentInfo) -> SignedData {
     let digest = Sha256::digest(&encap_content_info.content.as_bytes()[8..]);
     let signature = signer.sign(&encap_content_info.content.as_bytes()[8..]);
@@ -60,9 +61,8 @@ pub fn build_pkcs7(signer: &Signer, encap_content_info: EncapsulatedContentInfo)
         },
         signature: OctetString::from(signature.to_vec()),
         unsigned_attrs: Some({
-            let unsigned_attrs = SetOf::default();
             // TODO: 1.3.6.1.4.1.311.3.3.1 timestamp? optional?
-            unsigned_attrs
+            SetOf::default()
         }),
     };
     SignedData {

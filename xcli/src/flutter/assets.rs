@@ -185,7 +185,7 @@ impl AssetBundle {
         let mut manifest = AssetManifest::default();
         for variants in &self.assets {
             let asset = variants[0].dst();
-            let variants = variants.into_iter().map(|variant| variant.dst()).collect();
+            let variants = variants.iter().map(|variant| variant.dst()).collect();
             manifest.insert(asset, variants);
         }
         manifest

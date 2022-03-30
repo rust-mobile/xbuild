@@ -51,7 +51,7 @@ impl IMobileDevice {
         self.install(device, path)?;
         Ok(Run {
             url: None,
-            logger: Box::new(|| loop {}),
+            logger: Box::new(|| unimplemented!()),
             child: None,
         })
     }

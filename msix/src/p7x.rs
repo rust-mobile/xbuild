@@ -30,12 +30,12 @@ pub fn read_p7x(path: &Path) -> Result<SignedData> {
 }
 
 pub fn p7x(signer: &Signer, digests: &Digests) -> Vec<u8> {
-    let payload = Payload::new(digests);
+    let payload = Payload::encode(digests);
     let encap_content_info = EncapsulatedContentInfo {
         content_type: SPC_INDIRECT_DATA_OBJID.into(),
         content: Any::new(payload),
     };
-    let signed_data = build_pkcs7(&signer, encap_content_info);
+    let signed_data = build_pkcs7(signer, encap_content_info);
     let content_info = ContentInfo {
         content_type: CONTENT_SIGNED_DATA.into(),
         content: Any::new(rasn::der::encode(&signed_data).unwrap()),
@@ -67,7 +67,7 @@ struct Payload {
 }
 
 impl Payload {
-    pub fn new(digests: &Digests) -> Vec<u8> {
+    pub fn encode(digests: &Digests) -> Vec<u8> {
         let indirect_data = SpcIndirectData::new(digests);
         rasn::der::encode(&Self { indirect_data }).unwrap()
     }
@@ -236,7 +236,7 @@ mod tests {
             201, 155, 33, 50, 3, 124, 19, 157, 149, 107, 194, 174, 170, 108, 34, 110, 128, 107,
             240, 29, 11, 129, 67, 233, // end axci hash
         ];
-        let indirect_data = Payload::new(&HASHES);
+        let indirect_data = Payload::encode(&HASHES);
         let (rem, res) = der_parser::parse_der(&indirect_data).unwrap();
         assert!(rem.is_empty());
         println!("{:#?}", res);
@@ -246,7 +246,7 @@ mod tests {
     #[test]
     #[ignore]
     fn payload_digest_and_sign() {
-        let payload = Payload::new(&HASHES);
+        let payload = Payload::encode(&HASHES);
         let encap_content_info = EncapsulatedContentInfo {
             content_type: SPC_INDIRECT_DATA_OBJID.into(),
             content: Any::new(payload),
@@ -258,7 +258,7 @@ mod tests {
         ];
         assert_eq!(&orig_digest[..], &digest[..]);
         let orig_signature = b"\x7f\x13uP\xc8m:\x99\xb6\x89u\x85y\xea\xfc\xd8Cw\x96w\x10>j\xa7Z\x8c\xa3\x1f\\\xf4\x82\\\xdf\x8eh;\x10\x16o/\"i\x89\xb9\xf1\x03\x9c\xb0)\x9f\xc4\xfe\xf1\x05\x93\xbeJ\xd2\xeb\xe3\xb1f\xb1rq\x89\xdf\x7f\xe4\xe1\n\xae\xa70\x8c|\xd3\xe6\xe6/\xad\x97\xcb1\xb6\xa0\xf9\x16z\x83R#\xe8n\r\xfdErJ\x01\xfb\xd4\xef\x05\xf9\xab\x08o\x16\xbc)C\xee\x03=$\x88>G\xa4\xba)\xbc\xf4n6\xaa\xfd\xa7e\x15\xb9,|\xd6\xf9\x9b>\xe8\x95\xf7\xc6\x08\n\t\x8a\xd5{j\x8a\xfe{,O\xf3\xd9\x8a\xc79\x9f\x80\xcd\x17k8\xf8\xb3\xc3\x96\xd8\x1a/\xa8\x14R\x14\xaf\x813\x91;>\x99\xd24\x86J\x12\x0e\x89\x0c\xb8?\xfa\xa8\x1dM\x98@vz'\xe6y\xab\xc0\xcb\xc5\xb3\xbeC'$\"\xd2\x15\xaf0\xa3\x05\xcbj\x18j\x11\xa2\xfd\xe7\xe6y\xcf\xadd\x99\xa9\xdc\xc4\xc2`\x1d\xb0\xe3\xdb\xfeC\xdc\xce\xe5@\xde;P\xfav\x8c\xff";
-        let key = RsaPrivateKey::from_pkcs8_pem(crate::DEBUG_KEY_PEM).unwrap();
+        let key = RsaPrivateKey::from_pkcs8_pem(crate::DEBUG_PEM).unwrap();
         let padding = PaddingScheme::new_pkcs1v15_sign(Some(Hash::SHA2_256));
         let sig = key.sign(padding, &digest).unwrap();
         assert_eq!(sig.len(), orig_signature.len());

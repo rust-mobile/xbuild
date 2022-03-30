@@ -387,7 +387,7 @@ impl ResTablePackageHeader {
         let id = r.read_u32::<LittleEndian>()?;
         let mut name = [0; 128];
         let mut name_len = 0xff;
-        for i in 0..128 {
+        for (i, item) in name.iter_mut().enumerate() {
             let c = r.read_u16::<LittleEndian>()?;
             if name_len < 128 {
                 continue;
@@ -395,7 +395,7 @@ impl ResTablePackageHeader {
             if c == 0 {
                 name_len = i;
             } else {
-                name[i] = c;
+                *item = c;
             }
         }
         let name = String::from_utf16(&name[..name_len])?;
@@ -620,7 +620,7 @@ impl ResTableEntry {
         } else {
             debug_assert_eq!(size, 8);
         }
-        let value = ResTableValue::read(r, flags & 0x1 > 0)?;
+        let value = ResTableValue::read(r, is_complex)?;
         Ok(Self {
             size,
             flags,
@@ -942,12 +942,8 @@ impl Chunk {
                 let mut styles = Vec::with_capacity(string_pool_header.style_count as usize);
                 for _ in 0..string_pool_header.style_count {
                     let mut spans = vec![];
-                    loop {
-                        if let Some(span) = ResSpan::read(r)? {
-                            spans.push(span);
-                        } else {
-                            break;
-                        }
+                    while let Some(span) = ResSpan::read(r)? {
+                        spans.push(span);
                     }
                     styles.push(spans);
                 }
@@ -1084,7 +1080,6 @@ impl Chunk {
                 Ok(())
             }
 
-            #[must_use]
             fn end_chunk<W: Seek + Write>(self, w: &mut W) -> Result<(u64, u64)> {
                 assert_ne!(self.end_header, 0);
                 let end_chunk = w.seek(SeekFrom::Current(0))?;
@@ -1236,10 +1231,8 @@ impl Chunk {
                 for offset in index {
                     w.write_u32::<LittleEndian>(*offset)?;
                 }
-                for entry in entries {
-                    if let Some(entry) = entry {
-                        entry.write(w)?;
-                    }
+                for entry in entries.iter().flatten() {
+                    entry.write(w)?;
                 }
                 chunk.end_chunk(w)?;
             }
@@ -1266,18 +1259,9 @@ mod tests {
     use std::path::Path;
     use zip::ZipArchive;
 
-    fn open_android_jar_resource_table() -> Result<Vec<u8>> {
-        let android = crate::tests::find_android_jar()?;
-        let mut zip = ZipArchive::new(BufReader::new(File::open(&android)?))?;
-        let mut f = zip.by_name("resources.arsc")?;
-        let mut buf = vec![];
-        f.read_to_end(&mut buf)?;
-        Ok(buf)
-    }
-
     #[test]
     fn test_parse_android_resources() -> Result<()> {
-        crate::tests::init_logger()?;
+        crate::tests::init_logger();
         let home = std::env::var("ANDROID_HOME")?;
         let platforms = Path::new(&home).join("platforms");
         for entry in std::fs::read_dir(platforms)? {
@@ -1294,136 +1278,6 @@ mod tests {
             tracing::info!("parsing {}", android.display());
             Chunk::parse(&mut cursor)?;
         }
-        Ok(())
-    }
-
-    #[test]
-    fn test_lookup_config_changes() -> Result<()> {
-        let buf = open_android_jar_resource_table()?;
-        let mut cursor = Cursor::new(&buf);
-        let chunks = if let Chunk::Table(_header, chunks) = Chunk::parse(&mut cursor)? {
-            chunks
-        } else {
-            panic!();
-        };
-        let chunks = if let Chunk::TablePackage(header, chunks) = &chunks[1] {
-            assert_eq!(header.id, 1);
-            assert_eq!(header.name, "android");
-            chunks
-        } else {
-            panic!();
-        };
-        let type_strings = if let Chunk::StringPool(strings, _) = &chunks[0] {
-            strings
-        } else {
-            panic!();
-        };
-        let key_strings = if let Chunk::StringPool(strings, _) = &chunks[1] {
-            strings
-        } else {
-            panic!();
-        };
-        //println!("{:?}", type_strings);
-        let attr = type_strings
-            .iter()
-            .position(|s| s.as_str() == "attr")
-            .unwrap();
-        let id = type_strings
-            .iter()
-            .position(|s| s.as_str() == "id")
-            .unwrap();
-        let mut attr_entries = None;
-        let mut id_entries = None;
-        for chunk in &chunks[2..] {
-            match chunk {
-                Chunk::TableType(header, _offsets, entries) => match header.id as usize {
-                    x if x == attr + 1 => attr_entries = Some(entries),
-                    x if x == id + 1 => id_entries = Some(entries),
-                    _ => continue,
-                },
-                _ => continue,
-            }
-        }
-        let attr_entries = attr_entries.unwrap();
-        let id_entries = id_entries.unwrap();
-
-        let key = key_strings
-            .iter()
-            .position(|s| s.as_str() == "configChanges")
-            .unwrap();
-
-        let entry = attr_entries[key].as_ref().unwrap();
-        match &entry.value {
-            ResTableValue::Simple(value) => {
-                println!("0x{:x} {:?}", value.data, value.data_type);
-            }
-            ResTableValue::Complex(_, values) => {
-                for entry in &values[1..] {
-                    let id = entry.name as usize & 0xffff;
-                    let key = id_entries[id].as_ref().unwrap().key as usize;
-                    println!(
-                        "{} 0x{:x} {:?}",
-                        key_strings[key], entry.value.data, entry.value.data_type
-                    );
-                }
-            }
-        }
-        assert!(false);
-        Ok(())
-    }
-
-    #[test]
-    fn test_lookup_ref() -> Result<()> {
-        let buf = open_android_jar_resource_table()?;
-        let mut cursor = Cursor::new(&buf);
-        let chunks = if let Chunk::Table(_header, chunks) = Chunk::parse(&mut cursor)? {
-            chunks
-        } else {
-            panic!();
-        };
-        let chunks = if let Chunk::TablePackage(header, chunks) = &chunks[1] {
-            assert_eq!(header.id, 1);
-            assert_eq!(header.name, "android");
-            chunks
-        } else {
-            panic!();
-        };
-        let type_strings = if let Chunk::StringPool(strings, _) = &chunks[0] {
-            strings
-        } else {
-            panic!();
-        };
-        let key_strings = if let Chunk::StringPool(strings, _) = &chunks[1] {
-            strings
-        } else {
-            panic!();
-        };
-        //println!("{:?}", type_strings);
-        let style = type_strings
-            .iter()
-            .position(|s| s.as_str() == "style")
-            .unwrap();
-        let key = key_strings
-            .iter()
-            .position(|s| s.as_str() == "Theme.Light.NoTitleBar")
-            .unwrap();
-        for chunk in &chunks[2..] {
-            match chunk {
-                Chunk::TableType(header, _offsets, entries) => {
-                    if header.id as usize != style + 1 {
-                        continue;
-                    }
-                    let pos = entries
-                        .iter()
-                        .position(|entry| entry.as_ref().unwrap().key as usize == key)
-                        .unwrap();
-                    let r = (0x01 << 24) | ((style + 1) << 16) | pos;
-                    println!("0x{:x}", r);
-                }
-                _ => continue,
-            }
-        }
-        assert!(false);
         Ok(())
     }
 }

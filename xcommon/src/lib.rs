@@ -391,7 +391,7 @@ pub fn symlink(target: &Path, dest: &Path) -> Result<()> {
 
 pub fn is_stamp_dirty(file: &Path, stamp: &Path) -> Result<bool> {
     if !stamp.exists() {
-        return Ok(true)
+        return Ok(true);
     }
     let stamp_time = std::fs::metadata(stamp)?.modified()?;
     let file_time = std::fs::metadata(file)?.modified()?;

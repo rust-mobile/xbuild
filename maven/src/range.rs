@@ -89,12 +89,10 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
     pub fn parse_range(&mut self) -> Option<Range> {
         match self.iter.next()? {
-            Token::Version(version) => {
-                return Some(Range::Greater(Bound {
-                    version,
-                    inclusive: true,
-                }))
-            }
+            Token::Version(version) => Some(Range::Greater(Bound {
+                version,
+                inclusive: true,
+            })),
             Token::Open(inclusive) => {
                 let lower_bound = match self.iter.next()? {
                     Token::Version(version) => match self.iter.next()? {
@@ -119,9 +117,9 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                     (Some(lower), Some(upper)) => Range::Between(lower, upper),
                     _ => return None,
                 };
-                return Some(range);
+                Some(range)
             }
-            _ => return None,
+            _ => None,
         }
     }
 }
@@ -173,7 +171,7 @@ pub fn range(range_str: &str) -> Result<SRange<Version>> {
 mod tests {
     use super::*;
 
-    const RANGES: &[&'static str] = &[
+    const RANGES: &[&str] = &[
         "(,1.0]",
         "1.0",
         "[1.0]",

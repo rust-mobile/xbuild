@@ -266,7 +266,7 @@ impl SignedData {
         w.write_u32::<LittleEndian>(self.certificates.iter().map(|c| c.len() as u32 + 4).sum())?;
         for cert in &self.certificates {
             w.write_u32::<LittleEndian>(cert.len() as u32)?;
-            w.write_all(&cert)?;
+            w.write_all(cert)?;
         }
         w.write_u32::<LittleEndian>(
             self.additional_attributes
@@ -277,7 +277,7 @@ impl SignedData {
         for (id, value) in &self.additional_attributes {
             w.write_u32::<LittleEndian>(value.len() as u32 + 4)?;
             w.write_u32::<LittleEndian>(*id)?;
-            w.write_all(&value)?;
+            w.write_all(value)?;
         }
         Ok(())
     }
@@ -410,15 +410,17 @@ fn write_apk_signing_block<W: Write + Seek>(
     w.write_u32::<LittleEndian>(APK_SIGNING_BLOCK_V2_ID)?;
     w.write_all(&buf)?;
     w.write_u64::<LittleEndian>(size)?;
-    w.write_all(&APK_SIGNING_BLOCK_MAGIC)?;
+    w.write_all(APK_SIGNING_BLOCK_MAGIC)?;
     Ok(())
 }
 
 fn parse_apk_signing_block<R: Read + Seek>(r: &mut R) -> Result<ApkSignatureBlock> {
     let info = ZipInfo::new(r)?;
-    let mut block = ApkSignatureBlock::default();
-    block.cde_start = info.cde_start;
-    block.cd_start = info.cd_start;
+    let mut block = ApkSignatureBlock {
+        cde_start: info.cde_start,
+        cd_start: info.cd_start,
+        ..Default::default()
+    };
     r.seek(SeekFrom::Start(block.cd_start - 16 - 8))?;
     let mut remaining_size = r.read_u64::<LittleEndian>()?;
     let mut magic = [0; 16];

@@ -27,7 +27,7 @@ impl Cargo {
     ) -> Result<Self> {
         let (manifest, package) = utils::find_package(
             &manifest_path.unwrap_or_else(|| std::env::current_dir().unwrap()),
-            package.as_ref().map(|s| &**s),
+            package,
         )?;
         let root_dir = manifest.parent().unwrap();
         let target_dir = target_dir
@@ -49,7 +49,7 @@ impl Cargo {
                 .unwrap_or_else(|| manifest.clone())
                 .parent()
                 .unwrap()
-                .join(utils::get_target_dir_name(&root_dir).unwrap())
+                .join(utils::get_target_dir_name(root_dir).unwrap())
         });
         Ok(Self {
             package,

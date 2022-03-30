@@ -44,7 +44,7 @@ impl Host {
             if !output.status.success() {
                 anyhow::bail!("uname failed");
             }
-            distro.push_str(" ");
+            distro.push(' ');
             distro.push_str(std::str::from_utf8(&output.stdout)?.trim());
             Ok(distro)
         } else {
@@ -78,10 +78,8 @@ impl Host {
         Ok(Run {
             url,
             logger: Box::new(move || {
-                for line in lines {
-                    if let Ok(line) = line {
-                        println!("{}", line.trim());
-                    }
+                for line in lines.flatten() {
+                    println!("{}", line.trim());
                 }
             }),
             child: Some(child),

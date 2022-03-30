@@ -10,9 +10,9 @@ use zip::ZipArchive;
 
 impl<'a> DownloadManager<'a> {
     fn maven(&'a self) -> Result<Maven<&'a Self>> {
-        const GOOGLE: &'static str = "https://maven.google.com";
-        const FLUTTER: &'static str = "http://download.flutter.io";
-        const CENTRAL: &'static str = "https://repo1.maven.org/maven2";
+        const GOOGLE: &str = "https://maven.google.com";
+        const FLUTTER: &str = "http://download.flutter.io";
+        const CENTRAL: &str = "https://repo1.maven.org/maven2";
 
         let mut maven = Maven::new(self.env().cache_dir().join("maven"), self)?;
         maven.add_repository(GOOGLE);

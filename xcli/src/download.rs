@@ -56,7 +56,7 @@ impl<'a> DownloadManager<'a> {
     }
 
     pub(crate) fn env(&self) -> &BuildEnv {
-        &self.env
+        self.env
     }
 
     pub(crate) fn fetch(&self, item: WorkItem) -> Result<()> {
@@ -94,7 +94,7 @@ impl<'a> DownloadManager<'a> {
             } else if name.ends_with(".zip") {
                 let archive = self.env().cache_dir().join("download").join(name);
                 self.download(&item.url, &archive)?;
-                xcommon::extract_zip(&archive, &item.output.parent().unwrap())?;
+                xcommon::extract_zip(&archive, item.output.parent().unwrap())?;
             } else {
                 self.download(&item.url, &item.output)?;
             }

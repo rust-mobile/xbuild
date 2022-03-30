@@ -76,11 +76,7 @@ impl Device {
     }
 
     pub fn is_host(&self) -> bool {
-        if let Backend::Host(_) = &self.backend {
-            true
-        } else {
-            false
-        }
+        matches!(&self.backend, Backend::Host(_))
     }
 
     pub fn name(&self) -> Result<String> {

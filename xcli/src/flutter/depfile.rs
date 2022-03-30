@@ -6,12 +6,12 @@ use std::path::Path;
 pub fn depfile_is_dirty(path: &Path) -> Result<bool> {
     let mut f = BufReader::new(File::open(path)?);
     let mut buffer = Vec::with_capacity(256);
-    let n = f.read_until(' ' as u8, &mut buffer)?;
+    let n = f.read_until(b' ', &mut buffer)?;
     if n == 0 {
         return Ok(true);
     }
     let len = buffer.len();
-    if buffer[len - 2] != ':' as u8 {
+    if buffer[len - 2] != b':' {
         let target = std::str::from_utf8(&buffer)?;
         anyhow::bail!(
             "invalid depfile: target `{}` doesn't end with a `:`",
@@ -25,7 +25,7 @@ pub fn depfile_is_dirty(path: &Path) -> Result<bool> {
     let modtime = std::fs::metadata(&target)?.modified()?;
     loop {
         buffer.clear();
-        let n = f.read_until(' ' as u8, &mut buffer)?;
+        let n = f.read_until(b' ', &mut buffer)?;
         if n == 0 {
             break;
         }

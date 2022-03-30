@@ -20,7 +20,7 @@ impl Config {
     }
 
     pub fn pubspec_yaml(path: &Path) -> Result<Self> {
-        PubspecYaml::parse(path.as_ref())
+        PubspecYaml::parse(path)
     }
 }
 

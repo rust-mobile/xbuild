@@ -30,7 +30,7 @@ impl<'a> Ref<'a> {
 
     pub fn parse(s: &'a str) -> Result<Self> {
         let s = s
-            .strip_prefix("@")
+            .strip_prefix('@')
             .ok_or_else(|| anyhow::anyhow!("invalid reference {}: expected `@`", s))?;
         let (descr, name) = s
             .split_once('/')
@@ -228,7 +228,7 @@ impl Table {
         for package in &self.packages {
             if let Chunk::TablePackage(header, chunks) = package {
                 if header.id == id as u32 {
-                    return Package::new(id, &chunks);
+                    return Package::new(id, chunks);
                 }
             }
         }

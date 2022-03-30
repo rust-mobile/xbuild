@@ -41,7 +41,7 @@ impl Flutter {
         Ok(version.to_string())
     }
 
-    pub fn clone(&self) -> Result<()> {
+    pub fn git_clone(&self) -> Result<()> {
         std::fs::create_dir_all(&self.sdk)?;
         let mut cmd = Command::new(&self.git);
         cmd.current_dir(&self.sdk)
@@ -55,10 +55,10 @@ impl Flutter {
         Ok(())
     }
 
-    pub fn pull(&self) -> Result<()> {
+    pub fn git_pull(&self) -> Result<()> {
         let flutter = self.root();
         if !flutter.exists() {
-            self.clone()?
+            self.git_clone()?
         } else {
             let mut cmd = Command::new(&self.git);
             cmd.current_dir(&flutter).arg("pull");

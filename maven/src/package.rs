@@ -73,7 +73,7 @@ impl Ord for Version {
             return Ordering::Less;
         }
         match (self.suffix.as_ref(), other.suffix.as_ref()) {
-            (Some(s1), Some(s2)) => s1.cmp(&s2),
+            (Some(s1), Some(s2)) => s1.cmp(s2),
             (None, None) => Ordering::Equal,
             (Some(_), None) => Ordering::Less,
             (None, Some(_)) => Ordering::Greater,
@@ -114,7 +114,7 @@ impl std::str::FromStr for Version {
             .split_once('-')
             .map(|(v, s)| (v, Some(s.to_string())))
             .unwrap_or_else(|| (version, None));
-        let mut iter = version.split('.').map(|n| u32::from_str(n));
+        let mut iter = version.split('.').map(u32::from_str);
         let major = iter.next().transpose()?.unwrap_or_default();
         let minor = iter.next().transpose()?.unwrap_or_default();
         let patch = iter.next().transpose()?.unwrap_or_default();

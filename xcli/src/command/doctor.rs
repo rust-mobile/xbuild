@@ -68,9 +68,9 @@ impl std::fmt::Display for Group {
             } else {
                 write!(f, "not found")?;
             }
-            writeln!(f, "")?;
+            writeln!(f)?;
         }
-        writeln!(f, "")
+        writeln!(f)
     }
 }
 

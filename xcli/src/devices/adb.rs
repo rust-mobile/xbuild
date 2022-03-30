@@ -129,11 +129,7 @@ impl Adb {
         if !output.status.success() {
             anyhow::bail!("adb logcat exited with code {:?}", output.status.code());
         }
-        let line = std::str::from_utf8(&output.stdout)?
-            .lines()
-            .skip(1)
-            .next()
-            .unwrap();
+        let line = std::str::from_utf8(&output.stdout)?.lines().nth(1).unwrap();
         Ok(line[..18].to_string())
     }
 
@@ -202,7 +198,7 @@ impl Adb {
             .arg(&app_dir)
             .status()?;
         let dest = app_dir.join("lldb-server");*/
-        self.push(device, &lldb_server)?;
+        self.push(device, lldb_server)?;
         /*self.shell(device, None)
             .arg("cat")
             .arg("/data/local/tmp/lldb-server")

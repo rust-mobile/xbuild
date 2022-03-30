@@ -33,7 +33,7 @@ pub fn update(env: &BuildEnv) -> Result<()> {
 
     runner.start_task("Update flutter");
     if let Some(flutter) = env.flutter() {
-        flutter.pull()?;
+        flutter.git_pull()?;
         runner.end_verbose_task();
     }
 
@@ -56,7 +56,7 @@ pub fn update(env: &BuildEnv) -> Result<()> {
 pub fn run(env: &BuildEnv) -> Result<()> {
     let out = env.executable();
     if let Some(device) = env.target().device() {
-        device.run(&out, &env, env.has_dart_code())?;
+        device.run(&out, env, env.has_dart_code())?;
     } else {
         anyhow::bail!("no device specified");
     }

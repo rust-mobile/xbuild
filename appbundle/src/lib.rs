@@ -241,15 +241,3 @@ fn make_compressed_dmg(uncompressed_dmg: &Path, dmg: &Path) -> Result<()> {
     }
     Ok(())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_mobile_provision() -> Result<()> {
-        let mut bundle = AppBundle::new(Path::new("/tmp").into(), InfoPlist::default())?;
-        bundle.add_provisioning_profile(Path::new("/home/dvc/embedded.mobileprovision"))?;
-        Ok(())
-    }
-}

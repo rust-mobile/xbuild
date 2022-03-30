@@ -46,10 +46,10 @@ pub fn find_package(path: &Path, name: Option<&str>) -> Result<(PathBuf, String)
         if let Some(p) = manifest.package.as_ref() {
             if let (Some(n1), n2) = (name, &p.name) {
                 if n1 == n2 {
-                    return Ok((manifest_path.into(), p.name.clone()));
+                    return Ok((manifest_path, p.name.clone()));
                 }
             } else {
-                return Ok((manifest_path.into(), p.name.clone()));
+                return Ok((manifest_path, p.name.clone()));
             }
         }
         if let (Some(w), Some(name)) = (manifest.workspace.as_ref(), name) {
@@ -70,8 +70,8 @@ pub fn find_workspace(manifest: &Path, name: &str) -> Result<Option<PathBuf>> {
     {
         let manifest = Manifest::parse_from_toml(&manifest_path)?;
         if let Some(w) = manifest.workspace.as_ref() {
-            if let Some(_) = member(&manifest_path, &w.members, name)? {
-                return Ok(Some(manifest_path.into()));
+            if member(&manifest_path, &w.members, name)?.is_some() {
+                return Ok(Some(manifest_path));
             }
         }
     }
@@ -88,7 +88,7 @@ pub fn find_cargo_config(path: &Path) -> Result<Option<PathBuf>> {
 }
 
 pub fn get_target_dir_name(path: &Path) -> Result<String> {
-    if let Some(config_path) = find_cargo_config(&path)? {
+    if let Some(config_path) = find_cargo_config(path)? {
         let config = Config::parse_from_toml(&config_path)?;
         if let Some(build) = config.build.as_ref() {
             if let Some(target_dir) = &build.target_dir {

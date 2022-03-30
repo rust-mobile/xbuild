@@ -13,7 +13,7 @@ impl ContentTypesBuilder {
         if let Some(ext) = path.extension() {
             if let Some(ext) = ext.to_str() {
                 if !self.ext.contains(ext) {
-                    let mime = mime_guess::from_ext(&ext).first_or_octet_stream();
+                    let mime = mime_guess::from_ext(ext).first_or_octet_stream();
                     self.inner.as_mut().unwrap().rules.push(Rule::Default {
                         ext: ext.into(),
                         mime: mime.to_string(),

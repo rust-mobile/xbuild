@@ -240,10 +240,10 @@ mod tests {
     #[test]
     fn test_properties() {
         let props = Properties {
-            display_name: "".into(),
-            publisher_display_name: "".into(),
-            logo: "".into(),
-            description: "".into(),
+            display_name: Some("".into()),
+            publisher_display_name: Some("".into()),
+            logo: Some("".into()),
+            description: Some("".into()),
         };
         let xml = quick_xml::se::to_string(&props).unwrap();
         assert_eq!(xml, "<Properties><DisplayName></DisplayName><PublisherDisplayName></PublisherDisplayName><Logo></Logo><Description></Description></Properties>");
@@ -253,19 +253,23 @@ mod tests {
     fn test_manifest() {
         let manifest = AppxManifest {
             identity: Identity {
-                name: "com.flutter.fluttertodoapp".into(),
-                version: "1.0.0.0".into(),
-                publisher: "CN=Msix Testing, O=Msix Testing Corporation, S=Some-State, C=US".into(),
-                processor_architecture: "x64".into(),
+                name: Some("com.flutter.fluttertodoapp".into()),
+                version: Some("1.0.0.0".into()),
+                publisher: Some(
+                    "CN=Msix Testing, O=Msix Testing Corporation, S=Some-State, C=US".into(),
+                ),
+                processor_architecture: Some("x64".into()),
             },
             properties: Properties {
-                display_name: "fluttertodoapp".into(),
-                publisher_display_name: "com.flutter.fluttertodoapp".into(),
-                logo: "Images\\StoreLogo.png".into(),
-                description: "A new Flutter project.".into(),
+                display_name: Some("fluttertodoapp".into()),
+                publisher_display_name: Some("com.flutter.fluttertodoapp".into()),
+                logo: Some("Images\\StoreLogo.png".into()),
+                description: Some("A new Flutter project.".into()),
             },
             resources: Resources {
-                resource: vec![Default::default()],
+                resource: vec![Resource {
+                    language: "en".into(),
+                }],
             },
             dependencies: Dependencies {
                 target_device_family: vec![Default::default()],
@@ -283,20 +287,20 @@ mod tests {
             ],
             applications: Applications {
                 application: vec![Application {
-                    id: "fluttertodoapp".into(),
-                    executable: "todoapp.exe".into(),
-                    entry_point: "Windows.FullTrustApplication".into(),
+                    id: Some("fluttertodoapp".into()),
+                    executable: Some("todoapp.exe".into()),
+                    entry_point: Some("Windows.FullTrustApplication".into()),
                     visual_elements: VisualElements {
-                        background_color: "transparent".into(),
-                        display_name: "fluttertodoapp".into(),
-                        description: "A new flutter project.".into(),
-                        logo_44x44: "Images\\Square44x44Logo.png".into(),
-                        logo_150x150: "Images\\Square150x150Logo.png".into(),
-                        default_tile: DefaultTile {
-                            short_name: "fluttertodoapp".into(),
-                            logo_71x71: "Images\\SmallTile.png".into(),
-                            logo_310x310: "Images\\LargeTile.png".into(),
-                            logo_310x150: "Images\\Wide310x150Logo.png".into(),
+                        background_color: Some("transparent".into()),
+                        display_name: Some("fluttertodoapp".into()),
+                        description: Some("A new flutter project.".into()),
+                        logo_44x44: Some("Images\\Square44x44Logo.png".into()),
+                        logo_150x150: Some("Images\\Square150x150Logo.png".into()),
+                        default_tile: Some(DefaultTile {
+                            short_name: Some("fluttertodoapp".into()),
+                            logo_71x71: Some("Images\\SmallTile.png".into()),
+                            logo_310x310: Some("Images\\LargeTile.png".into()),
+                            logo_310x150: Some("Images\\Wide310x150Logo.png".into()),
                             show_names_on_tiles: ShowNameOnTiles {
                                 show_on: vec![
                                     ShowOn {
@@ -310,14 +314,14 @@ mod tests {
                                     },
                                 ],
                             },
-                        },
-                        splash_screen: SplashScreen {
+                        }),
+                        splash_screen: Some(SplashScreen {
                             image: "Images\\SplashScreen.png".into(),
-                        },
-                        lock_screen: LockScreen {
+                        }),
+                        lock_screen: Some(LockScreen {
                             badge_logo: "Images\\BadgeLogo.png".into(),
                             notification: "badge".into(),
-                        },
+                        }),
                     },
                 }],
             },
@@ -325,6 +329,5 @@ mod tests {
         };
         let xml = quick_xml::se::to_string(&manifest).unwrap();
         println!("{}", xml);
-        assert!(false);
     }
 }

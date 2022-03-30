@@ -29,7 +29,7 @@ fn main() -> Result<()> {
     tracing::subscriber::set_global_default(subscriber).ok();
     log_panics::init();
     let args = Args::parse();
-    let device = args.device.unwrap_or_else(|| Device::host());
+    let device = args.device.unwrap_or_else(Device::host);
     let attach = true;
     let run = match (args.package, args.activity, args.bundle_id) {
         (Some(package), Some(activity), _) => {

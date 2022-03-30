@@ -30,7 +30,7 @@ pub fn build(env: &BuildEnv) -> Result<()> {
     if let Some(flutter) = env.flutter() {
         if !flutter.root().exists() {
             if !env.offline() {
-                flutter.clone()?;
+                flutter.git_clone()?;
                 runner.end_task();
             } else {
                 anyhow::bail!("flutter repo missing. Run `x` without `--offline`");
@@ -41,7 +41,7 @@ pub fn build(env: &BuildEnv) -> Result<()> {
     // if engine version changed clean
 
     runner.start_task("Fetch precompiled artefacts");
-    let manager = DownloadManager::new(&env)?;
+    let manager = DownloadManager::new(env)?;
     if !env.offline() {
         manager.prefetch(build_classes_dex)?;
         runner.end_verbose_task();
@@ -85,7 +85,7 @@ pub fn build(env: &BuildEnv) -> Result<()> {
             if !platform_dir.join("classes.dex").exists() {
                 let r8 = manager.r8()?;
                 let deps = manager.flutter_embedding()?;
-                flutter.build_classes_dex(&env, &r8, deps)?;
+                flutter.build_classes_dex(env, &r8, deps)?;
                 runner.end_task();
             }
         }
@@ -194,10 +194,8 @@ pub fn build(env: &BuildEnv) -> Result<()> {
                     &engine_dir.join("libflutter_linux_gtk.so"),
                     &Path::new("lib").join("libflutter_linux_gtk.so"),
                 )?;
-                appimage.add_directory(
-                    &env.build_dir().join("flutter_assets"),
-                    &Path::new("data").join("flutter_assets"),
-                )?;
+                appimage
+                    .add_directory(&flutter_assets, &Path::new("data").join("flutter_assets"))?;
                 match target.opt() {
                     Opt::Debug => {
                         appimage.add_file(
@@ -231,7 +229,7 @@ pub fn build(env: &BuildEnv) -> Result<()> {
         }
         Platform::Android => {
             let out = platform_dir.join(format!("{}.apk", env.name()));
-            let mut apk = Apk::new(out.clone(), env.manifest().android().clone())?;
+            let mut apk = Apk::new(out, env.manifest().android().clone())?;
             apk.add_res(env.icon(), &env.android_jar())?;
             if let Some(flutter) = env.flutter() {
                 for target in env.target().compile_targets() {
@@ -241,10 +239,7 @@ pub fn build(env: &BuildEnv) -> Result<()> {
                     )?;
                 }
                 apk.add_dex(&platform_dir.join("classes.dex"))?;
-                apk.add_directory(
-                    &env.build_dir().join("flutter_assets"),
-                    &Path::new("assets").join("flutter_assets"),
-                )?;
+                apk.add_directory(&flutter_assets, &Path::new("assets").join("flutter_assets"))?;
                 apk.add_file(
                     &flutter.vm_snapshot_data()?,
                     &Path::new("assets")
@@ -302,10 +297,7 @@ pub fn build(env: &BuildEnv) -> Result<()> {
 
             if let Some(flutter) = env.flutter() {
                 app.add_framework(&flutter.engine_dir(target)?.join("FlutterMacOS.framework"))?;
-                app.add_directory(
-                    &env.build_dir().join("flutter_assets"),
-                    Path::new("flutter_assets"),
-                )?;
+                app.add_directory(&flutter_assets, Path::new("flutter_assets"))?;
                 match target.opt() {
                     Opt::Debug => {
                         app.add_file(
@@ -349,7 +341,6 @@ pub fn build(env: &BuildEnv) -> Result<()> {
                     .join("ios-arm64_armv7")
                     .join("Flutter.framework");
                 app.add_framework(&framework)?;
-                let flutter_assets = env.build_dir().join("flutter_assets");
                 match target.opt() {
                     Opt::Debug => {
                         app.add_directory(&flutter_assets, Path::new("flutter_assets"))?;
@@ -362,7 +353,7 @@ pub fn build(env: &BuildEnv) -> Result<()> {
                         app.add_framework(&arch_dir.join("App.framework"))?;
                     }
                 }
-                flutter.build_ios_main(&env, target)?;
+                flutter.build_ios_main(env, target)?;
                 app.add_executable(&arch_dir.join("main"))?;
             } else {
                 let main = env.cargo_artefact(&arch_dir.join("cargo"), target, CrateType::Bin)?;
@@ -376,7 +367,7 @@ pub fn build(env: &BuildEnv) -> Result<()> {
             let arch_dir = platform_dir.join(target.arch().to_string());
             std::fs::create_dir_all(&arch_dir)?;
             let out = arch_dir.join(format!("{}.msix", env.name()));
-            let mut msix = Msix::new(out.clone(), env.manifest().windows().clone())?;
+            let mut msix = Msix::new(out, env.manifest().windows().clone())?;
             if let Some(icon) = env.icon() {
                 msix.add_icon(icon)?;
             }
@@ -391,13 +382,10 @@ pub fn build(env: &BuildEnv) -> Result<()> {
                 )?;
                 msix.add_file(
                     &engine_dir.join("flutter_windows.dll"),
-                    &Path::new("flutter_windows.dll"),
+                    Path::new("flutter_windows.dll"),
                     ZipFileOptions::Compressed,
                 )?;
-                msix.add_directory(
-                    &env.build_dir().join("flutter_assets"),
-                    &Path::new("data").join("flutter_assets"),
-                )?;
+                msix.add_directory(&flutter_assets, &Path::new("data").join("flutter_assets"))?;
                 match target.opt() {
                     Opt::Debug => {
                         msix.add_file(

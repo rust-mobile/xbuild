@@ -114,7 +114,7 @@ impl Apk {
     }
 
     pub fn sign(path: &Path, signer: Option<Signer>) -> Result<()> {
-        crate::sign::sign(&path, signer)
+        crate::sign::sign(path, signer)
     }
 
     pub fn verify(path: &Path) -> Result<Vec<Certificate>> {
@@ -125,11 +125,9 @@ impl Apk {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use crate::res::Chunk;
-    use std::io::{Cursor, Seek, SeekFrom};
     use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
 
-    pub fn init_logger() -> Result<()> {
+    pub fn init_logger() {
         tracing_log::LogTracer::init().ok();
         let env = std::env::var(EnvFilter::DEFAULT_ENV).unwrap_or_else(|_| "info".to_owned());
         let subscriber = tracing_subscriber::FmtSubscriber::builder()
@@ -138,7 +136,6 @@ pub(crate) mod tests {
             .with_writer(std::io::stderr)
             .finish();
         tracing::subscriber::set_global_default(subscriber).ok();
-        Ok(())
     }
 
     pub fn find_android_jar() -> Result<PathBuf> {
@@ -162,42 +159,5 @@ pub(crate) mod tests {
             .join(format!("android-{}", platform))
             .join("android.jar");
         Ok(android)
-    }
-
-    #[test]
-    fn test_bxml_parse_manifest() -> Result<()> {
-        const BXML: &[u8] = include_bytes!("../../assets/AndroidManifest.bxml");
-        let mut r = Cursor::new(BXML);
-        let chunk = Chunk::parse(&mut r)?;
-        let pos = r.seek(SeekFrom::Current(0))?;
-        assert_eq!(pos, BXML.len() as u64);
-        println!("{:#?}", chunk);
-        assert!(false);
-        Ok(())
-    }
-
-    /*#[test]
-    fn test_bxml_gen_manifest() -> Result<()> {
-        const XML: &str = include_str!("../../assets/AndroidManifest.xml");
-        let bxml = Xml::new(XML.to_string()).compile()?;
-        let mut cursor = Cursor::new(bxml.as_slice());
-        let chunk = Chunk::parse(&mut cursor).unwrap();
-        let pos = cursor.seek(SeekFrom::Current(0))?;
-        assert_eq!(pos, bxml.len() as u64);
-        println!("{:#?}", chunk);
-        assert!(false);
-        Ok(())
-    }*/
-
-    #[test]
-    fn test_bxml_parse_arsc() -> Result<()> {
-        const BXML: &[u8] = include_bytes!("../../assets/resources.arsc");
-        let mut r = Cursor::new(BXML);
-        let chunk = Chunk::parse(&mut r)?;
-        let pos = r.seek(SeekFrom::Current(0))?;
-        assert_eq!(pos, BXML.len() as u64);
-        println!("{:#?}", chunk);
-        assert!(false);
-        Ok(())
     }
 }

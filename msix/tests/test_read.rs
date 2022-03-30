@@ -1,4 +1,4 @@
-use anyhow::Result;
+/*use anyhow::Result;
 use std::io::Cursor;
 use xmsix::pri::PriFile;
 
@@ -16,4 +16,4 @@ fn test_read() -> Result<()> {
     //println!("{:#?}", pri);
     //assert!(false);
     Ok(())
-}
+}*/

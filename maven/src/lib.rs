@@ -88,21 +88,21 @@ impl<D: Download> Maven<D> {
         match self.metadata(package) {
             Ok(metadata) => metadata
                 .versions()
-                .into_iter()
+                .iter()
                 .filter_map(|version| Version::from_str(version).ok())
                 .filter(|version| {
                     if let Some(suffix) = version.suffix.as_ref() {
                         if suffix.starts_with("alpha")
                             || suffix.starts_with("beta")
                             || suffix.starts_with("RC")
-                            || suffix.starts_with("M")
+                            || suffix.starts_with('M')
                         {
                             return false;
                         }
                     }
                     true
                 })
-                .filter(|version| range.contains(&version))
+                .filter(|version| range.contains(version))
                 .rev()
                 .collect(),
             Err(err) => {

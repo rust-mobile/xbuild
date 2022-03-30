@@ -210,10 +210,7 @@ impl Format {
     }
 
     pub fn supports_multiarch(self) -> bool {
-        match self {
-            Self::Aab | Self::Apk => true,
-            _ => false,
-        }
+        matches!(self, Self::Aab | Self::Apk)
     }
 }
 
@@ -380,7 +377,7 @@ impl BuildTargetArgs {
             if !pem.exists() {
                 anyhow::bail!("pem file doesn't exist {}", pem.display());
             }
-            Some(Signer::from_path(&pem)?)
+            Some(Signer::from_path(pem)?)
         } else {
             None
         };
