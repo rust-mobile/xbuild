@@ -169,7 +169,9 @@ impl Flutter {
     }
 
     pub fn build_flutter_assets(&self, root_dir: &Path, flutter_assets: &Path) -> Result<()> {
+        println!("new");
         let bundle = AssetBundle::new(root_dir, &self.material_fonts()?)?;
+        println!("assemble");
         bundle.assemble(flutter_assets)?;
         Ok(())
     }

@@ -435,6 +435,8 @@ jobs:
         targets: aarch64-linux-android
     - run: ../../x build --platform android --arch arm64 --${{ matrix.opt }}
       working-directory: examples/${{ matrix.artifact }}
+      env:
+        X_LOG: info
     - uses: actions/upload-artifact@v2
       with:
         name: windows-latest-android-arm64-${{ matrix.opt }}-${{ matrix.artifact }}
