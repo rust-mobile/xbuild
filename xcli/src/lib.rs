@@ -519,6 +519,7 @@ pub struct BuildEnv {
     name: String,
     build_target: BuildTarget,
     build_dir: PathBuf,
+    cache_dir: PathBuf,
     icon: Option<PathBuf>,
     target_file: PathBuf,
     cargo: Cargo,
@@ -536,6 +537,7 @@ impl BuildEnv {
         let cargo = args.cargo.cargo()?;
         let build_target = args.build_target.build_target()?;
         let build_dir = cargo.target_dir().join("x");
+        let cache_dir = dirs::cache_dir().unwrap().join("x");
         let pubspec = cargo.root_dir().join("pubspec.yaml");
         let flutter = if pubspec.exists() {
             Some(Flutter::new(build_dir.join("Flutter.sdk"), verbose)?)
@@ -567,6 +569,7 @@ impl BuildEnv {
             flutter,
             manifest,
             build_dir,
+            cache_dir,
             verbose,
             offline,
         })
@@ -605,7 +608,7 @@ impl BuildEnv {
     }
 
     pub fn cache_dir(&self) -> &Path {
-        &self.build_dir
+        &self.cache_dir
     }
 
     pub fn opt_dir(&self) -> PathBuf {
