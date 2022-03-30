@@ -104,7 +104,11 @@ impl AssetBundle {
         let packages = std::fs::read_to_string(packages)?;
         let pconf: PackageConfig = serde_json::from_str(&packages)?;
         for package in pconf.packages {
-            if let Some(path) = package.root_uri.strip_prefix("file://") {
+            #[cfg(not(windows))]
+            let prefix = "file://";
+            #[cfg(windows)]
+            let prefix = "file:///";
+            if let Some(path) = package.root_uri.strip_prefix(prefix) {
                 let name = package.name;
                 let path = PathBuf::from_slash(&path);
                 bundle.add_pubspec_assets(&path, Some(name), material_icons)?;
