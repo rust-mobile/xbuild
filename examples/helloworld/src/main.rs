@@ -1,9 +1,10 @@
-use nativeshell::{
-    codec::Value,
-    shell::{exec_bundle, register_observatory_listener, Context, ContextOptions},
-};
-
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
 fn main() {
+    use nativeshell::{
+        codec::Value,
+        shell::{exec_bundle, register_observatory_listener, Context, ContextOptions},
+    };
+
     exec_bundle();
     register_observatory_listener("app_template".into());
 
