@@ -15,7 +15,8 @@ jobs:
       with:
         components: clippy, rustfmt
     - run: cargo fmt --all -- --check
-    #- run: cargo clippy --workspace --examples --tests --all-features -- -D warnings
+    - run: cargo clippy --workspace --examples --tests --all-features -- -D warnings
+    - run: cargo test
 
   #
   # Build x for all platforms
