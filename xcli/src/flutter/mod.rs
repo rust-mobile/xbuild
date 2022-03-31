@@ -13,18 +13,24 @@ mod ios;
 
 pub struct Flutter {
     git: PathBuf,
-    sdk: PathBuf,
+    repo: PathBuf,
+    cache: PathBuf,
     verbose: bool,
 }
 
 impl Flutter {
-    pub fn new(sdk: PathBuf, verbose: bool) -> Result<Self> {
+    pub fn new(repo: PathBuf, cache: PathBuf, verbose: bool) -> Result<Self> {
         let git = which::which("git")?;
-        Ok(Self { git, sdk, verbose })
+        Ok(Self {
+            git,
+            repo,
+            cache,
+            verbose,
+        })
     }
 
-    pub fn root(&self) -> PathBuf {
-        self.sdk.join("flutter")
+    pub fn root(&self) -> &Path {
+        &self.repo
     }
 
     pub fn version(&self) -> Result<String> {
@@ -42,9 +48,10 @@ impl Flutter {
     }
 
     pub fn git_clone(&self) -> Result<()> {
-        std::fs::create_dir_all(&self.sdk)?;
+        let clone_dir = self.repo.parent().unwrap();
+        std::fs::create_dir_all(&clone_dir)?;
         let mut cmd = Command::new(&self.git);
-        cmd.current_dir(&self.sdk)
+        cmd.current_dir(&clone_dir)
             .arg("clone")
             .arg("https://github.com/flutter/flutter")
             .arg("--depth")
@@ -94,7 +101,7 @@ impl Flutter {
 
     pub fn engine_dir(&self, target: CompileTarget) -> Result<PathBuf> {
         let path = self
-            .sdk
+            .cache
             .join("engine")
             .join(self.engine_version()?)
             .join(target.opt().to_string())
@@ -113,7 +120,7 @@ impl Flutter {
     }
 
     pub fn material_fonts(&self) -> Result<PathBuf> {
-        let dir = self.sdk.join("material_fonts");
+        let dir = self.cache.join("material_fonts");
         let version = self.material_fonts_version()?;
         Ok(dir.join(version))
     }

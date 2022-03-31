@@ -540,7 +540,11 @@ impl BuildEnv {
         let cache_dir = dirs::cache_dir().unwrap().join("x");
         let pubspec = cargo.root_dir().join("pubspec.yaml");
         let flutter = if pubspec.exists() {
-            Some(Flutter::new(build_dir.join("Flutter.sdk"), verbose)?)
+            Some(Flutter::new(
+                build_dir.join("flutter"),
+                cache_dir.join("flutter"),
+                verbose,
+            )?)
         } else {
             None
         };

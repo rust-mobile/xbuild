@@ -184,7 +184,10 @@ impl<'a> DownloadManager<'a> {
                 artifacts.push(("ios/artifacts.zip".to_string(), "Flutter.xcframework"));
             }
             (Platform::Ios, _, Opt::Release) => {
-                artifacts.push(("ios-release/artifacts.zip".to_string(), "Flutter.xcframework"));
+                artifacts.push((
+                    "ios-release/artifacts.zip".to_string(),
+                    "Flutter.xcframework",
+                ));
             }
         }
         for (artifact, output) in &artifacts {
