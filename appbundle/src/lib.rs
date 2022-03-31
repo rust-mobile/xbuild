@@ -74,22 +74,32 @@ impl AppBundle {
     }
 
     pub fn add_icon(&mut self, path: &Path) -> Result<()> {
-        let mut icns = IconFamily::new();
         let scaler = Scaler::open(path)?;
-        let mut buf = vec![];
-        for size in ICON_SIZES {
-            buf.clear();
-            let mut cursor = Cursor::new(&mut buf);
-            scaler.write(&mut cursor, ScalerOpts::new(size))?;
-            let image = Image::read_png(&*buf)?;
-            icns.add_icon(&image)?;
+        if self.info.requires_ios == Some(true) {
+            for size in ICON_SIZES {
+                let filename = format!("icon_{}x{}.png", size, size);
+                let icon = self.appdir.join(&filename);
+                let mut icon = BufWriter::new(File::create(icon)?);
+                scaler.write(&mut icon, ScalerOpts::new(size))?;
+                self.info.icon_files.push(filename);
+            }
+        } else {
+            let mut icns = IconFamily::new();
+            let mut buf = vec![];
+            for size in ICON_SIZES {
+                buf.clear();
+                let mut cursor = Cursor::new(&mut buf);
+                scaler.write(&mut cursor, ScalerOpts::new(size))?;
+                let image = Image::read_png(&*buf)?;
+                icns.add_icon(&image)?;
+            }
+            let path = self.resource_dir().join("AppIcon.icns");
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            icns.write(BufWriter::new(File::create(path)?))?;
+            self.info.icon_file = Some("AppIcon".to_string());
         }
-        let path = self.resource_dir().join("AppIcon.icns");
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        icns.write(BufWriter::new(File::create(path)?))?;
-        self.info.icon_file = Some("AppIcon".to_string());
         Ok(())
     }
 

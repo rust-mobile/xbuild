@@ -330,10 +330,9 @@ pub fn build(env: &BuildEnv) -> Result<()> {
             let arch_dir = platform_dir.join(target.arch().to_string());
             std::fs::create_dir_all(&arch_dir)?;
             let mut app = AppBundle::new(&arch_dir, env.manifest().ios().clone())?;
-            // TODO:
-            /*if let Some(icon) = env.icon() {
+            if let Some(icon) = env.icon() {
                 app.add_icon(icon)?;
-            }*/
+            }
             if let Some(flutter) = env.flutter() {
                 let framework = flutter
                     .engine_dir(target)?

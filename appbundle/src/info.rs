@@ -60,6 +60,9 @@ pub struct InfoPlist {
     /// The icon name of the bundle.
     #[serde(rename(serialize = "CFBundleIconName"))]
     pub icon_name: Option<String>,
+    /// The icon files of the bundle.
+    #[serde(rename(serialize = "CFBundleIconFiles"))]
+    pub icon_files: Vec<String>,
 
     #[serde(rename(serialize = "UILaunchStoryboardName"))]
     pub storyboard_name: Option<String>,
