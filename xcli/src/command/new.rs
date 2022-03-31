@@ -9,7 +9,7 @@ version = "0.1.0"
 edition = "2021"
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "staticlib"]
 
 [build-dependencies]
 ffi-gen = "0.1.13"
@@ -55,13 +55,12 @@ use std::path::PathBuf;
 fn main() {{
     let dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
     let api = dir.join("api.rsh");
-    println!(
-        "cargo:rerun-if-changed={{}}",
-        api.as_path().to_str().unwrap(),
-    );
+    println!("cargo:rerun-if-changed={{}}", api.as_path().to_str().unwrap());
     let ffigen = FfiGen::new(&api).unwrap();
     let bindings = dir.join("lib").join("bindings.dart");
-    ffigen.generate_dart(bindings, "{name}", "{name}").unwrap();
+    ffigen
+        .generate_dart(bindings, "{name}", "{name}")
+        .unwrap();
 }}
 "#,
         name = name,

@@ -5,7 +5,6 @@ fn main() {
         shell::{exec_bundle, register_observatory_listener, Context, ContextOptions},
     };
 
-
     exec_bundle();
     register_observatory_listener("app_template".into());
 

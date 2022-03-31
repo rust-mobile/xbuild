@@ -1,5 +1,5 @@
-use futures::{Stream, StreamExt};
 use futures::channel::mpsc;
+use futures::{Stream, StreamExt};
 
 ffi_gen_macro::ffi_gen!("api.rsh");
 
