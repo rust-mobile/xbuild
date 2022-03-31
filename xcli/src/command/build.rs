@@ -65,7 +65,7 @@ pub fn build(env: &BuildEnv) -> Result<()> {
 
     runner.start_task("Build rust");
     let bin_target = env.target().platform() != Platform::Android
-        && (env.flutter().is_some() || env.target().platform() != Platform::Ios);
+        && (env.flutter().is_none() || env.target().platform() != Platform::Ios);
     let has_lib = env.root_dir().join("src").join("lib.rs").exists();
     if bin_target || has_lib {
         for target in env.target().compile_targets() {

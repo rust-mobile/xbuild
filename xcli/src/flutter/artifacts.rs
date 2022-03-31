@@ -181,10 +181,10 @@ impl<'a> DownloadManager<'a> {
                 }
             }
             (Platform::Ios, _, Opt::Debug) => {
-                //artifacts.push("ios/artifacts.zip".to_string());
+                artifacts.push(("ios/artifacts.zip".to_string(), "Flutter.xcframework"));
             }
             (Platform::Ios, _, Opt::Release) => {
-                //artifacts.push("ios-release/artifacts.zip".to_string());
+                artifacts.push(("ios-release/artifacts.zip".to_string(), "Flutter.xcframework"));
             }
         }
         for (artifact, output) in &artifacts {

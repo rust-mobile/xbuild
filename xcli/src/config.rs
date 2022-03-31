@@ -229,6 +229,10 @@ impl Manifest {
             .short_version
             .get_or_insert_with(|| config.version.clone());
         self.ios.info.requires_ios.get_or_insert(true);
+        self.ios
+            .info
+            .storyboard_name
+            .get_or_insert_with(|| "".into());
 
         self.macos
             .info

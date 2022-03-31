@@ -143,6 +143,7 @@ impl AppBundle {
             .map_err(|err| anyhow::anyhow!("{}", err))?;
         let xml = data.encap_content_info.content.as_ref().unwrap().as_ref();
         let profile: plist::Value = plist::from_reader_xml(xml)?;
+        log::debug!("provisioning profile: {:?}", profile);
         let dict = profile
             .as_dictionary()
             .ok_or_else(|| anyhow::anyhow!("invalid provisioning profile"))?;
@@ -160,6 +161,36 @@ impl AppBundle {
             .as_string()
             .ok_or_else(|| anyhow::anyhow!("missing team identifier"))?
             .to_string();
+        let app_id = entitlements
+            .as_dictionary()
+            .ok_or_else(|| anyhow::anyhow!("invalid entitlements"))?
+            .get("application-identifier")
+            .ok_or_else(|| anyhow::anyhow!("missing application identifier"))?
+            .as_string()
+            .ok_or_else(|| anyhow::anyhow!("missing application identifier"))?;
+        let bundle_prefix = app_id
+            .split_once('.')
+            .ok_or_else(|| anyhow::anyhow!("invalid app id {}", app_id))?
+            .1;
+
+        if let Some(bundle_identifier) = self.info.bundle_identifier.as_ref() {
+            let bundle_prefix = if bundle_prefix.ends_with(".*") {
+                bundle_prefix.strip_suffix('*').unwrap()
+            } else {
+                &bundle_prefix
+            };
+            anyhow::ensure!(
+                bundle_identifier.starts_with(bundle_prefix),
+                "bundle identifier missmatch"
+            );
+        } else {
+            let bundle_id = if let Some(bundle_prefix) = bundle_prefix.strip_suffix(".*") {
+                format!("{}.{}", bundle_prefix, self.info.name.as_ref().unwrap())
+            } else {
+                bundle_prefix.to_string()
+            };
+            self.info.bundle_identifier = Some(bundle_id);
+        }
         self.entitlements = Some(entitlements);
         self.team_id = Some(team_id);
         std::fs::copy(path, self.appdir().join("embedded.mobileprovision"))?;

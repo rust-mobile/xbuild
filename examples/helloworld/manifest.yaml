@@ -1,8 +1,5 @@
 icon: assets/logo.png
 
-ios:
-  info:
-    bundle_identifier: com.cloudpeer.todoapp
 windows:
   manifest:
     identity:

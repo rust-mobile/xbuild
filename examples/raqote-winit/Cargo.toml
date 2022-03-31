@@ -25,4 +25,5 @@ winit_input_helper = "0.11"
 ndk-glue = { version = "0.6.1", features = ["logger"] }
 
 [patch.crates-io]
+cc = { git = "https://github.com/dvc94ch/cc-rs", branch = "avoid-xrun" }
 winit = { git = "https://github.com/rust-windowing/winit" }

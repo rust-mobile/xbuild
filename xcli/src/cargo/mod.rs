@@ -238,6 +238,7 @@ impl CargoBuild {
         self.cfg_tool(Tool::Linker, "clang");
         self.use_ld("lld");
         self.set_sysroot(&path);
+        self.add_link_arg("--target=arm64-apple-ios");
         Ok(())
     }
 
