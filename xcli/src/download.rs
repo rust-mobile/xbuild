@@ -125,7 +125,7 @@ impl<'a> DownloadManager<'a> {
                 self.android_ndk()?;
                 self.android_jar()?;
             }
-            Platform::Ios if Platform::host()? != Platform::Macos => {
+            Platform::Ios => {
                 self.ios_sdk()?;
             }
             _ => {}
