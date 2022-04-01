@@ -295,4 +295,8 @@ impl Flutter {
     pub fn build_ios_main(&self, env: &BuildEnv, target: CompileTarget) -> Result<()> {
         ios::build_ios_main(env, self, target)
     }
+
+    pub fn build_ios_empty_dylib(&self, env: &BuildEnv, target: CompileTarget) -> Result<()> {
+        ios::build_empty_dylib(env, target)
+    }
 }

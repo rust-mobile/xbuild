@@ -121,43 +121,14 @@ pub fn build(env: &BuildEnv) -> Result<()> {
         if env.target().opt() == Opt::Release {
             for target in env.target().compile_targets() {
                 let arch_dir = platform_dir.join(target.arch().to_string());
-                let framework =
-                    target.platform() == Platform::Macos || target.platform() == Platform::Ios;
-                let snapshot_dir = if framework {
-                    arch_dir.join("App.framework").join("Versions").join("A")
-                } else {
-                    arch_dir.clone()
-                };
-                let output = if framework {
-                    snapshot_dir.join("App")
-                } else {
-                    snapshot_dir.join("libapp.so")
-                };
-                if !output.exists() || aot_snapshot {
-                    if framework && output.exists() {
-                        std::fs::remove_dir_all(&snapshot_dir)?;
-                    }
-                    std::fs::create_dir_all(&snapshot_dir)?;
-                    if framework {
-                        let framework_dir = arch_dir.join("App.framework");
-                        let assets_dest = snapshot_dir.join("Resources").join("flutter_assets");
-                        std::fs::create_dir_all(&assets_dest)?;
-                        xcommon::copy_dir_all(&flutter_assets, &assets_dest)?;
-                        let current = framework_dir.join("Versions").join("Current");
-                        symlink::symlink_dir(Path::new("A"), current)?;
-                        symlink::symlink_file(
-                            Path::new("Versions").join("Current").join("App"),
-                            framework_dir.join("App"),
-                        )?;
-                        symlink::symlink_dir(
-                            Path::new("Versions").join("Current").join("Resources"),
-                            framework_dir.join("Resources"),
-                        )?;
-                        std::fs::write(
-                            snapshot_dir.join("Resources").join("Info.plist"),
-                            include_bytes!("../../assets/Info.plist"),
-                        )?;
-                    }
+                let output =
+                    if target.platform() == Platform::Macos || target.platform() == Platform::Ios {
+                        arch_dir.join("App")
+                    } else {
+                        arch_dir.join("libapp.so")
+                    };
+                if aot_snapshot || !output.exists() {
+                    std::fs::create_dir_all(&arch_dir)?;
                     flutter.aot_snapshot(
                         env.root_dir(),
                         &arch_dir,
@@ -306,7 +277,31 @@ pub fn build(env: &BuildEnv) -> Result<()> {
                         )?;
                     }
                     Opt::Release => {
-                        app.add_framework(&arch_dir.join("App.framework"))?;
+                        let framework_dir = arch_dir.join("App.framework");
+                        let snapshot_dir = framework_dir.join("Versions").join("A");
+                        let assets_dir = snapshot_dir.join("Resources").join("flutter_assets");
+                        let current = framework_dir.join("Versions").join("Current");
+                        if framework_dir.exists() {
+                            std::fs::remove_dir_all(&framework_dir)?;
+                        }
+                        std::fs::create_dir_all(&snapshot_dir)?;
+                        std::fs::create_dir_all(&assets_dir)?;
+                        xcommon::copy_dir_all(&flutter_assets, &assets_dir)?;
+                        std::fs::copy(arch_dir.join("App"), snapshot_dir.join("App"))?;
+                        symlink::symlink_dir(Path::new("A"), current)?;
+                        symlink::symlink_file(
+                            Path::new("Versions").join("Current").join("App"),
+                            framework_dir.join("App"),
+                        )?;
+                        symlink::symlink_dir(
+                            Path::new("Versions").join("Current").join("Resources"),
+                            framework_dir.join("Resources"),
+                        )?;
+                        std::fs::write(
+                            snapshot_dir.join("Resources").join("Info.plist"),
+                            include_bytes!("../../assets/Info.plist"),
+                        )?;
+                        app.add_framework(&framework_dir)?;
                     }
                 }
             }
@@ -340,18 +335,30 @@ pub fn build(env: &BuildEnv) -> Result<()> {
                     .join("ios-arm64_armv7")
                     .join("Flutter.framework");
                 app.add_framework(&framework)?;
-                match target.opt() {
-                    Opt::Debug => {
-                        app.add_directory(&flutter_assets, Path::new("flutter_assets"))?;
-                        app.add_file(
-                            &platform_dir.join("kernel_blob.bin"),
-                            &Path::new("flutter_assets").join("kernel_blob.bin"),
-                        )?;
-                    }
-                    Opt::Release => {
-                        app.add_framework(&arch_dir.join("App.framework"))?;
-                    }
+
+                let framework_dir = arch_dir.join("App.framework");
+                let assets_dir = framework_dir.join("flutter_assets");
+                std::fs::create_dir_all(&assets_dir)?;
+                xcommon::copy_dir_all(&flutter_assets, &assets_dir)?;
+                std::fs::write(
+                    framework_dir.join("Info.plist"),
+                    include_bytes!("../../assets/Info.plist"),
+                )?;
+                if target.opt() == Opt::Debug {
+                    std::fs::copy(&kernel_blob, assets_dir.join("kernel_blob.bin"))?;
+                    std::fs::copy(
+                        flutter.vm_snapshot_data()?,
+                        assets_dir.join("vm_snapshot_data"),
+                    )?;
+                    std::fs::copy(
+                        flutter.isolate_snapshot_data()?,
+                        assets_dir.join("isolate_snapshot_data"),
+                    )?;
+                    flutter.build_ios_empty_dylib(env, target)?;
                 }
+                std::fs::copy(arch_dir.join("App"), framework_dir.join("App"))?;
+                app.add_framework(&arch_dir.join("App.framework"))?;
+
                 flutter.build_ios_main(env, target)?;
                 app.add_executable(&arch_dir.join("main"))?;
             } else {

@@ -1,6 +1,7 @@
 use crate::flutter::Flutter;
 use crate::{BuildEnv, CompileTarget};
 use anyhow::Result;
+use std::fs::File;
 use std::process::Command;
 
 pub fn build_ios_main(env: &BuildEnv, flutter: &Flutter, target: CompileTarget) -> Result<()> {
@@ -29,6 +30,29 @@ pub fn build_ios_main(env: &BuildEnv, flutter: &Flutter, target: CompileTarget) 
         .arg("-o")
         .arg(&main)
         .arg(&main_m)
+        .status()?;
+    if !status.success() {
+        anyhow::bail!("failed to build main.m");
+    }
+    Ok(())
+}
+
+pub fn build_empty_dylib(env: &BuildEnv, target: CompileTarget) -> Result<()> {
+    let arch_dir = env.arch_dir(target.arch());
+    let sdk = env.ios_sdk();
+    let app_m = arch_dir.join("App.m");
+    let app = arch_dir.join("App");
+    File::create(&app_m)?;
+    let status = Command::new("clang")
+        .env("SDKROOT", &sdk)
+        .arg("--target=arm64-apple-ios")
+        .arg(format!("--sysroot={}", sdk.display()))
+        .arg("-fuse-ld=lld")
+        .arg("-shared")
+        .arg("-v")
+        .arg("-o")
+        .arg(&app)
+        .arg(&app_m)
         .status()?;
     if !status.success() {
         anyhow::bail!("failed to build main.m");
