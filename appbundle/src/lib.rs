@@ -187,7 +187,7 @@ impl AppBundle {
             let bundle_prefix = if bundle_prefix.ends_with(".*") {
                 bundle_prefix.strip_suffix('*').unwrap()
             } else {
-                &bundle_prefix
+                bundle_prefix
             };
             anyhow::ensure!(
                 bundle_identifier.starts_with(bundle_prefix),
