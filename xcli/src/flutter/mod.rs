@@ -68,7 +68,10 @@ impl Flutter {
             self.git_clone()?
         } else {
             let mut cmd = Command::new(&self.git);
-            cmd.current_dir(&flutter).arg("pull");
+            cmd.current_dir(&flutter)
+                .arg("pull")
+                .arg("origin")
+                .arg("stable");
             task::run(cmd, true)?;
         }
         Ok(())
