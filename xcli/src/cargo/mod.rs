@@ -231,7 +231,6 @@ impl CargoBuild {
 
     pub fn use_ios_sdk(&mut self, path: &Path) -> Result<()> {
         let path = dunce::canonicalize(path)?;
-        self.cmd.env("SDKROOT", &path);
         self.cfg_tool(Tool::Cc, "clang");
         self.cfg_tool(Tool::Cxx, "clang++");
         self.cfg_tool(Tool::Ar, "llvm-ar");
