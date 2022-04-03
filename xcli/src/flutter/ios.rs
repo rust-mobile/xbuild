@@ -38,10 +38,7 @@ pub fn build_ios_main(
         .arg(&main)
         .arg(&main_m);
     if let Some(lib) = lib {
-        clang
-            .arg("-v")
-            .arg("-Wl,-force_load")
-            .arg(lib);
+        clang.arg("-v").arg("-Wl,-force_load").arg(lib);
     }
     if !clang.status()?.success() {
         anyhow::bail!("failed to build main.m");
