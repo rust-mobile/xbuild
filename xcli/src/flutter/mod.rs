@@ -266,7 +266,8 @@ impl Flutter {
             if target.platform() == Platform::Ios {
                 cmd.arg("-miphoneos-version-min=9.0");
                 if let Some(sdkroot) = sdkroot {
-                    cmd.arg(format!("--sysroot={}", sdkroot.display()));
+                    cmd.env("SDKROOT", &sdkroot)
+                        .arg(format!("--sysroot={}", sdkroot.display()));
                 }
             }
             task::run(cmd, self.verbose)?;
@@ -290,7 +291,8 @@ impl Flutter {
             if target.platform() == Platform::Ios {
                 cmd.arg("-miphoneos-version-min=9.0");
                 if let Some(sdkroot) = sdkroot {
-                    cmd.arg(format!("--sysroot={}", sdkroot.display()));
+                    cmd.env("SDKROOT", &sdkroot)
+                        .arg(format!("--sysroot={}", sdkroot.display()));
                 }
             }
             task::run(cmd, self.verbose)?;
