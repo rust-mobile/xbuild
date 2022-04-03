@@ -295,8 +295,13 @@ impl Flutter {
         android::build_classes_dex(env, r8, deps)
     }
 
-    pub fn build_ios_main(&self, env: &BuildEnv, target: CompileTarget) -> Result<()> {
-        ios::build_ios_main(env, self, target)
+    pub fn build_ios_main(
+        &self,
+        env: &BuildEnv,
+        target: CompileTarget,
+        lib: Option<&Path>,
+    ) -> Result<()> {
+        ios::build_ios_main(env, self, target, lib)
     }
 
     pub fn build_ios_empty_dylib(&self, env: &BuildEnv, target: CompileTarget) -> Result<()> {

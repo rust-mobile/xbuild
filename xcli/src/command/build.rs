@@ -247,6 +247,7 @@ pub fn build(env: &BuildEnv) -> Result<()> {
                     }
                 }
             }
+
             if has_lib {
                 for target in env.target().compile_targets() {
                     let arch_dir = platform_dir.join(target.arch().to_string());
@@ -255,6 +256,7 @@ pub fn build(env: &BuildEnv) -> Result<()> {
                     apk.add_lib(target.android_abi(), &lib)?;
                 }
             }
+
             apk.finish(env.target().signer().cloned())?;
         }
         Platform::Macos => {
@@ -359,12 +361,23 @@ pub fn build(env: &BuildEnv) -> Result<()> {
                 std::fs::copy(arch_dir.join("App"), framework_dir.join("App"))?;
                 app.add_framework(&arch_dir.join("App.framework"))?;
 
-                flutter.build_ios_main(env, target)?;
+                let lib = if has_lib {
+                    Some(env.cargo_artefact(
+                        &arch_dir.join("cargo"),
+                        target,
+                        CrateType::Staticlib,
+                    )?)
+                } else {
+                    None
+                };
+
+                flutter.build_ios_main(env, target, lib.as_deref())?;
                 app.add_executable(&arch_dir.join("main"))?;
             } else {
                 let main = env.cargo_artefact(&arch_dir.join("cargo"), target, CrateType::Bin)?;
                 app.add_executable(&main)?;
             }
+
             app.add_provisioning_profile(env.target().provisioning_profile().unwrap())?;
             app.finish(env.target().signer().cloned())?;
         }
@@ -417,6 +430,16 @@ pub fn build(env: &BuildEnv) -> Result<()> {
                 format!("{}.exe", env.name()).as_ref(),
                 ZipFileOptions::Compressed,
             )?;
+
+            if has_lib {
+                let lib = env.cargo_artefact(&arch_dir.join("cargo"), target, CrateType::Cdylib)?;
+                msix.add_file(
+                    &lib,
+                    Path::new(lib.file_name().unwrap()),
+                    ZipFileOptions::Compressed,
+                )?;
+            }
+
             msix.finish(env.target().signer().cloned())?;
         }
     }
