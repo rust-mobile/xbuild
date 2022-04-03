@@ -59,9 +59,10 @@ Cross compiling release builds is currently not possible for a few reasons:
 
 ### Android
  - Building Android app bundles is not implemented yet (#6).
+ - Improve debugging experience (#28).
 
 ### Ios
- - Don't expect anything to work (#1).
+ - ios-deploy like tool (#40).
 
 ### Linux
  - Appimage signing has not been implemented yet (#5).
@@ -111,6 +112,9 @@ idevicedebug         /usr/bin/idevicedebug
 ### Dart Error: Can't load Kernel binary: Invalid SDK hash.
 This happens when `flutter attach` and `x` use different flutter versions. To fix this run
 `x update` in your project folder and `git checkout stable && git pull` in your flutter sdk.
+
+### Generating apple signing key/certificate
+See [apple_codesign_certificate_management](https://github.com/indygreg/PyOxidizer/blob/main/apple-codesign/docs/apple_codesign_certificate_management.rst) for further information.
 
 ### Generating mobile provisioning profiles
 Without an apple developer account there is no cross platform way of generating mobile provisioning
