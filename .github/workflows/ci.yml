@@ -514,6 +514,7 @@ jobs:
         path: examples/${{ matrix.artifact }}/target/x/${{ matrix.opt }}/ios/arm64/${{ matrix.artifact }}.app.tar.zst
 
   build-windows-latest-ios-arm64:
+    if: false
     strategy:
       fail-fast: false
       matrix:
@@ -525,7 +526,7 @@ jobs:
     - uses: actions/checkout@v2
     - uses: actions/download-artifact@v2
       with:
-        name: macos-latest-x
+        name: windows-latest-x
     - run: chmod +x ./x
     - uses: hecrj/setup-rust-action@v1
       with:
