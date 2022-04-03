@@ -378,6 +378,8 @@ impl BuildTargetArgs {
                 anyhow::bail!("pem file doesn't exist {}", pem.display());
             }
             Some(Signer::from_path(pem)?)
+        } else if let Ok(pem) = std::env::var("X_PEM") {
+            Some(Signer::new(&pem)?)
         } else {
             None
         };
@@ -425,24 +427,19 @@ impl BuildTargetArgs {
         } else {
             Format::platform_default(platform, opt)
         };
-        let provisioning_profile =
-            if self.provisioning_profile.is_some() || platform == Platform::Ios {
-                if self.provisioning_profile.is_some() && platform == Platform::Ios {
-                    if let Some(provisioning_profile) = self.provisioning_profile.as_ref() {
-                        if !provisioning_profile.exists() {
-                            anyhow::bail!(
-                                "provisioning profile doesn't exist {}",
-                                provisioning_profile.display()
-                            );
-                        }
-                    }
-                    self.provisioning_profile
-                } else {
-                    anyhow::bail!("--provisioning-profile is only valid for ios");
-                }
-            } else {
-                None
-            };
+        let provisioning_profile = if let Some(profile) = self.provisioning_profile {
+            if !profile.exists() {
+                anyhow::bail!("provisioning profile doesn't exist {}", profile.display());
+            }
+            Some(std::fs::read(profile)?)
+        } else if let Ok(profile) = std::env::var("X_PROVISIONING_PROFILE") {
+            Some(base64::decode(&profile)?)
+        } else {
+            None
+        };
+        if provisioning_profile.is_none() && platform == Platform::Ios {
+            anyhow::bail!("missing provisioning profile");
+        }
         Ok(BuildTarget {
             opt,
             platform,
@@ -465,7 +462,7 @@ pub struct BuildTarget {
     device: Option<Device>,
     store: Option<Store>,
     signer: Option<Signer>,
-    provisioning_profile: Option<PathBuf>,
+    provisioning_profile: Option<Vec<u8>>,
 }
 
 impl BuildTarget {
@@ -510,7 +507,7 @@ impl BuildTarget {
         self.signer.as_ref()
     }
 
-    pub fn provisioning_profile(&self) -> Option<&Path> {
+    pub fn provisioning_profile(&self) -> Option<&[u8]> {
         self.provisioning_profile.as_deref()
     }
 }

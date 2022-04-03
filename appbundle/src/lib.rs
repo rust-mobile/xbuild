@@ -145,10 +145,9 @@ impl AppBundle {
         Ok(())
     }
 
-    pub fn add_provisioning_profile(&mut self, path: &Path) -> Result<()> {
-        let cms = std::fs::read(path)?;
-        let info =
-            rasn::der::decode::<ContentInfo>(&cms).map_err(|err| anyhow::anyhow!("{}", err))?;
+    pub fn add_provisioning_profile(&mut self, raw_profile: &[u8]) -> Result<()> {
+        let info = rasn::der::decode::<ContentInfo>(raw_profile)
+            .map_err(|err| anyhow::anyhow!("{}", err))?;
         let data = rasn::der::decode::<SignedData>(info.content.as_bytes())
             .map_err(|err| anyhow::anyhow!("{}", err))?;
         let xml = data.encap_content_info.content.as_ref().unwrap().as_ref();
@@ -203,7 +202,7 @@ impl AppBundle {
         }
         self.entitlements = Some(entitlements);
         self.team_id = Some(team_id);
-        std::fs::copy(path, self.appdir().join("embedded.mobileprovision"))?;
+        std::fs::write(self.appdir().join("embedded.mobileprovision"), raw_profile)?;
         Ok(())
     }
 
