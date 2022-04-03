@@ -9,6 +9,7 @@ pub struct IMobileDevice {
     idevice_id: PathBuf,
     ideviceinfo: PathBuf,
     ideviceinstaller: PathBuf,
+    idevicedebug: PathBuf,
 }
 
 impl IMobileDevice {
@@ -17,6 +18,7 @@ impl IMobileDevice {
             idevice_id: which::which(exe!("idevice_id"))?,
             ideviceinfo: which::which(exe!("ideviceinfo"))?,
             ideviceinstaller: which::which(exe!("ideviceinstaller"))?,
+            idevicedebug: which::which(exe!("idevicedebug"))?,
         })
     }
 
@@ -46,9 +48,24 @@ impl IMobileDevice {
         Ok(())
     }
 
+    fn start(&self, device: &str, bundle_identifier: &str) -> Result<()> {
+        let status = Command::new(&self.idevicedebug)
+            .arg("--udid")
+            .arg(device)
+            .arg("run")
+            .arg(bundle_identifier)
+            .status()?;
+        if !status.success() {
+            anyhow::bail!("failed to run idevicedebug");
+        }
+        Ok(())
+    }
+
     pub fn run(&self, device: &str, path: &Path, _flutter_attach: bool) -> Result<Run> {
-        // TODO: stop, start, log, attach
+        let bundle_identifier = appbundle::app_bundle_identifier(path)?;
         self.install(device, path)?;
+        self.start(device, &bundle_identifier)?;
+        // TODO: log, attach
         Ok(Run {
             url: None,
             logger: Box::new(|| unimplemented!()),

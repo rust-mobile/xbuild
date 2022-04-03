@@ -239,6 +239,19 @@ impl AppBundle {
     }
 }
 
+pub fn app_bundle_identifier(bundle: &Path) -> Result<String> {
+    let info = std::fs::read(bundle.join("Info.plist"))?;
+    let info: plist::Value = plist::from_reader_xml(&*info)?;
+    let bundle_identifier = info
+        .as_dictionary()
+        .ok_or_else(|| anyhow::anyhow!("invalid Info.plist"))?
+        .get("CFBundleIdentifier")
+        .ok_or_else(|| anyhow::anyhow!("invalid Info.plist"))?
+        .as_string()
+        .ok_or_else(|| anyhow::anyhow!("invalid Info.plist"))?;
+    Ok(bundle_identifier.to_string())
+}
+
 pub fn make_dmg(build_dir: &Path, appbundle: &Path, dmg: &Path) -> Result<()> {
     let name = dmg.file_stem().unwrap().to_str().unwrap();
     let uncompressed = build_dir.join(format!("{}.uncompressed.dmg", name));
