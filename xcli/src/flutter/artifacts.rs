@@ -1,11 +1,11 @@
 use crate::download::{DownloadManager, WorkItem};
 use crate::{Arch, CompileTarget, Opt, Platform};
 use anyhow::Result;
-use maven::{Maven, Package, Version};
+use apk::Target;
+use mvn::{Maven, Package, Version};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
-use xapk::Target;
 use zip::ZipArchive;
 
 impl<'a> DownloadManager<'a> {

@@ -1,7 +1,10 @@
 [package]
-name = "maven"
+name = "mvn"
 version = "0.1.0"
 edition = "2021"
+description = "Library for fetching and resolving maven dependencies."
+repository = "https://github.com/cloudpeers/x"
+license = "Apache-2.0 OR MIT"
 
 [dependencies]
 anyhow = "1.0.55"

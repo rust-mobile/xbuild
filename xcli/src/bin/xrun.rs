@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 use std::path::PathBuf;
-use xcli::devices::Device;
+use xbuild::devices::Device;
 
 #[derive(Parser)]
 pub struct Args {

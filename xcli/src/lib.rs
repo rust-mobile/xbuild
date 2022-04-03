@@ -275,11 +275,11 @@ impl CompileTarget {
         self.opt
     }
 
-    pub fn android_abi(self) -> xapk::Target {
+    pub fn android_abi(self) -> apk::Target {
         assert_eq!(self.platform(), Platform::Android);
         match self.arch() {
-            Arch::Arm64 => xapk::Target::Arm64V8a,
-            Arch::X64 => xapk::Target::X86_64,
+            Arch::Arm64 => apk::Target::Arm64V8a,
+            Arch::X64 => apk::Target::X86_64,
         }
     }
 

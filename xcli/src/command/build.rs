@@ -4,12 +4,12 @@ use crate::flutter::depfile::depfile_is_dirty;
 use crate::task::TaskRunner;
 use crate::{BuildEnv, Format, Opt, Platform};
 use anyhow::Result;
+use apk::Apk;
 use appbundle::AppBundle;
+use appimage::AppImage;
+use msix::Msix;
 use std::path::Path;
-use xapk::Apk;
-use xappimage::AppImage;
 use xcommon::ZipFileOptions;
-use xmsix::Msix;
 
 pub fn build(env: &BuildEnv) -> Result<()> {
     let platform_dir = env.platform_dir();

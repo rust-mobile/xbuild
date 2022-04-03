@@ -1,7 +1,7 @@
 use crate::{Arch, BuildEnv, CompileTarget, Opt, Platform};
 use anyhow::Result;
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
-use maven::Download;
+use mvn::Download;
 use reqwest::blocking::Client;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};

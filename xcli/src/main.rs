@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use xcli::{command, BuildArgs, BuildEnv};
+use xbuild::{command, BuildArgs, BuildEnv};
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]

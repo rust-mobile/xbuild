@@ -1,7 +1,10 @@
 [package]
-name = "xmsix"
-version = "0.1.0"
+name = "msix"
+version = "0.2.0"
 edition = "2021"
+description = "Library for creating and signing msix packages."
+repository = "https://github.com/cloudpeers/x"
+license = "Apache-2.0 OR MIT"
 
 [dependencies]
 anyhow = "1.0.53"

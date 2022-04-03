@@ -1,11 +1,11 @@
 use crate::{Opt, Platform};
 use anyhow::Result;
+use apk::manifest::{Activity, AndroidManifest, IntentFilter, MetaData, Permission};
+use apk::VersionCode;
 use appbundle::InfoPlist;
+use msix::AppxManifest;
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
-use xapk::manifest::{Activity, AndroidManifest, IntentFilter, MetaData, Permission};
-use xapk::VersionCode;
-use xmsix::AppxManifest;
 
 #[derive(Clone, Debug)]
 pub struct Config {

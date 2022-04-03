@@ -3,6 +3,11 @@ Cross is a build tool for rust and rust/flutter projects with support for cross 
 builds and packaging/publishing for all major stores.
 
 ## Getting started
+Install `x`:
+```sh
+cargo install xbuild
+```
+
 Create a new project:
 ```sh
 x new helloworld

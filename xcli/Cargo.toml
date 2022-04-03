@@ -1,12 +1,17 @@
 [package]
-name = "xcli"
+name = "xbuild"
 version = "0.1.0"
 edition = "2021"
+description = "Builds flutter/rust mobile/desktop projects."
+repository = "https://github.com/cloudpeers/x"
+license = "Apache-2.0 OR MIT"
 
 [dependencies]
 android-sdkmanager-rs = "0.5.0"
-anyhow = "1.0.53"
+anyhow = "1.0.56"
+apk = { version = "0.2.0", path = "../apk" }
 appbundle = { version = "0.1.0", path = "../appbundle" }
+appimage = { version = "0.2.0", path = "../appimage" }
 base64 = "0.13.0"
 clap = { version = "3.0.13", features = ["derive"] }
 console = "0.15.0"
@@ -18,7 +23,8 @@ indicatif = "0.16.2"
 jsonrpsee = { version = "0.9.0", features = ["ws-client"] }
 log = "0.4.14"
 log-panics = "2.0.0"
-maven = { version = "0.1.0", path = "../maven" }
+msix = { version = "0.2.0", path = "../msix" }
+mvn = { version = "0.1.0", path = "../maven" }
 path-slash = "0.1.4"
 reqwest = { version = "0.11.9", features = ["blocking"] }
 serde = { version = "1.0.136", features = ["derive"] }
@@ -31,10 +37,7 @@ tracing = { version = "0.1.32", default-features = false }
 tracing-log = "0.1.2"
 tracing-subscriber = { version = "0.3.9", default-features = false, features = ["env-filter", "fmt"] }
 which = "4.2.4"
-xapk = { version = "0.1.0", path = "../apk" }
-xappimage = { version = "0.1.0", path = "../appimage" }
 xcommon = { version = "0.1.0", path = "../xcommon" }
-xmsix = { version = "0.1.0", path = "../msix" }
 zip = { version = "0.6.0", default-features = false }
 zstd = "0.11.1"
 
