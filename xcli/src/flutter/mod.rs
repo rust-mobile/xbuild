@@ -232,6 +232,7 @@ impl Flutter {
         kernel_blob_bin: &Path,
         snapshot: &Path,
         target: CompileTarget,
+        sdkroot: Option<&Path>,
     ) -> Result<()> {
         let engine_dir = self.engine_dir(target)?;
         let gen_snapshot = if target.platform() == Platform::Ios {
@@ -264,6 +265,9 @@ impl Flutter {
                 .arg(arch);
             if target.platform() == Platform::Ios {
                 cmd.arg("-miphoneos-version-min=9.0");
+                if let Some(sdkroot) = sdkroot {
+                    cmd.arg(format!("--sysroot={}", sdkroot.display()));
+                }
             }
             task::run(cmd, self.verbose)?;
             let mut cmd = Command::new("clang");
@@ -285,6 +289,9 @@ impl Flutter {
                 .arg(object);
             if target.platform() == Platform::Ios {
                 cmd.arg("-miphoneos-version-min=9.0");
+                if let Some(sdkroot) = sdkroot {
+                    cmd.arg(format!("--sysroot={}", sdkroot.display()));
+                }
             }
             task::run(cmd, self.verbose)?;
         } else {

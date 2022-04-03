@@ -129,12 +129,18 @@ pub fn build(env: &BuildEnv) -> Result<()> {
                     };
                 if aot_snapshot || !output.exists() {
                     std::fs::create_dir_all(&arch_dir)?;
+                    let sdkroot = if target.platform() == Platform::Ios {
+                        Some(env.ios_sdk())
+                    } else {
+                        None
+                    };
                     flutter.aot_snapshot(
                         env.root_dir(),
                         &arch_dir,
                         &kernel_blob,
                         &output,
                         target,
+                        sdkroot.as_deref(),
                     )?;
                 }
             }
