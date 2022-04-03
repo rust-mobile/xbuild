@@ -432,7 +432,8 @@ impl BuildTargetArgs {
                 anyhow::bail!("provisioning profile doesn't exist {}", profile.display());
             }
             Some(std::fs::read(profile)?)
-        } else if let Ok(profile) = std::env::var("X_PROVISIONING_PROFILE") {
+        } else if let Ok(mut profile) = std::env::var("X_PROVISIONING_PROFILE") {
+            profile.retain(|c| !c.is_whitespace());
             Some(base64::decode(&profile)?)
         } else {
             None
