@@ -441,15 +441,86 @@ jobs:
         path: examples/${{ matrix.artifact }}/target/x/${{ matrix.opt }}/android/arm64/${{ matrix.artifact }}.apk
 
   #
-  # Buld test projects for android-arm64
+  # Buld test projects for ios-arm64
   #
 
-  # TODO: build-ubuntu-latest-ios-arm64
+  build-ubuntu-latest-ios-arm64:
+    strategy:
+      fail-fast: false
+      matrix:
+        artifact: [helloworld, raqote-winit]
+        opt: [debug]
+    runs-on: ubuntu-latest
+    needs: build-ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/download-artifact@v2
+      with:
+        name: ubuntu-latest-x
+    - run: chmod +x ./x
+    - uses: hecrj/setup-rust-action@v1
+      with:
+        targets: aarch64-apple-ios
+    - run: ../../x build --platform ios --arch arm64 --${{ matrix.opt }}
+      working-directory: examples/${{ matrix.artifact }}
+    - run: tar --zstd -cf ${{ matrix.artifact }}.app.tar.zst ${{ matrix.artifact }}.app
+      working-directory: examples/${{ matrix.artifact }}/target/x/${{ matrix.opt }}/ios/arm64
+    - uses: actions/upload-artifact@v2
+      with:
+        name: ubuntu-latest-ios-arm64-${{ matrix.opt }}-${{ matrix.artifact }}
+        path: examples/${{ matrix.artifact }}/target/x/${{ matrix.opt }}/ios/arm64/${{ matrix.artifact }}.app.tar.zst
 
-  # TODO: build-macos-latest-ios-arm64
+  build-macos-latest-ios-arm64:
+    strategy:
+      fail-fast: false
+      matrix:
+        artifact: [helloworld, raqote-winit]
+        opt: [debug, release]
+    runs-on: macos-latest
+    needs: build-macos-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/download-artifact@v2
+      with:
+        name: macos-latest-x
+    - run: chmod +x ./x
+    - uses: hecrj/setup-rust-action@v1
+      with:
+        targets: aarch64-apple-ios
+    - run: ../../x build --platform ios --arch arm64 --${{ matrix.opt }}
+      working-directory: examples/${{ matrix.artifact }}
+    - run: gtar --zstd -cf ${{ matrix.artifact }}.app.tar.zst ${{ matrix.artifact }}.app
+      working-directory: examples/${{ matrix.artifact }}/target/x/${{ matrix.opt }}/ios/arm64
+    - uses: actions/upload-artifact@v2
+      with:
+        name: macos-latest-ios-arm64-${{ matrix.opt }}-${{ matrix.artifact }}
+        path: examples/${{ matrix.artifact }}/target/x/${{ matrix.opt }}/ios/arm64/${{ matrix.artifact }}.app.tar.zst
 
-  # TODO: build-windows-latest-ios-arm64
-
+  build-windows-latest-ios-arm64:
+    strategy:
+      fail-fast: false
+      matrix:
+        artifact: [helloworld, raqote-winit]
+        opt: [debug]
+    runs-on: windows-latest
+    needs: build-windows-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/download-artifact@v2
+      with:
+        name: macos-latest-x
+    - run: chmod +x ./x
+    - uses: hecrj/setup-rust-action@v1
+      with:
+        targets: aarch64-apple-ios
+    - run: ../../x build --platform ios --arch arm64 --${{ matrix.opt }}
+      working-directory: examples/${{ matrix.artifact }}
+    - run: tar --zstd -cf ${{ matrix.artifact }}.app.tar.zst ${{ matrix.artifact }}.app
+      working-directory: examples/${{ matrix.artifact }}/target/x/${{ matrix.opt }}/ios/arm64
+    - uses: actions/upload-artifact@v2
+      with:
+        name: windows-latest-ios-arm64-${{ matrix.opt }}-${{ matrix.artifact }}
+        path: examples/${{ matrix.artifact }}/target/x/${{ matrix.opt }}/ios/arm64/${{ matrix.artifact }}.app.tar.zst
 
   #
   # Run test projects on linux
