@@ -458,6 +458,11 @@ jobs:
       with:
         name: ubuntu-latest-x
     - run: chmod +x ./x
+    - uses: KyleMayes/install-llvm-action@v1
+      with:
+        version: 13
+    - run: sudo ln -s llvm-ar-13 /usr/bin/llvm-ar
+    - run: sudo ln -s lld-13 /usr/bin/lld
     - uses: hecrj/setup-rust-action@v1
       with:
         targets: aarch64-apple-ios
@@ -487,6 +492,12 @@ jobs:
       with:
         name: macos-latest-x
     - run: chmod +x ./x
+    - uses: KyleMayes/install-llvm-action@v1
+      with:
+        version: 13
+    - run: sudo mkdir -p /usr/local/bin
+    - run: sudo ln -s llvm-ar-13 /usr/local/bin/llvm-ar
+    - run: sudo ln -s lld-13 /usr/local/bin/lld
     - uses: hecrj/setup-rust-action@v1
       with:
         targets: aarch64-apple-ios
