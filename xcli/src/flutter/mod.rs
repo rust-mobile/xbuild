@@ -233,7 +233,12 @@ impl Flutter {
         snapshot: &Path,
         target: CompileTarget,
     ) -> Result<()> {
-        let gen_snapshot = self.engine_dir(target)?.join(exe!("gen_snapshot"));
+        let engine_dir = self.engine_dir(target)?;
+        let gen_snapshot = if target.platform() == Platform::Ios {
+            engine_dir.join(exe!("gen_snapshot_arm64"))
+        } else {
+            engine_dir.join(exe!("gen_snapshot"))
+        };
         let mut cmd = Command::new(gen_snapshot);
         cmd.current_dir(root_dir)
             .arg("--deterministic")
