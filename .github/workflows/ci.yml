@@ -463,6 +463,9 @@ jobs:
         targets: aarch64-apple-ios
     - run: ../../x build --platform ios --arch arm64 --${{ matrix.opt }}
       working-directory: examples/${{ matrix.artifact }}
+      env:
+        X_PEM: ${{ secrets.X_PEM }}
+        X_PROVISIONING_PROFILE: ${{ secrets.X_PROVISIONING_PROFILE }}
     - run: tar --zstd -cf ${{ matrix.artifact }}.app.tar.zst ${{ matrix.artifact }}.app
       working-directory: examples/${{ matrix.artifact }}/target/x/${{ matrix.opt }}/ios/arm64
     - uses: actions/upload-artifact@v2
@@ -489,6 +492,9 @@ jobs:
         targets: aarch64-apple-ios
     - run: ../../x build --platform ios --arch arm64 --${{ matrix.opt }}
       working-directory: examples/${{ matrix.artifact }}
+      env:
+        X_PEM: ${{ secrets.X_PEM }}
+        X_PROVISIONING_PROFILE: ${{ secrets.X_PROVISIONING_PROFILE }}
     - run: gtar --zstd -cf ${{ matrix.artifact }}.app.tar.zst ${{ matrix.artifact }}.app
       working-directory: examples/${{ matrix.artifact }}/target/x/${{ matrix.opt }}/ios/arm64
     - uses: actions/upload-artifact@v2
@@ -515,6 +521,9 @@ jobs:
         targets: aarch64-apple-ios
     - run: ../../x build --platform ios --arch arm64 --${{ matrix.opt }}
       working-directory: examples/${{ matrix.artifact }}
+      env:
+        X_PEM: ${{ secrets.X_PEM }}
+        X_PROVISIONING_PROFILE: ${{ secrets.X_PROVISIONING_PROFILE }}
     - run: tar --zstd -cf ${{ matrix.artifact }}.app.tar.zst ${{ matrix.artifact }}.app
       working-directory: examples/${{ matrix.artifact }}/target/x/${{ matrix.opt }}/ios/arm64
     - uses: actions/upload-artifact@v2
