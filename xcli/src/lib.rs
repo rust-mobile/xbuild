@@ -744,7 +744,8 @@ impl BuildEnv {
         if target.platform() == Platform::Ios {
             let sdk = self.ios_sdk();
             if sdk.exists() {
-                cargo.use_ios_sdk(&sdk)?;
+                let minimum_version = self.manifest().ios().minimum_os_version.as_ref().unwrap();
+                cargo.use_ios_sdk(&sdk, minimum_version)?;
             }
         }
         if let Some(flutter) = self.flutter() {

@@ -229,7 +229,7 @@ impl CargoBuild {
         Ok(())
     }
 
-    pub fn use_ios_sdk(&mut self, path: &Path) -> Result<()> {
+    pub fn use_ios_sdk(&mut self, path: &Path, minimum_version: &str) -> Result<()> {
         let path = dunce::canonicalize(path)?;
         // on macos it is picked up via xcrun. on other platforms setting SDKROOT prevents
         // xcrun calls in cc-rs.
@@ -241,7 +241,15 @@ impl CargoBuild {
         self.cfg_tool(Tool::Linker, "clang");
         self.use_ld("lld");
         self.set_sysroot(&path);
+        self.add_cflag(&format!("-miphoneos-version-min={}", minimum_version));
         self.add_link_arg("--target=arm64-apple-ios");
+        self.add_link_arg(&format!("-miphoneos-version-min={}", minimum_version));
+        self.add_link_arg(&format!("--sysroot={}", path.display()));
+        self.add_link_arg("-rpath");
+        self.add_link_arg("@executable_path/Frameworks");
+        self.add_include_dir(&path.join("usr").join("include"));
+        self.add_lib_dir(&path.join("usr").join("lib"));
+        self.add_framework_dir(&path.join("System").join("Library").join("Frameworks"));
         Ok(())
     }
 

@@ -228,6 +228,10 @@ impl Manifest {
             .info
             .short_version
             .get_or_insert_with(|| config.version.clone());
+        self.ios
+            .info
+            .minimum_os_version
+            .get_or_insert_with(|| "9.0".to_string());
         self.ios.info.requires_ios.get_or_insert(true);
         self.ios
             .info
