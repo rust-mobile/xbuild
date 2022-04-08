@@ -168,8 +168,7 @@ impl CargoBuild {
         self.cfg_tool(Tool::Cxx, "clang++");
         self.cfg_tool(Tool::Ar, "llvm-ar");
         self.cfg_tool(Tool::Linker, "clang");
-        self.add_include_dir(&path.join("usr").join("include"));
-        self.add_include_dir(&path.join("usr").join("local").join("include"));
+        self.set_sysroot(&path);
         let lib_dir = path.join("usr").join("lib").join(ndk_triple);
         let sdk_lib_dir = lib_dir.join(target_sdk_version.to_string());
         if !sdk_lib_dir.exists() {
