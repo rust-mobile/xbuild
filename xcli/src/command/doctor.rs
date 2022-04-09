@@ -16,12 +16,12 @@ impl Default for Doctor {
                     checks: vec![
                         Check::new("clang", Some(VersionCheck::new("--version", 0, 2))),
                         Check::new("clang++", Some(VersionCheck::new("--version", 0, 2))),
-                        Check::new("llvm-ar", Some(VersionCheck::new("--version", 1, 4))),
+                        Check::new("llvm-ar", None),
                         Check::new("llvm-lib", None),
                         Check::new("lld", Some(VersionCheck::new("-flavor ld --version", 0, 1))),
                         Check::new("lld-link", Some(VersionCheck::new("--version", 0, 1))),
                         Check::new("lldb", Some(VersionCheck::new("--version", 0, 2))),
-                        Check::new("lldb-server", None), //Some(VersionCheck::new("version", 0, 2))),
+                        Check::new("lldb-server", None),
                     ],
                 },
                 Group {
@@ -147,7 +147,11 @@ impl Check {
             }
             let output = std::str::from_utf8(&output.stdout)?;
             if let Some(line) = output.split('\n').nth(version.row as _) {
-                if let Some(col) = line.split(' ').nth(version.col as _) {
+                let mut col = version.col as usize;
+                if line.starts_with("Apple ") || line.starts_with("Homebrew ") {
+                    col += 1;
+                }
+                if let Some(col) = line.split(' ').nth(col) {
                     return Ok(Some(col.to_string()));
                 }
             }
