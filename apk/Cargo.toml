@@ -13,7 +13,7 @@ quick-xml = { version = "0.23.0-alpha2", features = ["serialize"] }
 rasn = "0.5.0"
 rasn-pkix = "0.5.0"
 roxmltree = "0.14.1"
-rsa = "0.5.0"
+rsa = "0.6.0"
 serde = { version = "1.0.136", features = ["derive"] }
 sha2 = "0.10.1"
 tracing = "0.1.29"

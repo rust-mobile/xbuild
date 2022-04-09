@@ -1,7 +1,7 @@
 use anyhow::Result;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use rasn_pkix::Certificate;
-use rsa::pkcs8::{FromPublicKey, ToPublicKey};
+use rsa::pkcs8::{DecodePublicKey, EncodePublicKey};
 use rsa::{Hash, PaddingScheme, PublicKey, RsaPublicKey};
 use sha2::{Digest as _, Sha256};
 use std::fs::File;

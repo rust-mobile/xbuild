@@ -1,7 +1,7 @@
 use anyhow::Result;
 use apple_codesign::{BundleSigner, ExecutableSegmentFlags, SettingsScope, SigningSettings};
 use icns::{IconFamily, Image};
-use pkcs8::ToPrivateKey;
+use pkcs8::EncodePrivateKey;
 use plist::Value;
 use rasn_cms::{ContentInfo, SignedData};
 use std::fs::File;

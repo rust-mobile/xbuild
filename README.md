@@ -114,6 +114,12 @@ ideviceimagemounter  /usr/bin/ideviceimagemounter
 idevicedebug         /usr/bin/idevicedebug
 ```
 
+### error: failed to run custom build command for glib-sys v0.14.0
+This means that `gtk3-dev` is not installed. Install `gtk3-dev` package to fix the problem.
+
+### No devices found with name or id matching 'linux'.
+Run `flutter config --enable-linux-desktop`.
+
 ### Dart Error: Can't load Kernel binary: Invalid SDK hash.
 This happens when `flutter attach` and `x` use different flutter versions. To fix this run
 `x update` in your project folder and `git checkout stable && git pull` in your flutter sdk.
