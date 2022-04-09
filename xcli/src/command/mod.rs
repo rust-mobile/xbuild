@@ -21,7 +21,7 @@ pub fn devices() -> Result<()> {
             "{:50}{:20}{:20}{}",
             device.to_string(),
             device.name()?,
-            format!("{} {}", device.platform()?, device.arch()?),
+            format_args!("{} {}", device.platform()?, device.arch()?),
             device.details()?,
         );
     }
