@@ -166,7 +166,7 @@ impl Default for SpcSipInfoContent {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rsa::pkcs8::FromPrivateKey;
+    use rsa::pkcs8::DecodePrivateKey;
     use rsa::{Hash, PaddingScheme, RsaPrivateKey};
     use sha2::{Digest, Sha256};
 

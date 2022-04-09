@@ -3,7 +3,7 @@ use byteorder::{LittleEndian, ReadBytesExt};
 use image::imageops::FilterType;
 use image::io::Reader as ImageReader;
 use image::{DynamicImage, GenericImageView, ImageOutputFormat, RgbaImage};
-use rsa::pkcs8::FromPrivateKey;
+use rsa::pkcs8::DecodePrivateKey;
 use rsa::{Hash, PaddingScheme, RsaPrivateKey, RsaPublicKey};
 use sha2::{Digest, Sha256};
 use std::fs::{File, OpenOptions, Permissions};
