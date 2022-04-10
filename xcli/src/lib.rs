@@ -735,7 +735,7 @@ impl BuildEnv {
         let mut cargo = self.cargo.build(target, target_dir)?;
         if target.platform() == Platform::Linux {
             cargo.add_link_arg("-Wl,-rpath");
-            cargo.add_link_arg("$ORIGIN/lib");
+            cargo.add_link_arg("-Wl,$ORIGIN/lib");
         }
         if target.platform() == Platform::Android {
             let ndk = self.android_ndk();
