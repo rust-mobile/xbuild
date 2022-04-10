@@ -1,6 +1,7 @@
 # x
 Cross is a build tool for rust and rust/flutter projects with support for cross compiling debug
-builds and packaging/publishing for all major stores.
+builds and packaging/publishing for all major stores. The goal of x is making native app development
+as easy as web development.
 
 ## Getting started
 Install `x`:
@@ -53,6 +54,8 @@ x build --device adb:16ee50bc
 [9/9] Create apk [4316ms]
 ```
 
+![x](https://user-images.githubusercontent.com/741807/162616805-30b48faa-84f0-4fec-851a-4c94fd35c6bd.png)
+
 ## Scope and limitations of x
 Flutter plugins won't be supported.
 
@@ -87,31 +90,37 @@ Cross compiling release builds is currently not possible for a few reasons:
 ```sh
 x doctor
 --------------------clang/llvm toolchain--------------------
-clang                /usr/bin/clang
-clang++              /usr/bin/clang++
-llvm-ar              /usr/bin/llvm-ar
-llvm-lib             /usr/bin/llvm-lib
-lld                  /usr/bin/lld
-lld-link             /usr/bin/lld-link
-lldb                 /usr/bin/lldb
-lldb-server          /usr/bin/lldb-server
+clang                13.0.1              /usr/bin/clang
+clang++              13.0.1              /usr/bin/clang++
+llvm-ar              unknown             /usr/bin/llvm-ar
+llvm-lib             unknown             /usr/bin/llvm-lib
+lld                  13.0.1              /usr/bin/lld
+lld-link             13.0.1              /usr/bin/lld-link
+lldb                 13.0.1              /usr/bin/lldb
+lldb-server          unknown             /usr/bin/lldb-server
 
 ----------------------------misc----------------------------
-cargo                /usr/bin/cargo
-git                  /usr/bin/git
-flutter              /usr/bin/flutter
+cargo                1.60.0              /usr/bin/cargo
+git                  2.35.1              /usr/bin/git
+flutter              2.10.4              /usr/bin/flutter
 
 --------------------------android---------------------------
-adb                  /opt/android-sdk/platform-tools/adb
-javac                /usr/bin/javac
-java                 /usr/bin/java
+adb                  1.0.41              /opt/android-sdk/platform-tools/adb
+javac                11.0.15             /usr/bin/javac
+java                 11.0.15             /usr/bin/java
 
 ----------------------------ios-----------------------------
-idevice_id           /usr/bin/idevice_id
-ideviceinfo          /usr/bin/ideviceinfo
-ideviceinstaller     /usr/bin/ideviceinstaller
-ideviceimagemounter  /usr/bin/ideviceimagemounter
-idevicedebug         /usr/bin/idevicedebug
+idevice_id           1.3.0-83-g5b8c9a8   /usr/bin/idevice_id
+ideviceinfo          1.3.0-83-g5b8c9a8   /usr/bin/ideviceinfo
+ideviceinstaller     1.1.1               /usr/bin/ideviceinstaller
+ideviceimagemounter  1.3.0-83-g5b8c9a8   /usr/bin/ideviceimagemounter
+idevicedebug         1.3.0-83-g5b8c9a8   /usr/bin/idevicedebug
+
+---------------------------linux----------------------------
+mksquashfs           4.5.1               /usr/bin/mksquashfs
+
+---------------------------macos----------------------------
+hdiutil              not found
 ```
 
 ### error: failed to run custom build command for glib-sys v0.14.0
