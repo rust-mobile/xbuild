@@ -31,7 +31,10 @@ enum Commands {
     /// List all connected devices
     Devices,
     /// Creates a new flutter/rust project
-    New { name: String },
+    New {
+        /// Project name
+        name: String,
+    },
     /// Updates the flutter sdk and cargo/pub dependencies
     Update {
         #[clap(flatten)]

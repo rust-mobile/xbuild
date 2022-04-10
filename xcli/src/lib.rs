@@ -324,18 +324,23 @@ pub struct BuildArgs {
     build_target: BuildTargetArgs,
     #[clap(flatten)]
     cargo: CargoArgs,
+    /// Use verbose output
     #[clap(long, short)]
     verbose: bool,
 }
 
 #[derive(Parser)]
 pub struct CargoArgs {
+    /// Cargo package to build
     #[clap(long, short)]
     package: Option<String>,
+    /// Path to Cargo.toml
     #[clap(long)]
     manifest_path: Option<PathBuf>,
+    /// Directory for all generated artifacts
     #[clap(long)]
     target_dir: Option<PathBuf>,
+    /// Run without accessing the network
     #[clap(long)]
     offline: bool,
 }
@@ -353,20 +358,33 @@ impl CargoArgs {
 
 #[derive(Parser)]
 pub struct BuildTargetArgs {
+    /// Build artifacts in debug mode, without optimizations
     #[clap(long, conflicts_with = "release")]
     debug: bool,
+    /// Build artifacts in release mode, with optimizations
     #[clap(long, conflicts_with = "debug")]
     release: bool,
+    /// Build artifacts for target platform. Can be one of
+    /// `android`, `ios`, `linux`, `macos` or `windows`.
     #[clap(long, conflicts_with = "device")]
     platform: Option<Platform>,
+    /// Build artifacts for target arch. Can be one of
+    /// `arm64` or `x64`.
     #[clap(long, requires = "platform")]
     arch: Option<Arch>,
+    /// Build artifacts for target device. To find the device
+    /// identifier of a connected device run `x devices`.
     #[clap(long, conflicts_with = "store")]
     device: Option<Device>,
+    /// Build artifacts for target app store. Can be one of
+    /// `apple`, `microsoft`, `play` or `sideload`.
     #[clap(long, conflicts_with = "device")]
     store: Option<Store>,
+    /// Path to a PEM encoded RSA2048 signing key and certificate
+    /// used to sign artifacts.
     #[clap(long)]
     pem: Option<PathBuf>,
+    /// Path to an apple provisioning profile.
     #[clap(long)]
     provisioning_profile: Option<PathBuf>,
 }
