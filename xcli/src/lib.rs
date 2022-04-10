@@ -717,22 +717,26 @@ impl BuildEnv {
         self.cache_dir().join("iPhoneOS.sdk")
     }
 
-    pub fn lldb_server(&self, target: CompileTarget) -> Option<PathBuf> {
+    pub fn lldb_server(&self, target: CompileTarget) -> Result<PathBuf> {
         match target.platform() {
             Platform::Android => {
                 let ndk = self.android_ndk();
                 let lib_dir = ndk.join("usr").join("lib").join(target.ndk_triple());
-                Some(lib_dir.join("lldb-server"))
+                Ok(lib_dir.join("lldb-server"))
             }
             Platform::Ios => {
                 todo!()
             }
-            _ => None,
+            _ => Ok(which::which("lldb-server")?),
         }
     }
 
     pub fn cargo_build(&self, target: CompileTarget, target_dir: &Path) -> Result<CargoBuild> {
         let mut cargo = self.cargo.build(target, target_dir)?;
+        if target.platform() == Platform::Linux {
+            cargo.add_link_arg("-Wl,-rpath");
+            cargo.add_link_arg("$ORIGIN/lib");
+        }
         if target.platform() == Platform::Android {
             let ndk = self.android_ndk();
             let target_sdk_version = self.manifest().android().sdk.target_sdk_version.unwrap();

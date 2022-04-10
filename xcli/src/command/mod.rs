@@ -1,7 +1,7 @@
 use crate::cargo::CrateType;
 use crate::devices::Device;
 use crate::task::TaskRunner;
-use crate::{BuildEnv, CompileTarget};
+use crate::{BuildEnv, CompileTarget, Platform};
 use anyhow::Result;
 use std::process::Command;
 
@@ -72,12 +72,14 @@ pub fn lldb(env: &BuildEnv) -> Result<()> {
             .join(target.platform().to_string())
             .join(target.arch().to_string())
             .join("cargo");
-        let executable = env.cargo_artefact(&cargo_dir, target, CrateType::Cdylib)?;
-        if let Some(lldb_server) = env.lldb_server(target) {
-            device.lldb(&lldb_server, &executable)?;
-        } else {
-            anyhow::bail!("lldb-server not found");
-        }
+        let executable = match target.platform() {
+            Platform::Android => env.cargo_artefact(&cargo_dir, target, CrateType::Cdylib)?,
+            Platform::Ios => env.output().join("main"),
+            Platform::Linux => env.output().join(env.name()),
+            Platform::Macos => env.executable(),
+            Platform::Windows => todo!(),
+        };
+        device.lldb(env, &executable)?;
     } else {
         anyhow::bail!("no device specified");
     }

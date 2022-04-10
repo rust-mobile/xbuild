@@ -111,4 +111,8 @@ impl IMobileDevice {
         let version = self.getkey(device, "ProductVersion")?;
         Ok(format!("{} {}", name, version))
     }
+
+    pub fn lldb(&self, _device: &str, _executable: &Path) -> Result<()> {
+        anyhow::bail!("unimplemented");
+    }
 }

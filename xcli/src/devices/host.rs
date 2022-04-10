@@ -85,4 +85,9 @@ impl Host {
             child: Some(child),
         })
     }
+
+    pub fn lldb(&self, executable: &Path) -> Result<()> {
+        Command::new("lldb").arg(executable).status()?;
+        Ok(())
+    }
 }

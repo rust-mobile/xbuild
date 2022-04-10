@@ -27,13 +27,8 @@ impl AppImage {
     }
 
     pub fn add_apprun(&self) -> Result<()> {
-        let apprun = self.appdir.join("AppRun");
-        let mut f = File::create(&apprun)?;
-        writeln!(f, "#!/bin/sh")?;
-        writeln!(f, r#"cd "$(dirname "$0")""#)?;
-        writeln!(f, "LD_LIBRARY_PATH=./lib exec ./{}", self.name)?;
         #[cfg(unix)]
-        std::fs::set_permissions(apprun, Permissions::from_mode(0o755))?;
+        std::os::unix::fs::symlink(&self.name, self.appdir.join("AppRun"))?;
         Ok(())
     }
 

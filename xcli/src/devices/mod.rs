@@ -1,7 +1,7 @@
 use crate::devices::adb::Adb;
 use crate::devices::host::Host;
 use crate::devices::imd::IMobileDevice;
-use crate::{Arch, BuildEnv, Platform};
+use crate::{Arch, BuildEnv, CompileTarget, Opt, Platform};
 use anyhow::Result;
 use std::path::Path;
 use std::process::{Child, Command};
@@ -126,11 +126,12 @@ impl Device {
         Ok(())
     }
 
-    pub fn lldb(&self, lldb_server: &Path, executable: &Path) -> Result<()> {
+    pub fn lldb(&self, env: &BuildEnv, executable: &Path) -> Result<()> {
+        let target = CompileTarget::new(self.platform()?, self.arch()?, Opt::Debug);
         match &self.backend {
-            Backend::Adb(adb) => adb.lldb(&self.id, lldb_server, executable),
-            Backend::Host(_) => anyhow::bail!("x lldb for host device not implemented"),
-            Backend::Imd(_) => anyhow::bail!("x lldb for ios device not implemented"),
+            Backend::Adb(adb) => adb.lldb(&self.id, executable, &env.lldb_server(target)?),
+            Backend::Host(host) => host.lldb(executable),
+            Backend::Imd(imd) => imd.lldb(&self.id, executable),
         }
     }
 
