@@ -1,13 +1,14 @@
-use crate::devices::{Backend, BuildEnv, Device, Run};
+use crate::devices::{Backend, Device, PartialRunner};
 use crate::{Arch, Platform};
 use anyhow::Result;
+use apk::Apk;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdout, Command, Stdio};
 use std::time::Duration;
 
 #[derive(Clone, Debug)]
-pub struct Adb(PathBuf);
+pub(crate) struct Adb(PathBuf);
 
 impl Adb {
     pub fn which() -> Result<Self> {
@@ -111,6 +112,38 @@ impl Adb {
         if !status.success() {
             anyhow::bail!(
                 "adb shell am force-stop exited with code {:?}",
+                status.code()
+            );
+        }
+        Ok(())
+    }
+
+    fn set_debug_app(&self, device: &str, package: &str) -> Result<()> {
+        let status = self
+            .shell(device, None)
+            .arg("am")
+            .arg("set-debug-app")
+            .arg("-w")
+            .arg(package)
+            .status()?;
+        if !status.success() {
+            anyhow::bail!(
+                "adb shell am set-debug-app exited with code {:?}",
+                status.code()
+            );
+        }
+        Ok(())
+    }
+
+    fn clear_debug_app(&self, device: &str) -> Result<()> {
+        let status = self
+            .shell(device, None)
+            .arg("am")
+            .arg("clear-debug-app")
+            .status()?;
+        if !status.success() {
+            anyhow::bail!(
+                "adb shell am clear-debug-app exited with code {:?}",
                 status.code()
             );
         }
@@ -249,25 +282,18 @@ impl Adb {
         &self,
         device: &str,
         path: &Path,
-        env: &BuildEnv,
         flutter_attach: bool,
-    ) -> Result<Run> {
-        // TODO: parse from manifest and remove xrun
-        let manifest = env.manifest().android();
-        let package = manifest.package.as_ref().unwrap();
-        let activity = manifest.application.activities[0].name.as_ref().unwrap();
-        self.xrun(device, path, package, activity, flutter_attach)
-    }
-
-    pub fn xrun(
-        &self,
-        device: &str,
-        path: &Path,
-        package: &str,
-        activity: &str,
-        flutter_attach: bool,
-    ) -> Result<Run> {
+        debug: bool,
+    ) -> Result<PartialRunner> {
+        let entry_point = Apk::entry_point(path)?;
+        let package = &entry_point.package;
+        let activity = &entry_point.activity;
         self.stop(device, package)?;
+        if debug {
+            self.set_debug_app(device, package)?;
+        } else {
+            self.clear_debug_app(device)?;
+        }
         self.install(device, path)?;
         let last_timestamp = self.logcat_last_timestamp(device)?;
         self.start(device, package, activity)?;
@@ -288,7 +314,7 @@ impl Adb {
         } else {
             None
         };
-        Ok(Run {
+        Ok(PartialRunner {
             url,
             logger: Box::new(move || {
                 for line in logcat {

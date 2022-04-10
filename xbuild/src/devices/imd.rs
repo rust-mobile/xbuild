@@ -1,11 +1,11 @@
-use crate::devices::{Backend, Device, Run};
+use crate::devices::{Backend, Device, PartialRunner};
 use crate::{Arch, Platform};
 use anyhow::Result;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
 #[derive(Clone, Debug)]
-pub struct IMobileDevice {
+pub(crate) struct IMobileDevice {
     idevice_id: PathBuf,
     ideviceinfo: PathBuf,
     ideviceinstaller: PathBuf,
@@ -61,12 +61,12 @@ impl IMobileDevice {
         Ok(())
     }
 
-    pub fn run(&self, device: &str, path: &Path, _flutter_attach: bool) -> Result<Run> {
+    pub fn run(&self, device: &str, path: &Path, _flutter_attach: bool) -> Result<PartialRunner> {
         let bundle_identifier = appbundle::app_bundle_identifier(path)?;
         self.install(device, path)?;
         self.start(device, &bundle_identifier)?;
         // TODO: log, attach
-        Ok(Run {
+        Ok(PartialRunner {
             url: None,
             logger: Box::new(|| unimplemented!()),
             child: None,

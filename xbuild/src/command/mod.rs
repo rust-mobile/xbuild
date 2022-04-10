@@ -56,7 +56,9 @@ pub fn update(env: &BuildEnv) -> Result<()> {
 pub fn run(env: &BuildEnv) -> Result<()> {
     let out = env.executable();
     if let Some(device) = env.target().device() {
-        device.run(&out, env, env.has_dart_code())?;
+        device
+            .run(&out, env.has_dart_code())?
+            .attach(env.root_dir(), env.target_file())?;
     } else {
         anyhow::bail!("no device specified");
     }
@@ -79,7 +81,11 @@ pub fn lldb(env: &BuildEnv) -> Result<()> {
             Platform::Macos => env.executable(),
             Platform::Windows => todo!(),
         };
-        device.lldb(env, &executable)?;
+        let lldb_server = match target.platform() {
+            Platform::Android => Some(env.lldb_server(target)?),
+            _ => None,
+        };
+        device.lldb(&executable, lldb_server.as_deref())?;
     } else {
         anyhow::bail!("no device specified");
     }

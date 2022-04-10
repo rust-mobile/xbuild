@@ -1,7 +1,7 @@
 use crate::devices::adb::Adb;
 use crate::devices::host::Host;
 use crate::devices::imd::IMobileDevice;
-use crate::{Arch, BuildEnv, CompileTarget, Opt, Platform};
+use crate::{Arch, Platform};
 use anyhow::Result;
 use std::path::Path;
 use std::process::{Child, Command};
@@ -111,25 +111,24 @@ impl Device {
         }
     }
 
-    pub fn run(&self, path: &Path, env: &BuildEnv, attach: bool) -> Result<()> {
-        let run = match &self.backend {
-            Backend::Adb(adb) => adb.run(&self.id, path, env, attach),
+    pub fn run(&self, path: &Path, attach: bool) -> Result<Runner> {
+        let runner = match &self.backend {
+            Backend::Adb(adb) => adb.run(&self.id, path, attach, false),
             Backend::Host(host) => host.run(path, attach),
             Backend::Imd(imd) => imd.run(&self.id, path, attach),
         }?;
-        if let Some(url) = run.url {
-            std::thread::spawn(run.logger);
-            self.attach(&url, env.root_dir(), env.target_file())?;
-        } else {
-            (run.logger)();
-        }
-        Ok(())
+        Ok(Runner::new(self.clone(), runner))
     }
 
-    pub fn lldb(&self, env: &BuildEnv, executable: &Path) -> Result<()> {
-        let target = CompileTarget::new(self.platform()?, self.arch()?, Opt::Debug);
+    pub fn lldb(&self, executable: &Path, lldb_server: Option<&Path>) -> Result<()> {
         match &self.backend {
-            Backend::Adb(adb) => adb.lldb(&self.id, executable, &env.lldb_server(target)?),
+            Backend::Adb(adb) => {
+                if let Some(lldb_server) = lldb_server {
+                    adb.lldb(&self.id, executable, lldb_server)
+                } else {
+                    anyhow::bail!("lldb-server required on android");
+                }
+            }
             Backend::Host(host) => host.lldb(executable),
             Backend::Imd(imd) => imd.lldb(&self.id, executable),
         }
@@ -169,34 +168,54 @@ impl Device {
         attach.status()?;
         Ok(())
     }
-
-    // TODO: remove once run args get parsed from manifest
-    pub fn xrun_host(&self, path: &Path, attach: bool) -> Result<Run> {
-        if let Backend::Host(host) = &self.backend {
-            host.run(path, attach)
-        } else {
-            anyhow::bail!("not host");
-        }
-    }
-
-    // TODO: remove once run args get parsed from manifest
-    pub fn xrun_adb(
-        &self,
-        path: &Path,
-        package: &str,
-        activity: &str,
-        attach: bool,
-    ) -> Result<Run> {
-        if let Backend::Adb(adb) = &self.backend {
-            adb.xrun(&self.id, path, package, activity, attach)
-        } else {
-            anyhow::bail!("not adb");
-        }
-    }
 }
 
-pub struct Run {
-    pub url: Option<String>,
-    pub logger: Box<dyn FnOnce() + Send>,
-    pub child: Option<Child>,
+pub(crate) struct PartialRunner {
+    url: Option<String>,
+    logger: Box<dyn FnOnce() + Send>,
+    child: Option<Child>,
+}
+
+#[must_use]
+pub struct Runner {
+    device: Device,
+    url: Option<String>,
+    logger: Box<dyn FnOnce() + Send>,
+    child: Option<Child>,
+}
+
+impl Runner {
+    fn new(device: Device, runner: PartialRunner) -> Self {
+        Self {
+            device,
+            url: runner.url,
+            logger: runner.logger,
+            child: runner.child,
+        }
+    }
+
+    pub fn wait(self) {
+        (self.logger)();
+    }
+
+    pub fn url(&self) -> Option<&str> {
+        self.url.as_deref()
+    }
+
+    pub fn attach(self, root_dir: &Path, target: &Path) -> Result<()> {
+        if let Some(url) = self.url.as_ref() {
+            std::thread::spawn(self.logger);
+            self.device.attach(url, root_dir, target)?;
+        } else {
+            self.wait();
+        }
+        Ok(())
+    }
+
+    pub fn kill(self) -> Result<()> {
+        if let Some(mut child) = self.child {
+            child.kill()?;
+        }
+        Ok(())
+    }
 }

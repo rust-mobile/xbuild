@@ -120,6 +120,16 @@ impl Apk {
     pub fn verify(path: &Path) -> Result<Vec<Certificate>> {
         crate::sign::verify(path)
     }
+
+    pub fn entry_point(path: &Path) -> Result<EntryPoint> {
+        todo!();
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EntryPoint {
+    pub package: String,
+    pub activity: String,
 }
 
 #[cfg(test)]

@@ -1,4 +1,4 @@
-use crate::devices::Run;
+use crate::devices::PartialRunner;
 use crate::{Arch, Platform};
 use anyhow::Result;
 use std::io::{BufRead, BufReader};
@@ -6,7 +6,7 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 
 #[derive(Clone, Debug)]
-pub struct Host;
+pub(crate) struct Host;
 
 impl Host {
     pub fn name(&self) -> Result<String> {
@@ -52,7 +52,7 @@ impl Host {
         }
     }
 
-    pub fn run(&self, path: &Path, flutter_attach: bool) -> Result<Run> {
+    pub fn run(&self, path: &Path, flutter_attach: bool) -> Result<PartialRunner> {
         let mut child = Command::new(path)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
@@ -75,7 +75,7 @@ impl Host {
         } else {
             None
         };
-        Ok(Run {
+        Ok(PartialRunner {
             url,
             logger: Box::new(move || {
                 for line in lines.flatten() {
