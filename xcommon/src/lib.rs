@@ -1,3 +1,5 @@
+pub mod llvm;
+
 use anyhow::{Context, Result};
 use byteorder::{LittleEndian, ReadBytesExt};
 use image::imageops::FilterType;
