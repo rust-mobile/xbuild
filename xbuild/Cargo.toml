@@ -1,6 +1,6 @@
 [package]
 name = "xbuild"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Builds flutter/rust mobile/desktop projects."
 repository = "https://github.com/cloudpeers/x"
@@ -9,9 +9,9 @@ license = "Apache-2.0 OR MIT"
 [dependencies]
 android-sdkmanager-rs = "0.5.0"
 anyhow = "1.0.56"
-apk = { version = "0.2.0", path = "../apk" }
-appbundle = { version = "0.1.0", path = "../appbundle" }
-appimage = { version = "0.2.0", path = "../appimage" }
+apk = { version = "0.3.0", path = "../apk" }
+appbundle = { version = "0.2.0", path = "../appbundle" }
+appimage = { version = "0.3.0", path = "../appimage" }
 base64 = "0.13.0"
 clap = { version = "3.0.13", features = ["derive"] }
 console = "0.15.0"
@@ -23,7 +23,7 @@ indicatif = "0.16.2"
 jsonrpsee = { version = "0.10.1", features = ["ws-client"] }
 log = "0.4.14"
 log-panics = "2.0.0"
-msix = { version = "0.2.0", path = "../msix" }
+msix = { version = "0.3.0", path = "../msix" }
 mvn = { version = "0.1.0", path = "../mvn" }
 path-slash = "0.1.4"
 reqwest = { version = "0.11.9", features = ["blocking"] }
@@ -37,7 +37,7 @@ tracing = { version = "0.1.32", default-features = false }
 tracing-log = "0.1.2"
 tracing-subscriber = { version = "0.3.9", default-features = false, features = ["env-filter", "fmt"] }
 which = "4.2.4"
-xcommon = { version = "0.1.0", path = "../xcommon" }
+xcommon = { version = "0.2.0", path = "../xcommon" }
 zip = { version = "0.6.0", default-features = false }
 zstd = "0.11.1"
 

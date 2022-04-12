@@ -1,6 +1,6 @@
 [package]
 name = "appbundle"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Library for creating and signing appbundles."
 repository = "https://github.com/cloudpeers/x"
@@ -17,4 +17,4 @@ rasn = "0.5.0"
 rasn-cms = "0.5.0"
 serde = { version = "1.0.136", features = ["derive"] }
 x509-certificate = "0.12.0"
-xcommon = { version = "0.1.0", path = "../xcommon" }
+xcommon = { version = "0.2.0", path = "../xcommon" }
