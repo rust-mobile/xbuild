@@ -1,5 +1,5 @@
 use anyhow::Result;
-use apple_codesign::{BundleSigner, ExecutableSegmentFlags, SettingsScope, SigningSettings};
+use apple_codesign::{BundleSigner, SettingsScope, SigningSettings};
 use icns::{IconFamily, Image};
 use pkcs8::EncodePrivateKey;
 use plist::Value;
@@ -212,10 +212,6 @@ impl AppBundle {
 
         if let Some(signer) = signer {
             let mut signing_settings = SigningSettings::default();
-            signing_settings.set_executable_segment_flags(
-                SettingsScope::Main,
-                ExecutableSegmentFlags::MAIN_BINARY,
-            );
             let cert =
                 CapturedX509Certificate::from_der(rasn::der::encode(signer.cert()).unwrap())?;
             let key = InMemorySigningKeyPair::from_pkcs8_der(signer.key().to_pkcs8_der().unwrap())?;
