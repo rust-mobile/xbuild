@@ -27,7 +27,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - uses: hecrj/setup-rust-action@v1
-    - run: cargo install --path xcli --root .
+    - run: cargo install --path xbuild --root .
     - uses: actions/upload-artifact@v2
       with:
         name: ubuntu-latest-x
@@ -42,7 +42,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - uses: hecrj/setup-rust-action@v1
-    - run: cargo install --path xcli --root .
+    - run: cargo install --path xbuild --root .
     - uses: actions/upload-artifact@v2
       with:
         name: macos-latest-x
@@ -57,7 +57,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - uses: hecrj/setup-rust-action@v1
-    - run: cargo install --path xcli --root .
+    - run: cargo install --path xbuild --root .
     - uses: actions/upload-artifact@v2
       with:
         name: windows-latest-x
