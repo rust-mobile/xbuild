@@ -24,7 +24,7 @@ jsonrpsee = { version = "0.10.1", features = ["ws-client"] }
 log = "0.4.14"
 log-panics = "2.0.0"
 msix = { version = "0.2.0", path = "../msix" }
-mvn = { version = "0.1.0", path = "../maven" }
+mvn = { version = "0.1.0", path = "../mvn" }
 path-slash = "0.1.4"
 reqwest = { version = "0.11.9", features = ["blocking"] }
 serde = { version = "1.0.136", features = ["derive"] }

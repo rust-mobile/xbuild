@@ -3,7 +3,7 @@ members = [
     "apk",
     "appbundle",
     "appimage",
-    "maven",
+    "mvn",
     "msix",
     "xbuild",
     "xcommon",
