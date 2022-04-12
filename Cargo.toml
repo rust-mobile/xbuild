@@ -5,8 +5,8 @@ members = [
     "appimage",
     "maven",
     "msix",
-    "xcli",
+    "xbuild",
     "xcommon",
 ]
-default-members = ["xcli"]
+default-members = ["xbuild"]
 exclude = ["examples"]
