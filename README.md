@@ -62,7 +62,6 @@ Flutter plugins won't be supported.
 Cross compiling release builds is currently not possible for a few reasons:
 
  - dart/flutter lacks support for cross compiling aot snapshots
- - creating an appimage relies on mksquashfs (linux only)
  - creating a dmg relies on hdiutil (macos only)
 
 ### Android
@@ -74,7 +73,6 @@ Cross compiling release builds is currently not possible for a few reasons:
 
 ### Linux
  - Appimage signing has not been implemented yet (#5).
- - Linux sysroot to improve distro support and cross compilation has not been implemented yet (#14).
 
 ### Macos
  - Release build signing and notarization has not been implemented yet (#34).
