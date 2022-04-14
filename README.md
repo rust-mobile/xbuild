@@ -1,10 +1,10 @@
-# x
-Cross is a build tool for rust and rust/flutter projects with support for cross compiling debug
-builds and packaging/publishing for all major stores. The goal of x is making native app development
+# xbuild
+xbuild is a build tool for rust and rust/flutter projects with support for cross compiling debug
+builds and packaging/publishing for all major stores. The goal of xbuild is making native app development
 as easy as web development.
 
 ## Getting started
-Install `x`:
+Install `xbuild`:
 ```sh
 cargo install xbuild
 ```
