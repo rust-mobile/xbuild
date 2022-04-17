@@ -1,4 +1,4 @@
-use crate::arsc::{Chunk, ResAttributeType, ResTableEntry, ResTableRef, ResTableValue, ResValue};
+use crate::res::{Chunk, ResAttributeType, ResTableEntry, ResTableRef, ResTableValue, ResValue};
 use anyhow::Result;
 use std::io::Cursor;
 use std::path::Path;

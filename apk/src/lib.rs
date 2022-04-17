@@ -1,4 +1,5 @@
 use crate::compiler::Table;
+use crate::res::Chunk;
 use anyhow::Result;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
@@ -123,9 +124,75 @@ impl Apk {
 
     pub fn entry_point(path: &Path) -> Result<EntryPoint> {
         let manifest = xcommon::extract_zip_file(path, "AndroidManifest.xml")?;
-        let chunk = arsc::Chunk::parse(&mut Cursor::new(manifest))?;
-
-        todo!();
+        let chunks = if let Chunk::Xml(chunks) = Chunk::parse(&mut Cursor::new(manifest))? {
+            chunks
+        } else {
+            anyhow::bail!("invalid manifest 0");
+        };
+        let strings = if let Chunk::StringPool(strings, _) = &chunks[0] {
+            strings
+        } else {
+            anyhow::bail!("invalid manifest 1");
+        };
+        let mut manifest = None;
+        let mut package = None;
+        let mut activity = None;
+        let mut name = None;
+        for (i, s) in strings.iter().enumerate() {
+            match s.as_str() {
+                "manifest" => {
+                    manifest = Some(i as i32);
+                }
+                "package" => {
+                    package = Some(i as i32);
+                }
+                "activity" => {
+                    activity = Some(i as i32);
+                }
+                "name" => {
+                    name = Some(i as i32);
+                }
+                _ => {}
+            }
+        }
+        let (manifest, package, activity, name) =
+            if let (Some(manifest), Some(package), Some(activity), Some(name)) =
+                (manifest, package, activity, name)
+            {
+                (manifest, package, activity, name)
+            } else {
+                anyhow::bail!("invalid manifest 2");
+            };
+        let mut package_value = None;
+        let mut name_value = None;
+        for chunk in &chunks[2..] {
+            if let Chunk::XmlStartElement(_, el, attrs) = chunk {
+                match el.name {
+                    x if x == manifest => {
+                        package_value = attrs
+                            .iter()
+                            .find(|attr| attr.name == package)
+                            .map(|attr| attr.raw_value);
+                    }
+                    x if x == activity => {
+                        name_value = attrs
+                            .iter()
+                            .find(|attr| attr.name == name)
+                            .map(|attr| attr.raw_value);
+                    }
+                    _ => {}
+                }
+            }
+        }
+        let entry = if let (Some(package_value), Some(name_value)) = (package_value, name_value) {
+            EntryPoint {
+                package: strings[package_value as usize].clone(),
+                activity: strings[name_value as usize].clone(),
+            }
+        } else {
+            anyhow::bail!("invalid manifest 3");
+        };
+        Ok(entry)
     }
 }
 
