@@ -1,9 +1,7 @@
-use crate::res::{Chunk, ResAttributeType, ResTableEntry, ResTableRef, ResTableValue, ResValue};
+use crate::arsc::{Chunk, ResAttributeType, ResTableEntry, ResTableRef, ResTableValue, ResValue};
 use anyhow::Result;
-use std::fs::File;
-use std::io::{BufReader, Cursor, Read};
+use std::io::Cursor;
 use std::path::Path;
-use zip::ZipArchive;
 
 pub struct Ref<'a> {
     package: Option<&'a str>,
@@ -193,12 +191,8 @@ pub struct Table {
 
 impl Table {
     pub fn import_apk(&mut self, apk: &Path) -> Result<()> {
-        let mut zip = ZipArchive::new(BufReader::new(File::open(apk)?))?;
-        let mut f = zip.by_name("resources.arsc")?;
-        let mut buf = vec![];
-        f.read_to_end(&mut buf)?;
-        let mut cursor = Cursor::new(&buf);
-        let chunk = Chunk::parse(&mut cursor)?;
+        let resources = xcommon::extract_zip_file(apk, "resources.arsc")?;
+        let chunk = Chunk::parse(&mut Cursor::new(resources))?;
         self.import_chunk(&chunk);
         Ok(())
     }

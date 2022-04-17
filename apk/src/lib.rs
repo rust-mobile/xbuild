@@ -122,6 +122,9 @@ impl Apk {
     }
 
     pub fn entry_point(path: &Path) -> Result<EntryPoint> {
+        let manifest = xcommon::extract_zip_file(path, "AndroidManifest.xml")?;
+        let chunk = arsc::Chunk::parse(&mut Cursor::new(manifest))?;
+
         todo!();
     }
 }

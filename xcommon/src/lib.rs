@@ -465,6 +465,14 @@ pub fn extract_zip(archive: &Path, directory: &Path) -> Result<()> {
     Ok(())
 }
 
+pub fn extract_zip_file(archive: &Path, name: &str) -> Result<Vec<u8>> {
+    let mut archive = ZipArchive::new(File::open(archive)?)?;
+    let mut f = archive.by_name(name)?;
+    let mut buf = Vec::with_capacity(f.size() as usize);
+    f.read_to_end(&mut buf)?;
+    Ok(buf)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
