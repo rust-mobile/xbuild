@@ -270,19 +270,22 @@ fn find_cde_start_pos<R: Read + Seek>(reader: &mut R) -> Result<u64> {
 
 pub struct Zip {
     zip: ZipWriter<File>,
+    compress: bool,
 }
 
 impl Zip {
-    pub fn new(path: &Path) -> Result<Self> {
+    pub fn new(path: &Path, compress: bool) -> Result<Self> {
         Ok(Self {
             zip: ZipWriter::new(File::create(path)?),
+            compress,
         })
     }
 
-    pub fn append(path: &Path) -> Result<Self> {
+    pub fn append(path: &Path, compress: bool) -> Result<Self> {
         let f = OpenOptions::new().read(true).write(true).open(path)?;
         Ok(Self {
             zip: ZipWriter::new_append(f)?,
+            compress,
         })
     }
 
@@ -320,7 +323,12 @@ impl Zip {
             .map(|seg| seg.to_str().unwrap())
             .collect::<Vec<_>>()
             .join("/");
-        let zopts = FileOptions::default().compression_method(opts.compression_method());
+        let compression_method = if self.compress {
+            opts.compression_method()
+        } else {
+            CompressionMethod::Stored
+        };
+        let zopts = FileOptions::default().compression_method(compression_method);
         self.zip.start_file_aligned(name, zopts, opts.alignment())?;
         Ok(())
     }

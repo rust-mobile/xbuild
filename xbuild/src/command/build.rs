@@ -206,7 +206,11 @@ pub fn build(env: &BuildEnv) -> Result<()> {
         }
         Platform::Android => {
             let out = platform_dir.join(format!("{}.apk", env.name()));
-            let mut apk = Apk::new(out, env.manifest().android().clone())?;
+            let mut apk = Apk::new(
+                out,
+                env.manifest().android().clone(),
+                env.target().opt() != Opt::Debug,
+            )?;
             apk.add_res(env.icon(), &env.android_jar())?;
             if let Some(flutter) = env.flutter() {
                 for target in env.target().compile_targets() {
@@ -392,7 +396,11 @@ pub fn build(env: &BuildEnv) -> Result<()> {
             let arch_dir = platform_dir.join(target.arch().to_string());
             std::fs::create_dir_all(&arch_dir)?;
             let out = arch_dir.join(format!("{}.msix", env.name()));
-            let mut msix = Msix::new(out, env.manifest().windows().clone())?;
+            let mut msix = Msix::new(
+                out,
+                env.manifest().windows().clone(),
+                target.opt() != Opt::Debug,
+            )?;
             if let Some(icon) = env.icon() {
                 msix.add_icon(icon)?;
             }

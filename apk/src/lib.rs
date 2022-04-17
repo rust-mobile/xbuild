@@ -22,8 +22,8 @@ pub struct Apk {
 }
 
 impl Apk {
-    pub fn new(path: PathBuf, manifest: AndroidManifest) -> Result<Self> {
-        let zip = Zip::new(&path)?;
+    pub fn new(path: PathBuf, manifest: AndroidManifest, compress: bool) -> Result<Self> {
+        let zip = Zip::new(&path, compress)?;
         Ok(Self {
             manifest,
             path,

@@ -36,14 +36,16 @@ pub struct Msix {
     manifest: AppxManifest,
     path: PathBuf,
     zip: Zip,
+    compress: bool,
 }
 
 impl Msix {
-    pub fn new(path: PathBuf, manifest: AppxManifest) -> Result<Self> {
+    pub fn new(path: PathBuf, manifest: AppxManifest, compress: bool) -> Result<Self> {
         Ok(Self {
             manifest,
-            zip: Zip::new(&path)?,
+            zip: Zip::new(&path, compress)?,
             path,
+            compress,
         })
     }
 
@@ -83,10 +85,10 @@ impl Msix {
             &to_xml(&self.manifest, true),
         )?;
         self.zip.finish()?;
-        Self::sign(&self.path, signer)
+        Self::sign(&self.path, signer, self.compress)
     }
 
-    pub fn sign(path: &Path, signer: Option<Signer>) -> Result<()> {
+    pub fn sign(path: &Path, signer: Option<Signer>, compress: bool) -> Result<()> {
         let signer = signer
             .map(Ok)
             .unwrap_or_else(|| Signer::new(DEBUG_PEM))
@@ -105,7 +107,7 @@ impl Msix {
         let axct = Sha256::digest(&content_types);
         let block_map = to_xml(&block_map.finish(), false);
         let axbm = Sha256::digest(&block_map);
-        let mut zip = Zip::append(path)?;
+        let mut zip = Zip::append(path, compress)?;
         zip.create_file(
             "[Content_Types].xml".as_ref(),
             ZipFileOptions::Compressed,
@@ -139,7 +141,7 @@ impl Msix {
 
         // sign zip
         let sig = p7x::p7x(&signer, &digests);
-        let mut zip = Zip::append(path)?;
+        let mut zip = Zip::append(path, compress)?;
         zip.create_file(
             "AppxSignature.p7x".as_ref(),
             ZipFileOptions::Compressed,
