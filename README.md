@@ -1,7 +1,7 @@
 # xbuild
-xbuild is a build tool for rust and rust/flutter projects with support for cross compiling debug
-builds and packaging/publishing for all major stores. The goal of xbuild is making native app development
-as easy as web development.
+xbuild is a build tool for rust and rust/flutter projects with support for cross compiling and
+publishing to all major stores. The goal of xbuild is making native app development as easy as
+web development.
 
 ## Getting started
 Install `xbuild`:
@@ -56,23 +56,14 @@ x build --device adb:16ee50bc
 
 ![x](https://user-images.githubusercontent.com/741807/162616805-30b48faa-84f0-4fec-851a-4c94fd35c6bd.png)
 
-## Scope and limitations of x
+## Scope and limitations of xbuild
 Flutter plugins won't be supported.
 
-Cross compiling release builds is currently not possible for a few reasons:
-
- - dart/flutter lacks support for cross compiling aot snapshots
- - creating a dmg relies on hdiutil (macos only)
+Cross compiling release builds is currently not possible because dart/flutter lack support for
+cross compiling aot snapshots
 
 ### Android
  - Building Android app bundles is not implemented yet (#6).
- - Improve debugging experience (#28).
-
-### Ios
- - ios-deploy like tool (#40).
-
-### Linux
- - Appimage signing has not been implemented yet (#5).
 
 ### Windows
  - Msix packaging has not been implemented yet (#33).
