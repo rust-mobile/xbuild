@@ -281,6 +281,7 @@ pub fn make_dmg(build_dir: &Path, appbundle: &Path, dmg: &Path) -> Result<()> {
     let name = dmg.file_stem().unwrap().to_str().unwrap();
     let uncompressed = build_dir.join(format!("{}.uncompressed.dmg", name));
     make_uncompressed_dmg(appbundle, &uncompressed, name)?;
+    //add_applications_link(build_dir, &uncompressed)?;
     make_compressed_dmg(&uncompressed, dmg)?;
     Ok(())
 }
@@ -291,16 +292,49 @@ fn make_uncompressed_dmg(appbundle: &Path, uncompressed_dmg: &Path, volname: &st
         .arg(uncompressed_dmg)
         .arg("-ov")
         .arg("-quiet")
+        .arg("-format")
+        .arg("UDRW")
         .arg("-volname")
         .arg(volname)
         .arg("-fs")
-        .arg("HFS+")
+        .arg("fat32")
         .arg("-srcfolder")
         .arg(appbundle)
         .status()?;
     if !status.success() {
         anyhow::bail!("failed to build uncompressed dmg");
     }
+    Ok(())
+}
+
+#[allow(unused)]
+fn add_applications_link(build_dir: &Path, uncompressed_dmg: &Path) -> Result<()> {
+    let mount_point = build_dir.join("mnt");
+    std::fs::create_dir_all(&mount_point)?;
+
+    let status = Command::new("hdiutil")
+        .arg("attach")
+        .arg("-quiet")
+        .arg("-mountpoint")
+        .arg(&mount_point)
+        .arg(&uncompressed_dmg)
+        .status()?;
+    if !status.success() {
+        anyhow::bail!("failed to attach dmg");
+    }
+
+    #[cfg(unix)]
+    std::os::unix::fs::symlink("/Applications", mount_point.join("Applications"))?;
+
+    let status = Command::new("hdiutil")
+        .arg("unmount")
+        .arg("-quiet")
+        .arg(mount_point)
+        .status()?;
+    if !status.success() {
+        anyhow::bail!("failed to detach dmg");
+    }
+
     Ok(())
 }
 
