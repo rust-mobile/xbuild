@@ -387,6 +387,12 @@ pub struct BuildTargetArgs {
     /// Path to an apple provisioning profile.
     #[clap(long)]
     provisioning_profile: Option<PathBuf>,
+    /// Api key.
+    #[clap(long)]
+    api_key: Option<String>,
+    /// Api issuer.
+    #[clap(long)]
+    api_issuer: Option<String>,
 }
 
 impl BuildTargetArgs {
@@ -459,6 +465,12 @@ impl BuildTargetArgs {
         if provisioning_profile.is_none() && platform == Platform::Ios {
             anyhow::bail!("missing provisioning profile");
         }
+        let mut notarization_key_and_issuer = None;
+        if platform == Platform::Macos {
+            if let (Some(api_key), Some(api_issuer)) = (self.api_key, self.api_issuer) {
+                notarization_key_and_issuer = Some((api_key, api_issuer));
+            }
+        }
         Ok(BuildTarget {
             opt,
             platform,
@@ -468,6 +480,7 @@ impl BuildTargetArgs {
             store,
             signer,
             provisioning_profile,
+            notarization_key_and_issuer,
         })
     }
 }
@@ -482,6 +495,7 @@ pub struct BuildTarget {
     store: Option<Store>,
     signer: Option<Signer>,
     provisioning_profile: Option<Vec<u8>>,
+    notarization_key_and_issuer: Option<(String, String)>,
 }
 
 impl BuildTarget {
@@ -528,6 +542,12 @@ impl BuildTarget {
 
     pub fn provisioning_profile(&self) -> Option<&[u8]> {
         self.provisioning_profile.as_deref()
+    }
+
+    pub fn notarization_key_and_issuer(&self) -> Option<(&str, &str)> {
+        self.notarization_key_and_issuer
+            .as_ref()
+            .map(|(key, issuer)| (key.as_str(), issuer.as_str()))
     }
 }
 

@@ -1,5 +1,8 @@
 use anyhow::Result;
-use apple_codesign::{BundleSigner, SettingsScope, SigningSettings};
+use apple_codesign::stapling::Stapler;
+use apple_codesign::{
+    BundleSigner, CodeSignatureFlags, NotarizationUpload, Notarizer, SettingsScope, SigningSettings,
+};
 use icns::{IconFamily, Image};
 use pkcs8::EncodePrivateKey;
 use plist::Value;
@@ -8,6 +11,7 @@ use std::fs::File;
 use std::io::{BufWriter, Cursor};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::Duration;
 use x509_certificate::{CapturedX509Certificate, InMemorySigningKeyPair};
 use xcommon::{Scaler, ScalerOpts, Signer};
 
@@ -44,8 +48,12 @@ impl AppBundle {
         &self.appdir
     }
 
+    fn ios(&self) -> bool {
+        self.info.requires_ios == Some(true)
+    }
+
     fn content_dir(&self) -> PathBuf {
-        if self.info.requires_ios == Some(true) {
+        if self.ios() {
             self.appdir.to_path_buf()
         } else {
             self.appdir.join("Contents")
@@ -53,7 +61,7 @@ impl AppBundle {
     }
 
     fn resource_dir(&self) -> PathBuf {
-        if self.info.requires_ios == Some(true) {
+        if self.ios() {
             self.content_dir()
         } else {
             self.content_dir().join("Resources")
@@ -66,7 +74,7 @@ impl AppBundle {
 
     fn executable_dir(&self) -> PathBuf {
         let contents = self.content_dir();
-        if self.info.requires_ios == Some(true) {
+        if self.ios() {
             contents
         } else {
             contents.join("MacOS")
@@ -206,11 +214,15 @@ impl AppBundle {
         Ok(())
     }
 
-    pub fn finish(self, signer: Option<Signer>) -> Result<PathBuf> {
+    pub fn finish(&self, signer: Option<Signer>) -> Result<()> {
         let path = self.content_dir().join("Info.plist");
         plist::to_file_xml(path, &self.info)?;
 
         if let Some(signer) = signer {
+            anyhow::ensure!(
+                self.info.bundle_identifier.is_some(),
+                "missing bundle identifier"
+            );
             let mut signing_settings = SigningSettings::default();
             let cert =
                 CapturedX509Certificate::from_der(rasn::der::encode(signer.cert()).unwrap())?;
@@ -226,11 +238,29 @@ impl AppBundle {
             if let Some(team_id) = self.team_id.as_ref() {
                 signing_settings.set_team_id(team_id)
             }
+            if !self.ios() {
+                signing_settings
+                    .set_code_signature_flags(SettingsScope::Main, CodeSignatureFlags::RUNTIME);
+                signing_settings.set_time_stamp_url("http://timestamp.apple.com/ts01")?;
+            }
             let bundle_signer = BundleSigner::new_from_path(self.appdir())?;
             bundle_signer.write_signed_bundle(self.appdir(), &signing_settings)?;
         }
+        Ok(())
+    }
 
-        Ok(self.appdir)
+    pub fn notarize(&self, api_issuer: &str, api_key: &str) -> Result<()> {
+        let mut notarizer = Notarizer::new()?;
+        notarizer.set_api_key(api_issuer, api_key)?;
+        let upload = notarizer.notarize_path(&self.appdir, Some(Duration::from_secs(300)))?;
+        match upload {
+            NotarizationUpload::DevIdResponse(_) => {
+                let stapler = Stapler::new()?;
+                stapler.staple_path(&self.appdir)?;
+            }
+            _ => anyhow::bail!("notarization failed"),
+        }
+        Ok(())
     }
 }
 

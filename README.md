@@ -74,9 +74,6 @@ Cross compiling release builds is currently not possible for a few reasons:
 ### Linux
  - Appimage signing has not been implemented yet (#5).
 
-### Macos
- - Release build signing and notarization has not been implemented yet (#34).
-
 ### Windows
  - Msix packaging has not been implemented yet (#33).
 
