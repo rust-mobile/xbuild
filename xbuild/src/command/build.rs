@@ -326,10 +326,13 @@ pub fn build(env: &BuildEnv) -> Result<()> {
                 app.add_lib(&lib)?;
             }
 
-            let appdir = app.finish(env.target().signer().cloned())?;
+            app.finish(env.target().signer().cloned())?;
+            if let Some((key, issuer)) = env.target().notarization_key_and_issuer() {
+                app.notarize(issuer, key)?;
+            }
             if env.target().format() == Format::Dmg {
                 let out = arch_dir.join(format!("{}.dmg", env.name()));
-                appbundle::make_dmg(&arch_dir, &appdir, &out)?;
+                appbundle::make_dmg(&arch_dir, app.appdir(), &out)?;
             }
         }
         Platform::Ios => {

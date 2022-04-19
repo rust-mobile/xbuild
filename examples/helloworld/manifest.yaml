@@ -1,5 +1,9 @@
 icon: assets/logo.png
 
+macos:
+  info:
+    bundle_identifier: com.github.cloudpeers.x.examples.helloworld
+
 windows:
   manifest:
     identity:
