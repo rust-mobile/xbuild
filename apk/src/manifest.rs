@@ -22,6 +22,7 @@ pub struct AndroidManifest {
     #[serde(rename(serialize = "platformBuildVersionName"))]
     pub platform_build_version_name: Option<u32>,
     #[serde(rename(serialize = "uses-sdk"))]
+    #[serde(default)]
     pub sdk: Sdk,
     #[serde(rename(serialize = "uses-feature"))]
     #[serde(default)]
