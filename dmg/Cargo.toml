@@ -1,0 +1,17 @@
+[package]
+name = "dmg"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.56"
+byteorder = "1.4.3"
+crc32fast = "1.3.2"
+fatfs = "0.3.5"
+flate2 = "1.0.23"
+fscommon = "0.1.1"
+getrandom = "0.2.6"
+gpt = "3.0.0"
+plist = "1.3.1"
+serde = { version = "1.0.136", features = ["derive"] }
+serde_bytes = "0.11.5"
