@@ -57,10 +57,6 @@ impl Default for Doctor {
                         Some(VersionCheck::new("-version", 0, 2)),
                     )],
                 },
-                Group {
-                    name: "macos",
-                    checks: vec![Check::new("hdiutil", None)],
-                },
             ],
         }
     }

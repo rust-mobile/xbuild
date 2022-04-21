@@ -1,10 +1,13 @@
 use anyhow::Result;
 use crc32fast::Hasher;
+use fatfs::{Dir, FileSystem, FormatVolumeOptions, FsOptions, ReadWriteSeek};
 use flate2::bufread::ZlibEncoder;
 use flate2::read::ZlibDecoder;
 use flate2::Compression;
+use fscommon::BufStream;
+use gpt::mbr::{PartRecord, ProtectiveMBR};
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
+use std::io::{BufReader, BufWriter, Cursor, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 
 mod blkx;
@@ -111,6 +114,22 @@ impl<W: Write + Seek> DmgWriter<W> {
         }
     }
 
+    pub fn create_fat32(mut self, fat32: &[u8]) -> Result<()> {
+        let mut sector_count = fat32.len() as u64 / 512;
+        if fat32.len() % 512 > 0 {
+            sector_count += 1;
+        }
+        let mut mbr = ProtectiveMBR::new();
+        let mut partition = PartRecord::new_protective(Some(sector_count.try_into()?));
+        partition.os_type = 11;
+        mbr.set_partition(0, partition);
+        let mbr = mbr.as_bytes()?;
+        self.add_partition("Master Boot Record (MBR : 0)", &mbr)?;
+        self.add_partition("FAT32 (FAT32 : 1)", fat32)?;
+        self.finish()?;
+        Ok(())
+    }
+
     pub fn add_partition(&mut self, name: &str, bytes: &[u8]) -> Result<()> {
         let id = self.xml.partitions().len() as u32;
         let name = name.to_string();
@@ -121,7 +140,7 @@ impl<W: Write + Seek> DmgWriter<W> {
             encoder.read_to_end(&mut compressed)?;
             let compressed_length = compressed.len() as u64;
             let mut sector_count = chunk.len() as u64 / 512;
-            if chunk.len() as u64 % 512 > 0 {
+            if chunk.len() % 512 > 0 {
                 sector_count += 1;
             }
             self.w.write_all(&compressed)?;
@@ -163,13 +182,50 @@ impl<W: Write + Seek> DmgWriter<W> {
     }
 }
 
+fn add_dir<T: ReadWriteSeek>(src: &Path, dest: &Dir<'_, T>) -> Result<()> {
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let file_name = entry.file_name();
+        let file_name = file_name.to_str().unwrap();
+        let source = src.join(&file_name);
+        let file_type = entry.file_type()?;
+        if file_type.is_dir() {
+            add_dir(&source, dest)?;
+        } else if file_type.is_file() {
+            let mut f = dest.create_file(&file_name)?;
+            std::io::copy(&mut File::open(source)?, &mut f)?;
+        } else if file_type.is_symlink() {
+            todo!();
+            //let target = std::fs::read_link(&source)?;
+            //symlink(&target, &dest)?;
+        }
+    }
+    Ok(())
+}
+
+pub fn create_dmg(dir: &Path, dmg: &Path, volume_label: &str, total_sectors: u32) -> Result<()> {
+    let mut fat32 = vec![];
+    {
+        let mut volume_label_bytes = [0; 11];
+        let end = std::cmp::min(volume_label_bytes.len(), volume_label.len());
+        volume_label_bytes[..end].copy_from_slice(&volume_label.as_bytes()[..end]);
+        let volume_options = FormatVolumeOptions::new()
+            .volume_label(volume_label_bytes)
+            .total_sectors(total_sectors);
+        let mut disk = BufStream::new(Cursor::new(&mut fat32));
+        fatfs::format_volume(&mut disk, volume_options)?;
+        let fs = FileSystem::new(disk, FsOptions::new())?;
+        let file_name = dir.file_name().unwrap().to_str().unwrap();
+        let dest = fs.root_dir().create_dir(&file_name)?;
+        add_dir(dir, &dest)?;
+    }
+    DmgWriter::create(dmg)?.create_fat32(&fat32)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use fatfs::{FileSystem, FsOptions};
     use gpt::disk::LogicalBlockSize;
-    use gpt::mbr::ProtectiveMBR;
-    use std::io::Cursor;
 
     static DMG: &[u8] = include_bytes!("../assets/raqote-winit.dmg");
 
@@ -213,6 +269,7 @@ mod tests {
     fn read_dmg_partition_mbr() -> Result<()> {
         let mut dmg = DmgReader::new(Cursor::new(DMG))?;
         let mbr = dmg.partition_data(0)?;
+        println!("{:?}", mbr);
         let mbr = ProtectiveMBR::from_bytes(&mbr, LogicalBlockSize::Lb512)?;
         println!("{:?}", mbr);
         Ok(())
