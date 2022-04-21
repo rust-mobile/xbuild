@@ -50,7 +50,8 @@ impl BlkxTable {
         }
     }
 
-    pub fn add_chunk(&mut self, chunk: BlkxChunk) {
+    pub fn add_chunk(&mut self, mut chunk: BlkxChunk) {
+        chunk.sector_number = self.sector_count;
         self.sector_count += chunk.sector_count;
         self.chunks.push(chunk);
     }

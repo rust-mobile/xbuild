@@ -49,6 +49,14 @@ impl UdifChecksum {
     }
 }
 
+impl From<UdifChecksum> for u32 {
+    fn from(checksum: UdifChecksum) -> Self {
+        let mut data = [0; 4];
+        data.copy_from_slice(&checksum.data[..4]);
+        u32::from_be_bytes(data)
+    }
+}
+
 const KOLY_SIZE: i64 = 512;
 
 /// DMG trailer describing file content.

@@ -72,6 +72,10 @@ impl<R: Read + Seek> DmgReader<R> {
         Ok(crc32fast::hash(&data_fork))
     }
 
+    pub fn partition_table(&self, i: usize) -> Result<BlkxTable> {
+        self.plist().partitions()[i].table()
+    }
+
     pub fn partition_name(&self, i: usize) -> &str {
         &self.plist().partitions()[i].name
     }
@@ -115,10 +119,8 @@ impl<W: Write + Seek> DmgWriter<W> {
     }
 
     pub fn create_fat32(mut self, fat32: &[u8]) -> Result<()> {
-        let mut sector_count = fat32.len() as u64 / 512;
-        if fat32.len() % 512 > 0 {
-            sector_count += 1;
-        }
+        anyhow::ensure!(fat32.len() % 512 == 0);
+        let sector_count = fat32.len() as u64 / 512;
         let mut mbr = ProtectiveMBR::new();
         let mut partition = PartRecord::new_protective(Some(sector_count.try_into()?));
         partition.os_type = 11;
@@ -131,6 +133,7 @@ impl<W: Write + Seek> DmgWriter<W> {
     }
 
     pub fn add_partition(&mut self, name: &str, bytes: &[u8]) -> Result<()> {
+        anyhow::ensure!(bytes.len() % 512 == 0);
         let id = self.xml.partitions().len() as u32;
         let name = name.to_string();
         let mut table = BlkxTable::new(id, self.sector_number, crc32fast::hash(bytes));
@@ -139,10 +142,7 @@ impl<W: Write + Seek> DmgWriter<W> {
             let mut compressed = vec![];
             encoder.read_to_end(&mut compressed)?;
             let compressed_length = compressed.len() as u64;
-            let mut sector_count = chunk.len() as u64 / 512;
-            if chunk.len() % 512 > 0 {
-                sector_count += 1;
-            }
+            let sector_count = chunk.len() as u64 / 512;
             self.w.write_all(&compressed)?;
             self.data_hasher.update(&compressed);
             table.add_chunk(BlkxChunk::new(
@@ -158,7 +158,7 @@ impl<W: Write + Seek> DmgWriter<W> {
         table.add_chunk(BlkxChunk::term(self.sector_number, self.compressed_offset));
         self.main_hasher.update(&table.checksum.data[..4]);
         self.xml
-            .add_partition(Partition::new(id as i32, name, table));
+            .add_partition(Partition::new(id as i32 - 1, name, table));
         Ok(())
     }
 
@@ -192,7 +192,7 @@ fn add_dir<T: ReadWriteSeek>(src: &Path, dest: &Dir<'_, T>) -> Result<()> {
         if file_type.is_dir() {
             add_dir(&source, dest)?;
         } else if file_type.is_file() {
-            let mut f = dest.create_file(&file_name)?;
+            let mut f = dest.create_file(file_name)?;
             std::io::copy(&mut File::open(source)?, &mut f)?;
         } else if file_type.is_symlink() {
             todo!();
@@ -204,19 +204,20 @@ fn add_dir<T: ReadWriteSeek>(src: &Path, dest: &Dir<'_, T>) -> Result<()> {
 }
 
 pub fn create_dmg(dir: &Path, dmg: &Path, volume_label: &str, total_sectors: u32) -> Result<()> {
-    let mut fat32 = vec![];
+    let mut fat32 = vec![0; total_sectors as usize * 512];
     {
         let mut volume_label_bytes = [0; 11];
         let end = std::cmp::min(volume_label_bytes.len(), volume_label.len());
         volume_label_bytes[..end].copy_from_slice(&volume_label.as_bytes()[..end]);
         let volume_options = FormatVolumeOptions::new()
             .volume_label(volume_label_bytes)
+            .bytes_per_sector(512)
             .total_sectors(total_sectors);
         let mut disk = BufStream::new(Cursor::new(&mut fat32));
         fatfs::format_volume(&mut disk, volume_options)?;
         let fs = FileSystem::new(disk, FsOptions::new())?;
         let file_name = dir.file_name().unwrap().to_str().unwrap();
-        let dest = fs.root_dir().create_dir(&file_name)?;
+        let dest = fs.root_dir().create_dir(file_name)?;
         add_dir(dir, &dest)?;
     }
     DmgWriter::create(dmg)?.create_fat32(&fat32)
@@ -228,6 +229,20 @@ mod tests {
     use gpt::disk::LogicalBlockSize;
 
     static DMG: &[u8] = include_bytes!("../assets/raqote-winit.dmg");
+
+    fn print_dmg<R: Read + Seek>(dmg: &DmgReader<R>) -> Result<()> {
+        println!("{:?}", dmg.koly());
+        println!("{:?}", dmg.plist());
+        for partition in dmg.plist().partitions() {
+            let table = partition.table()?;
+            println!("{:?}", table);
+            println!("table checksum 0x{:x}", u32::from(table.checksum));
+            for (i, chunk) in table.chunks.iter().enumerate() {
+                println!("{} {:?}", i, chunk);
+            }
+        }
+        Ok(())
+    }
 
     #[test]
     fn read_koly_trailer() -> Result<()> {
@@ -243,11 +258,7 @@ mod tests {
     #[test]
     fn only_read_dmg() -> Result<()> {
         let mut dmg = DmgReader::new(Cursor::new(DMG))?;
-        println!("{:?}", dmg.koly());
-        println!("{:?}", dmg.plist());
-        for partition in dmg.plist().partitions() {
-            println!("{:?}", partition.table()?);
-        }
+        print_dmg(&dmg)?;
         assert_eq!(
             UdifChecksum::new(dmg.data_checksum()?),
             dmg.koly().data_fork_digest
@@ -260,8 +271,22 @@ mod tests {
             dmg2.add_partition(name, &data)?;
         }
         dmg2.finish()?;
-        let dmg2 = DmgReader::new(Cursor::new(buffer))?;
+        let mut dmg2 = DmgReader::new(Cursor::new(buffer))?;
+        print_dmg(&dmg2)?;
+        assert_eq!(
+            UdifChecksum::new(dmg2.data_checksum()?),
+            dmg2.koly().data_fork_digest
+        );
+        for i in 0..dmg.plist().partitions().len() {
+            let table = dmg.partition_table(i)?;
+            let data = dmg.partition_data(i)?;
+            let expected = u32::from(table.checksum);
+            let calculated = crc32fast::hash(&data);
+            assert_eq!(expected, calculated);
+        }
         assert_eq!(dmg.koly().main_digest, dmg2.koly().main_digest);
+        println!("data crc32 0x{:x}", u32::from(dmg.koly().data_fork_digest));
+        println!("main crc32 0x{:x}", u32::from(dmg.koly().main_digest));
         Ok(())
     }
 
@@ -284,6 +309,23 @@ mod tests {
         for entry in fs.root_dir().iter() {
             let entry = entry?;
             println!("{}", entry.file_name());
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn checksum() -> Result<()> {
+        let mut dmg = DmgReader::new(Cursor::new(DMG))?;
+        assert_eq!(
+            UdifChecksum::new(dmg.data_checksum()?),
+            dmg.koly().data_fork_digest
+        );
+        for i in 0..dmg.plist().partitions().len() {
+            let table = dmg.partition_table(i)?;
+            let data = dmg.partition_data(i)?;
+            let expected = u32::from(table.checksum);
+            let calculated = crc32fast::hash(&data);
+            assert_eq!(expected, calculated);
         }
         Ok(())
     }
