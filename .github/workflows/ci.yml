@@ -349,7 +349,7 @@ jobs:
         path: examples/${{ matrix.artifact }}/target/x/release/windows/x64/${{ matrix.artifact }}.msix
 
   #
-  # Buld test projects for android-arm64
+  # Build test projects for android-arm64
   #
 
   build-ubuntu-latest-android-arm64:
@@ -441,10 +441,11 @@ jobs:
         path: examples/${{ matrix.artifact }}/target/x/${{ matrix.opt }}/android/arm64/${{ matrix.artifact }}.apk
 
   #
-  # Buld test projects for ios-arm64
+  # Build test projects for ios-arm64
   #
 
   build-ubuntu-latest-ios-arm64:
+    if: github.event_name != 'pull_request' && github.repository_owner == 'cloudpeers'
     strategy:
       fail-fast: false
       matrix:
@@ -479,6 +480,7 @@ jobs:
         path: examples/${{ matrix.artifact }}/target/x/${{ matrix.opt }}/ios/arm64/${{ matrix.artifact }}.app.tar.zst
 
   build-macos-latest-ios-arm64:
+    if: github.event_name != 'pull_request' && github.repository_owner == 'cloudpeers'
     strategy:
       fail-fast: false
       matrix:
@@ -514,6 +516,7 @@ jobs:
         path: examples/${{ matrix.artifact }}/target/x/${{ matrix.opt }}/ios/arm64/${{ matrix.artifact }}.app.tar.zst
 
   build-windows-latest-ios-arm64:
+    # if: github.event_name != 'pull_request' && github.repository_owner == 'cloudpeers'
     if: false
     strategy:
       fail-fast: false
