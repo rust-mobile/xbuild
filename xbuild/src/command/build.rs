@@ -332,7 +332,7 @@ pub fn build(env: &BuildEnv) -> Result<()> {
             }
             if env.target().format() == Format::Dmg {
                 let out = arch_dir.join(format!("{}.dmg", env.name()));
-                appbundle::make_dmg(&arch_dir, app.appdir(), &out)?;
+                dmg::create_dmg(app.appdir(), &out, env.name(), 0xff_ffff)?;
             }
         }
         Platform::Ios => {

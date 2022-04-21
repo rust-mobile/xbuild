@@ -374,11 +374,16 @@ pub struct BuildTargetArgs {
     arch: Option<Arch>,
     /// Build artifacts for target device. To find the device
     /// identifier of a connected device run `x devices`.
-    #[clap(long, conflicts_with = "store")]
+    #[clap(long, conflicts_with = "format", conflicts_with = "store")]
     device: Option<Device>,
+    /// Build artifacts with format. Can be one of `aab`,
+    /// `apk`, `appbundle`, `appdir`, `appimage`, `dmg`,
+    /// `ipa`, `msix`.
+    #[clap(long, conflicts_with = "device", conflicts_with = "store")]
+    format: Option<Format>,
     /// Build artifacts for target app store. Can be one of
     /// `apple`, `microsoft`, `play` or `sideload`.
-    #[clap(long, conflicts_with = "device")]
+    #[clap(long, conflicts_with = "device", conflicts_with = "format")]
     store: Option<Store>,
     /// Path to a PEM encoded RSA2048 signing key and certificate
     /// used to sign artifacts.
@@ -446,7 +451,9 @@ impl BuildTargetArgs {
         } else {
             Opt::Debug
         };
-        let format = if store == Some(Store::Play) {
+        let format = if let Some(format) = self.format {
+            format
+        } else if store == Some(Store::Play) {
             Format::Aab
         } else {
             Format::platform_default(platform, opt)
