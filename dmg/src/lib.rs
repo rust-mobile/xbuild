@@ -182,6 +182,18 @@ impl<W: Write + Seek> DmgWriter<W> {
     }
 }
 
+fn symlink(target: &str) -> Vec<u8> {
+    let xsym = format!(
+        "XSym\n{:04}\n{:x}\n{}\n",
+        target.as_bytes().len(),
+        md5::compute(target.as_bytes()),
+        target,
+    );
+    let mut xsym = xsym.into_bytes();
+    xsym.resize(1067, b' ');
+    xsym
+}
+
 fn add_dir<T: ReadWriteSeek>(src: &Path, dest: &Dir<'_, T>) -> Result<()> {
     for entry in std::fs::read_dir(src)? {
         let entry = entry?;
@@ -190,14 +202,16 @@ fn add_dir<T: ReadWriteSeek>(src: &Path, dest: &Dir<'_, T>) -> Result<()> {
         let source = src.join(&file_name);
         let file_type = entry.file_type()?;
         if file_type.is_dir() {
-            add_dir(&source, dest)?;
+            let d = dest.create_dir(file_name)?;
+            add_dir(&source, &d)?;
         } else if file_type.is_file() {
             let mut f = dest.create_file(file_name)?;
             std::io::copy(&mut File::open(source)?, &mut f)?;
         } else if file_type.is_symlink() {
-            todo!();
-            //let target = std::fs::read_link(&source)?;
-            //symlink(&target, &dest)?;
+            let target = std::fs::read_link(&source)?;
+            let xsym = symlink(target.to_str().unwrap());
+            let mut f = dest.create_file(file_name)?;
+            std::io::copy(&mut &xsym[..], &mut f)?;
         }
     }
     Ok(())
