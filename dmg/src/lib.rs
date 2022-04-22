@@ -217,8 +217,8 @@ fn add_dir<T: ReadWriteSeek>(src: &Path, dest: &Dir<'_, T>) -> Result<()> {
     Ok(())
 }
 
-pub fn create_dmg(dir: &Path, dmg: &Path, volume_label: &str, total_sectors: u32) -> Result<()> {
-    let mut fat32 = vec![0; total_sectors as usize * 512];
+pub fn create_dmg(dir: &Path, dmg: &Path, volume_label: &str) -> Result<()> {
+    let mut fat32 = vec![];
     {
         let mut volume_label_bytes = [0; 11];
         let end = std::cmp::min(volume_label_bytes.len(), volume_label.len());
@@ -226,13 +226,18 @@ pub fn create_dmg(dir: &Path, dmg: &Path, volume_label: &str, total_sectors: u32
         let volume_options = FormatVolumeOptions::new()
             .volume_label(volume_label_bytes)
             .bytes_per_sector(512)
-            .total_sectors(total_sectors);
+            .total_sectors(0xffff_ffff);
         let mut disk = BufStream::new(Cursor::new(&mut fat32));
         fatfs::format_volume(&mut disk, volume_options)?;
         let fs = FileSystem::new(disk, FsOptions::new())?;
         let file_name = dir.file_name().unwrap().to_str().unwrap();
         let dest = fs.root_dir().create_dir(file_name)?;
         add_dir(dir, &dest)?;
+    }
+    let m = fat32.len() % 512;
+    if m != 0 {
+        let len = fat32.len() + (512 - m);
+        fat32.resize(len, 0);
     }
     DmgWriter::create(dmg)?.create_fat32(&fat32)
 }
