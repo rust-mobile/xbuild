@@ -12,7 +12,7 @@ struct Args {
 fn main() -> Result<()> {
     use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
     tracing_log::LogTracer::init().ok();
-    let env = std::env::var("XBUILD_LOG").unwrap_or_else(|_| "warn".into());
+    let env = std::env::var("XBUILD_LOG").unwrap_or_else(|_| "error".into());
     let subscriber = tracing_subscriber::FmtSubscriber::builder()
         .with_span_events(FmtSpan::ACTIVE | FmtSpan::CLOSE)
         .with_env_filter(EnvFilter::new(env))
