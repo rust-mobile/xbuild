@@ -1,4 +1,5 @@
 use anyhow::Result;
+use apple_codesign::dmg::DmgSigner;
 use apple_codesign::stapling::Stapler;
 use apple_codesign::{
     BundleSigner, CodeSignatureFlags, NotarizationUpload, Notarizer, SettingsScope, SigningSettings,
@@ -7,7 +8,7 @@ use icns::{IconFamily, Image};
 use pkcs8::EncodePrivateKey;
 use plist::Value;
 use rasn_cms::{ContentInfo, SignedData};
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Cursor};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -248,17 +249,18 @@ impl AppBundle {
         Ok(())
     }
 
-    pub fn notarize(&self, api_issuer: &str, api_key: &str) -> Result<()> {
-        let mut notarizer = Notarizer::new()?;
-        notarizer.set_api_key(api_issuer, api_key)?;
-        let upload = notarizer.notarize_path(&self.appdir, Some(Duration::from_secs(300)))?;
-        match upload {
-            NotarizationUpload::DevIdResponse(_) => {
-                let stapler = Stapler::new()?;
-                stapler.staple_path(&self.appdir)?;
-            }
-            _ => anyhow::bail!("notarization failed"),
-        }
+    pub fn sign_dmg(&self, path: &Path, signer: &Signer) -> Result<()> {
+        let mut f = OpenOptions::new().read(true).write(true).open(path)?;
+        let mut signing_settings = SigningSettings::default();
+        let cert = CapturedX509Certificate::from_der(rasn::der::encode(signer.cert()).unwrap())?;
+        let key = InMemorySigningKeyPair::from_pkcs8_der(signer.key().to_pkcs8_der().unwrap())?;
+        signing_settings.set_signing_key(&key, cert);
+        signing_settings.chain_apple_certificates();
+        signing_settings.set_binary_identifier(
+            SettingsScope::Main,
+            &self.info.bundle_identifier.as_ref().unwrap(),
+        );
+        DmgSigner::default().sign_file(&signing_settings, &mut f)?;
         Ok(())
     }
 }
@@ -274,4 +276,18 @@ pub fn app_bundle_identifier(bundle: &Path) -> Result<String> {
         .as_string()
         .ok_or_else(|| anyhow::anyhow!("invalid Info.plist"))?;
     Ok(bundle_identifier.to_string())
+}
+
+pub fn notarize(path: &Path, api_issuer: &str, api_key: &str) -> Result<()> {
+    let mut notarizer = Notarizer::new()?;
+    notarizer.set_api_key(api_issuer, api_key)?;
+    let upload = notarizer.notarize_path(path, Some(Duration::from_secs(300)))?;
+    match upload {
+        NotarizationUpload::DevIdResponse(_) => {
+            let stapler = Stapler::new()?;
+            stapler.staple_path(path)?;
+        }
+        _ => anyhow::bail!("notarization failed"),
+    }
+    Ok(())
 }
