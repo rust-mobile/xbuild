@@ -25,7 +25,6 @@ pub struct AppBundle {
     appdir: PathBuf,
     info: InfoPlist,
     entitlements: Option<Value>,
-    team_id: Option<String>,
 }
 
 impl AppBundle {
@@ -40,7 +39,6 @@ impl AppBundle {
             appdir,
             info,
             entitlements: None,
-            team_id: None,
         })
     }
 
@@ -168,16 +166,6 @@ impl AppBundle {
             .get("Entitlements")
             .ok_or_else(|| anyhow::anyhow!("missing key Entitlements"))?
             .clone();
-        let team_id = dict
-            .get("TeamIdentifier")
-            .ok_or_else(|| anyhow::anyhow!("missing key TeamIdentifier"))?
-            .as_array()
-            .ok_or_else(|| anyhow::anyhow!("missing team identifier"))?
-            .get(0)
-            .ok_or_else(|| anyhow::anyhow!("missing team identifier"))?
-            .as_string()
-            .ok_or_else(|| anyhow::anyhow!("missing team identifier"))?
-            .to_string();
         let app_id = entitlements
             .as_dictionary()
             .ok_or_else(|| anyhow::anyhow!("invalid entitlements"))?
@@ -209,7 +197,6 @@ impl AppBundle {
             self.info.bundle_identifier = Some(bundle_id);
         }
         self.entitlements = Some(entitlements);
-        self.team_id = Some(team_id);
         std::fs::write(self.appdir().join("embedded.mobileprovision"), raw_profile)?;
         Ok(())
     }
@@ -229,19 +216,19 @@ impl AppBundle {
             let key = InMemorySigningKeyPair::from_pkcs8_der(signer.key().to_pkcs8_der().unwrap())?;
             signing_settings.set_signing_key(&key, cert);
             signing_settings.chain_apple_certificates();
+            signing_settings
+                .set_team_id_from_signing_certificate()
+                .ok_or_else(|| anyhow::anyhow!("signing certificate is missing team id"))?;
+            signing_settings.set_time_stamp_url("http://timestamp.apple.com/ts01")?;
             if let Some(entitlements) = self.entitlements.as_ref() {
                 let mut buf = vec![];
                 entitlements.to_writer_xml(&mut buf)?;
                 let entitlements = std::str::from_utf8(&buf)?;
                 signing_settings.set_entitlements_xml(SettingsScope::Main, entitlements)?;
             }
-            if let Some(team_id) = self.team_id.as_ref() {
-                signing_settings.set_team_id(team_id)
-            }
             if !self.ios() {
                 signing_settings
                     .set_code_signature_flags(SettingsScope::Main, CodeSignatureFlags::RUNTIME);
-                signing_settings.set_time_stamp_url("http://timestamp.apple.com/ts01")?;
             }
             let bundle_signer = BundleSigner::new_from_path(self.appdir())?;
             bundle_signer.write_signed_bundle(self.appdir(), &signing_settings)?;
@@ -256,6 +243,10 @@ impl AppBundle {
         let key = InMemorySigningKeyPair::from_pkcs8_der(signer.key().to_pkcs8_der().unwrap())?;
         signing_settings.set_signing_key(&key, cert);
         signing_settings.chain_apple_certificates();
+        signing_settings
+            .set_team_id_from_signing_certificate()
+            .ok_or_else(|| anyhow::anyhow!("signing certificate is missing team id"))?;
+        signing_settings.set_time_stamp_url("http://timestamp.apple.com/ts01")?;
         signing_settings.set_binary_identifier(
             SettingsScope::Main,
             &self.info.bundle_identifier.as_ref().unwrap(),
