@@ -11,7 +11,7 @@ use rasn_cms::{ContentInfo, SignedData};
 use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Cursor};
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use x509_certificate::{CapturedX509Certificate, InMemorySigningKeyPair};
 use xcommon::{Scaler, ScalerOpts, Signer};
 
@@ -206,6 +206,7 @@ impl AppBundle {
         plist::to_file_xml(path, &self.info)?;
 
         if let Some(signer) = signer {
+            println!("signing {}", self.appdir().display());
             anyhow::ensure!(
                 self.info.bundle_identifier.is_some(),
                 "missing bundle identifier"
@@ -237,6 +238,7 @@ impl AppBundle {
     }
 
     pub fn sign_dmg(&self, path: &Path, signer: &Signer) -> Result<()> {
+        println!("signing {}", path.display());
         let mut f = OpenOptions::new().read(true).write(true).open(path)?;
         let mut signing_settings = SigningSettings::default();
         let cert = CapturedX509Certificate::from_der(rasn::der::encode(signer.cert()).unwrap())?;
@@ -270,15 +272,33 @@ pub fn app_bundle_identifier(bundle: &Path) -> Result<String> {
 }
 
 pub fn notarize(path: &Path, api_issuer: &str, api_key: &str) -> Result<()> {
+    println!("notarizing {}", path.display());
     let mut notarizer = Notarizer::new()?;
     notarizer.set_api_key(api_issuer, api_key)?;
-    let upload = notarizer.notarize_path(path, Some(Duration::from_secs(300)))?;
-    match upload {
-        NotarizationUpload::DevIdResponse(_) => {
-            let stapler = Stapler::new()?;
-            stapler.staple_path(path)?;
+    let upload_id =
+        if let NotarizationUpload::UploadId(upload_id) = notarizer.notarize_path(path, None)? {
+            upload_id
+        } else {
+            anyhow::bail!("impossible");
+        };
+    let start_time = Instant::now();
+    loop {
+        let status = notarizer.get_upload_status(&upload_id)?;
+        let elapsed = start_time.elapsed();
+        println!(
+            "poll state after {}s: {}",
+            elapsed.as_secs(),
+            status.state_str()
+        );
+        if status.is_done() {
+            let log = notarizer.fetch_upload_log(&status)?;
+            println!("{}", log);
+            status.into_result()?;
+            break;
         }
-        _ => anyhow::bail!("notarization failed"),
+        std::thread::sleep(Duration::from_secs(3));
     }
+    let stapler = Stapler::new()?;
+    stapler.staple_path(path)?;
     Ok(())
 }
