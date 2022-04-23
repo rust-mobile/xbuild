@@ -332,7 +332,7 @@ pub fn build(env: &BuildEnv) -> Result<()> {
             }
             if env.target().format() == Format::Dmg {
                 let out = arch_dir.join(format!("{}.dmg", env.name()));
-                dmg::create_dmg(app.appdir(), &out, env.name())?;
+                dmg::create_dmg(app.appdir(), &out, env.name(), 0x40000)?;
                 if let Some(signer) = env.target().signer() {
                     app.sign_dmg(&out, signer)?;
                     if let Some((key, issuer)) = env.target().notarization_key_and_issuer() {
