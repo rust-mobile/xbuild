@@ -1,7 +1,10 @@
 [package]
-name = "dmg"
+name = "dmg-oxide"
 version = "0.1.0"
 edition = "2021"
+description = "Library for reading and writing dmg images."
+repository = "https://github.com/cloudpeers/xbuild"
+license = "Apache-2.0 OR MIT"
 
 [dependencies]
 anyhow = "1.0.56"
