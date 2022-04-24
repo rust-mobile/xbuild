@@ -17,9 +17,7 @@ pub fn read_p7x(path: &Path) -> Result<SignedData> {
     let mut zip = ZipArchive::new(f)?;
     let mut r = zip.by_name("AppxSignature.p7x")?;
     let magic = r.read_u32::<BigEndian>()?;
-    if magic != P7X_MAGIC {
-        anyhow::bail!("not a valid p7x file");
-    }
+    anyhow::ensure!(magic == P7X_MAGIC, "not a valid p7x file");
     let mut der = vec![];
     r.read_to_end(&mut der)?;
     let info = rasn::der::decode::<ContentInfo>(&der).map_err(|err| anyhow::anyhow!("{}", err))?;

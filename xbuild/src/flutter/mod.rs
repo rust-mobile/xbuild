@@ -40,9 +40,7 @@ impl Flutter {
             .arg("--points-at")
             .arg("HEAD")
             .output()?;
-        if !output.status.success() {
-            anyhow::bail!("failed to get flutter version");
-        }
+        anyhow::ensure!(output.status.success(), "failed to get flutter version");
         let version = std::str::from_utf8(&output.stdout)?;
         Ok(version.to_string())
     }
@@ -83,9 +81,11 @@ impl Flutter {
             .join("bin")
             .join("internal")
             .join(format!("{}.version", artifact));
-        if !path.exists() {
-            anyhow::bail!("failed to locate engine.version at {}", path.display());
-        }
+        anyhow::ensure!(
+            path.exists(),
+            "failed to locate engine.version at {}",
+            path.display()
+        );
         Ok(std::fs::read_to_string(path)?.trim().into())
     }
 
@@ -116,9 +116,7 @@ impl Flutter {
     fn host_file(&self, path: &Path) -> Result<PathBuf> {
         let host = CompileTarget::new(Platform::host()?, Arch::host()?, Opt::Debug);
         let path = self.engine_dir(host)?.join(path);
-        if !path.exists() {
-            anyhow::bail!("failed to locate {}", path.display());
-        }
+        anyhow::ensure!(path.exists(), "failed to locate {}", path.display());
         Ok(path)
     }
 

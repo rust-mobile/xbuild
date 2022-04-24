@@ -403,9 +403,7 @@ pub struct BuildTargetArgs {
 impl BuildTargetArgs {
     pub fn build_target(self) -> Result<BuildTarget> {
         let signer = if let Some(pem) = self.pem.as_ref() {
-            if !pem.exists() {
-                anyhow::bail!("pem file doesn't exist {}", pem.display());
-            }
+            anyhow::ensure!(pem.exists(), "pem file doesn't exist {}", pem.display());
             Some(Signer::from_path(pem)?)
         } else if let Ok(pem) = std::env::var("X_PEM") {
             Some(Signer::new(&pem)?)
@@ -459,9 +457,11 @@ impl BuildTargetArgs {
             Format::platform_default(platform, opt)
         };
         let provisioning_profile = if let Some(profile) = self.provisioning_profile {
-            if !profile.exists() {
-                anyhow::bail!("provisioning profile doesn't exist {}", profile.display());
-            }
+            anyhow::ensure!(
+                profile.exists(),
+                "provisioning profile doesn't exist {}",
+                profile.display()
+            );
             Some(std::fs::read(profile)?)
         } else if let Ok(mut profile) = std::env::var("X_PROVISIONING_PROFILE") {
             profile.retain(|c| !c.is_whitespace());
@@ -469,9 +469,10 @@ impl BuildTargetArgs {
         } else {
             None
         };
-        if provisioning_profile.is_none() && platform == Platform::Ios {
-            anyhow::bail!("missing provisioning profile");
-        }
+        anyhow::ensure!(
+            provisioning_profile.is_some() || platform != Platform::Ios,
+            "missing provisioning profile"
+        );
         let mut notarization_key_and_issuer = None;
         if platform == Platform::Macos {
             if let (Some(api_key), Some(api_issuer)) = (self.api_key, self.api_issuer) {

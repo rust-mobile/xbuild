@@ -123,9 +123,7 @@ impl<D: Download> Maven<D> {
                     break;
                 }
             }
-            if !downloaded {
-                anyhow::bail!("metadata not found for {}", package);
-            }
+            anyhow::ensure!(downloaded, "metadata not found for {}", package);
         }
         let s = std::fs::read_to_string(path)?;
         let metadata =
@@ -160,9 +158,7 @@ impl<D: Download> Maven<D> {
                     break;
                 }
             }
-            if !downloaded {
-                anyhow::bail!("artifact not found {} {}", artifact, ext);
-            }
+            anyhow::ensure!(downloaded, "artifact not found {} {}", artifact, ext);
         }
         Ok(path)
     }

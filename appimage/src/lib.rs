@@ -87,9 +87,11 @@ impl AppImage {
             .arg("-noappend")
             .arg("-quiet")
             .status()?;
-        if !status.success() {
-            anyhow::bail!("mksquashfs failed with exit code {:?}", status);
-        }
+        anyhow::ensure!(
+            status.success(),
+            "mksquashfs failed with exit code {:?}",
+            status
+        );
         let mut squashfs = BufReader::new(File::open(squashfs)?);
         let mut f = File::create(out)?;
         #[cfg(unix)]

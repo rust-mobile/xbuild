@@ -23,12 +23,8 @@ impl Scaler {
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
         let img = ImageReader::open(path)?.decode()?;
         let (width, height) = img.dimensions();
-        if width != height {
-            anyhow::bail!("expected width == height");
-        }
-        if width < 512 {
-            anyhow::bail!("expected icon of at least 512x512 px");
-        }
+        anyhow::ensure!(width == height, "expected width == height");
+        anyhow::ensure!(width >= 512, "expected icon of at least 512x512 px");
         Ok(Self { img })
     }
 
@@ -251,9 +247,7 @@ fn find_cde_start_pos<R: Read + Seek>(reader: &mut R) -> Result<u64> {
     const HEADER_SIZE: u64 = 22;
     let file_length = reader.seek(SeekFrom::End(0))?;
     let search_upper_bound = file_length.saturating_sub(HEADER_SIZE + ::std::u16::MAX as u64);
-    if file_length < HEADER_SIZE {
-        anyhow::bail!("Invalid zip header");
-    }
+    anyhow::ensure!(file_length >= HEADER_SIZE, "Invalid zip header");
     let mut pos = file_length - HEADER_SIZE;
     while pos >= search_upper_bound {
         reader.seek(SeekFrom::Start(pos as u64))?;

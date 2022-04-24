@@ -29,9 +29,7 @@ pub struct AppBundle {
 
 impl AppBundle {
     pub fn new(build_dir: &Path, info: InfoPlist) -> Result<Self> {
-        if info.name.is_none() {
-            anyhow::bail!("missing info.name");
-        }
+        anyhow::ensure!(info.name.is_some(), "missing info.name");
         let appdir = build_dir.join(format!("{}.app", info.name.as_ref().unwrap()));
         std::fs::remove_dir_all(&appdir).ok();
         std::fs::create_dir_all(&appdir)?;
@@ -186,7 +184,7 @@ impl AppBundle {
             };
             anyhow::ensure!(
                 bundle_identifier.starts_with(bundle_prefix),
-                "bundle identifier missmatch"
+                "bundle identifier mismatch"
             );
         } else {
             let bundle_id = if let Some(bundle_prefix) = bundle_prefix.strip_suffix(".*") {

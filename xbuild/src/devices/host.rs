@@ -12,9 +12,7 @@ impl Host {
     pub fn name(&self) -> Result<String> {
         if cfg!(target_os = "linux") {
             let output = Command::new("uname").output()?;
-            if !output.status.success() {
-                anyhow::bail!("uname failed");
-            }
+            anyhow::ensure!(output.status.success(), "uname failed");
             let name = std::str::from_utf8(&output.stdout)?.trim();
             Ok(name.to_string())
         } else {
@@ -41,9 +39,7 @@ impl Host {
                 .next()
                 .unwrap_or_default();
             let output = Command::new("uname").arg("-r").output()?;
-            if !output.status.success() {
-                anyhow::bail!("uname failed");
-            }
+            anyhow::ensure!(output.status.success(), "uname failed");
             distro.push(' ');
             distro.push_str(std::str::from_utf8(&output.stdout)?.trim());
             Ok(distro)
