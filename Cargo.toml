@@ -6,6 +6,7 @@ members = [
     "dmg",
     "mvn",
     "msix",
+    "pri",
     "xbuild",
     "xcommon",
 ]

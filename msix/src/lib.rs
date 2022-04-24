@@ -15,7 +15,6 @@ mod content_types;
 pub mod manifest;
 pub mod p7x;
 mod pkcs7;
-//pub mod pri;
 
 pub use crate::manifest::AppxManifest;
 
