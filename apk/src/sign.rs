@@ -44,21 +44,21 @@ pub fn verify(path: &Path) -> Result<Vec<Certificate>> {
         r.seek(SeekFrom::Start(block.start))?;
         ApkSignatureBlockV2::read(&mut r)?
     } else {
-        anyhow::bail!("no sigining block v2 found");
+        anyhow::bail!("no signing block v2 found");
     };
     let zip_hash = compute_digest(&mut r, sblock.sb_start, sblock.cd_start, sblock.cde_start)?;
     let mut certificates = vec![];
     for signer in &block.signers {
-        if signer.signatures.is_empty() {
-            anyhow::bail!("found no signatures in v2 block");
-        }
+        anyhow::ensure!(
+            !signer.signatures.is_empty(),
+            "found no signatures in v2 block"
+        );
         for sig in &signer.signatures {
-            if sig.algorithm != RSA_PKCS1V15_SHA2_256 {
-                anyhow::bail!(
-                    "found unsupported signature algorithm 0x{:x}",
-                    sig.algorithm
-                );
-            }
+            anyhow::ensure!(
+                sig.algorithm == RSA_PKCS1V15_SHA2_256,
+                "found unsupported signature algorithm 0x{:x}",
+                sig.algorithm
+            );
             let pubkey = RsaPublicKey::from_public_key_der(&signer.public_key)?;
             let digest = Sha256::digest(&signer.signed_data);
             let padding = PaddingScheme::new_pkcs1v15_sign(Some(Hash::SHA2_256));
@@ -66,19 +66,20 @@ pub fn verify(path: &Path) -> Result<Vec<Certificate>> {
         }
         let mut r = Cursor::new(&signer.signed_data[..]);
         let signed_data = SignedData::read(&mut r)?;
-        if signed_data.digests.is_empty() {
-            anyhow::bail!("found no digests in v2 block");
-        }
+        anyhow::ensure!(
+            !signed_data.digests.is_empty(),
+            "found no digests in v2 block"
+        );
         for digest in &signed_data.digests {
-            if digest.algorithm != RSA_PKCS1V15_SHA2_256 {
-                anyhow::bail!(
-                    "found unsupported digest algorithm 0x{:x}",
-                    digest.algorithm
-                );
-            }
-            if digest.digest != zip_hash {
-                anyhow::bail!("computed hash doesn't match signed hash.");
-            }
+            anyhow::ensure!(
+                digest.algorithm == RSA_PKCS1V15_SHA2_256,
+                "found unsupported digest algorithm 0x{:x}",
+                digest.algorithm
+            );
+            anyhow::ensure!(
+                digest.digest == zip_hash,
+                "computed hash doesn't match signed hash."
+            );
         }
         for cert in &signed_data.certificates {
             let cert =

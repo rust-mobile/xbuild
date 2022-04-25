@@ -112,9 +112,11 @@ impl Cargo {
         let bin_path = opt_dir
             .join(artifact.as_ref())
             .join(artifact.file_name(ty, triple));
-        if !bin_path.exists() {
-            anyhow::bail!("failed to locate bin {}", bin_path.display());
-        }
+        anyhow::ensure!(
+            bin_path.exists(),
+            "failed to locate bin {}",
+            bin_path.display()
+        );
         Ok(bin_path)
     }
 }
@@ -171,9 +173,11 @@ impl CargoBuild {
         self.set_sysroot(&path);
         let lib_dir = path.join("usr").join("lib").join(ndk_triple);
         let sdk_lib_dir = lib_dir.join(target_sdk_version.to_string());
-        if !sdk_lib_dir.exists() {
-            anyhow::bail!("ndk doesn't support sdk version {}", target_sdk_version);
-        }
+        anyhow::ensure!(
+            sdk_lib_dir.exists(),
+            "ndk doesn't support sdk version {}",
+            target_sdk_version
+        );
         self.use_ld("lld");
         self.add_link_arg("--target=aarch64-linux-android");
         self.add_link_arg(&format!("-B{}", sdk_lib_dir.display()));

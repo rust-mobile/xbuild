@@ -27,9 +27,12 @@ impl<'a> Download for DownloadManager<'a> {
         pb.set_message("📥 downloading");
 
         let mut resp = self.client.get(url).send()?;
-        if !resp.status().is_success() {
-            anyhow::bail!("GET {} returned status code {}", url, resp.status());
-        }
+        anyhow::ensure!(
+            resp.status().is_success(),
+            "GET {} returned status code {}",
+            url,
+            resp.status()
+        );
         let len = resp.content_length().unwrap_or_default();
         pb.set_length(len);
 

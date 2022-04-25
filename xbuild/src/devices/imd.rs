@@ -29,9 +29,7 @@ impl IMobileDevice {
             .arg("--key")
             .arg(key)
             .output()?;
-        if !output.status.success() {
-            anyhow::bail!("failed to run ideviceinfo");
-        }
+        anyhow::ensure!(output.status.success(), "failed to run ideviceinfo");
         Ok(std::str::from_utf8(&output.stdout)?.trim().to_string())
     }
 
@@ -42,9 +40,7 @@ impl IMobileDevice {
             .arg("--install")
             .arg(path)
             .status()?;
-        if !status.success() {
-            anyhow::bail!("failed to run ideviceinstaller");
-        }
+        anyhow::ensure!(status.success(), "failed to run ideviceinstaller");
         Ok(())
     }
 
@@ -55,9 +51,7 @@ impl IMobileDevice {
             .arg("run")
             .arg(bundle_identifier)
             .status()?;
-        if !status.success() {
-            anyhow::bail!("failed to run idevicedebug");
-        }
+        anyhow::ensure!(status.success(), "failed to run idevicedebug");
         Ok(())
     }
 
@@ -78,9 +72,7 @@ impl IMobileDevice {
             .arg("-l")
             .arg("-d")
             .output()?;
-        if !output.status.success() {
-            anyhow::bail!("failed to run idevice_id");
-        }
+        anyhow::ensure!(output.status.success(), "failed to run idevice_id");
         let lines = std::str::from_utf8(&output.stdout)?.lines();
         for uuid in lines {
             devices.push(Device {

@@ -138,9 +138,7 @@ impl Check {
             let output = Command::new(&self.name)
                 .args(version.arg.split(' '))
                 .output()?;
-            if !output.status.success() {
-                anyhow::bail!("failed to run {}", self.name);
-            }
+            anyhow::ensure!(output.status.success(), "failed to run {}", self.name);
             let output = std::str::from_utf8(&output.stdout)?;
             if let Some(line) = output.split('\n').nth(version.row as _) {
                 let mut col = version.col as usize;

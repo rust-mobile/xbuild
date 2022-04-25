@@ -29,9 +29,7 @@ impl Adb {
             .arg(path)
             .arg("/data/local/tmp")
             .status()?;
-        if !status.success() {
-            anyhow::bail!("adb push failed");
-        }
+        anyhow::ensure!(status.success(), "adb push failed");
         Ok(())
     }
 
@@ -46,9 +44,11 @@ impl Adb {
 
     pub fn devices(&self, devices: &mut Vec<Device>) -> Result<()> {
         let output = Command::new(&self.0).arg("devices").output()?;
-        if !output.status.success() {
-            anyhow::bail!("adb devices exited with code {:?}", output.status.code());
-        }
+        anyhow::ensure!(
+            output.status.success(),
+            "adb devices exited with code {:?}",
+            output.status.code()
+        );
         let mut lines = std::str::from_utf8(&output.stdout)?.lines();
         lines.next();
         for line in lines {
@@ -64,9 +64,11 @@ impl Adb {
 
     fn getprop(&self, device: &str, prop: &str) -> Result<String> {
         let output = self.shell(device, None).arg("getprop").arg(prop).output()?;
-        if !output.status.success() {
-            anyhow::bail!("adb getprop exited with code {:?}", output.status.code());
-        }
+        anyhow::ensure!(
+            output.status.success(),
+            "adb getprop exited with code {:?}",
+            output.status.code()
+        );
         Ok(std::str::from_utf8(&output.stdout)?.trim().to_string())
     }
 
@@ -79,9 +81,11 @@ impl Adb {
             .arg("install")
             .arg(format!("/data/local/tmp/{}", file_name))
             .status()?;
-        if !status.success() {
-            anyhow::bail!("adb pm install exited with code {:?}", status.code());
-        }
+        anyhow::ensure!(
+            status.success(),
+            "adb pm install exited with code {:?}",
+            status.code()
+        );
         Ok(())
     }
 
@@ -96,9 +100,11 @@ impl Adb {
             .arg("-n")
             .arg(format!("{}/{}", package, activity))
             .status()?;
-        if !status.success() {
-            anyhow::bail!("adb shell am start exited with code {:?}", status.code());
-        }
+        anyhow::ensure!(
+            status.success(),
+            "adb shell am start exited with code {:?}",
+            status.code()
+        );
         Ok(())
     }
 
@@ -109,12 +115,11 @@ impl Adb {
             .arg("force-stop")
             .arg(id)
             .status()?;
-        if !status.success() {
-            anyhow::bail!(
-                "adb shell am force-stop exited with code {:?}",
-                status.code()
-            );
-        }
+        anyhow::ensure!(
+            status.success(),
+            "adb shell am force-stop exited with code {:?}",
+            status.code()
+        );
         Ok(())
     }
 
@@ -126,12 +131,11 @@ impl Adb {
             .arg("-w")
             .arg(package)
             .status()?;
-        if !status.success() {
-            anyhow::bail!(
-                "adb shell am set-debug-app exited with code {:?}",
-                status.code()
-            );
-        }
+        anyhow::ensure!(
+            status.success(),
+            "adb shell am set-debug-app exited with code {:?}",
+            status.code()
+        );
         Ok(())
     }
 
@@ -141,12 +145,11 @@ impl Adb {
             .arg("am")
             .arg("clear-debug-app")
             .status()?;
-        if !status.success() {
-            anyhow::bail!(
-                "adb shell am clear-debug-app exited with code {:?}",
-                status.code()
-            );
-        }
+        anyhow::ensure!(
+            status.success(),
+            "adb shell am clear-debug-app exited with code {:?}",
+            status.code()
+        );
         Ok(())
     }
 
@@ -159,9 +162,11 @@ impl Adb {
             .arg("-t")
             .arg("1")
             .output()?;
-        if !output.status.success() {
-            anyhow::bail!("adb logcat exited with code {:?}", output.status.code());
-        }
+        anyhow::ensure!(
+            output.status.success(),
+            "adb logcat exited with code {:?}",
+            output.status.code()
+        );
         let line = std::str::from_utf8(&output.stdout)?.lines().nth(1).unwrap();
         Ok(line[..18].to_string())
     }
@@ -169,9 +174,7 @@ impl Adb {
     fn pidof(&self, device: &str, id: &str) -> Result<u32> {
         loop {
             let output = self.shell(device, None).arg("pidof").arg(id).output()?;
-            if !output.status.success() {
-                anyhow::bail!("failed to get pid");
-            }
+            anyhow::ensure!(output.status.success(), "failed to get pid");
             let pid = std::str::from_utf8(&output.stdout)?.trim();
             // may return multiple space separated pids if the old process hasn't exited yet.
             if pid.is_empty() || pid.split_once(' ').is_some() {
@@ -203,9 +206,11 @@ impl Adb {
             .arg("tcp:0")
             .arg(format!("tcp:{}", port))
             .output()?;
-        if !output.status.success() {
-            anyhow::bail!("adb forward exited with code {:?}", output.status.code());
-        }
+        anyhow::ensure!(
+            output.status.success(),
+            "adb forward exited with code {:?}",
+            output.status.code()
+        );
         Ok(std::str::from_utf8(&output.stdout)?.trim().parse()?)
     }
 
@@ -216,9 +221,7 @@ impl Adb {
             .arg("-c")
             .arg("pwd")
             .output()?;
-        if !output.status.success() {
-            anyhow::bail!("failed to get app dir");
-        }
+        anyhow::ensure!(output.status.success(), "failed to get app dir");
         Ok(Path::new(std::str::from_utf8(&output.stdout)?.trim()).to_path_buf())
     }*/
 
@@ -271,9 +274,7 @@ impl Adb {
             .arg(format!("platform connect connect://{}:10086", device))
             .arg(executable)
             .status()?;
-        if !status.success() {
-            anyhow::bail!("lldb exited with nonzero exit code.");
-        }
+        anyhow::ensure!(status.success(), "lldb exited with nonzero exit code.");
         lldb_server.kill()?;
         Ok(())
     }

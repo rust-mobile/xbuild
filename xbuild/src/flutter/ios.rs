@@ -41,9 +41,7 @@ pub fn build_ios_main(
     if let Some(lib) = lib {
         clang.arg("-v").arg("-Wl,-force_load").arg(lib);
     }
-    if !clang.status()?.success() {
-        anyhow::bail!("failed to build main.m");
-    }
+    anyhow::ensure!(clang.status()?.success(), "failed to build main.m");
     Ok(())
 }
 
@@ -65,8 +63,6 @@ pub fn build_empty_dylib(env: &BuildEnv, target: CompileTarget) -> Result<()> {
         .arg(&app)
         .arg(&app_m)
         .status()?;
-    if !status.success() {
-        anyhow::bail!("failed to build main.m");
-    }
+    anyhow::ensure!(status.success(), "failed to build main.m");
     Ok(())
 }
