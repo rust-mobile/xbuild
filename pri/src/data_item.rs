@@ -1,5 +1,5 @@
 use anyhow::{ensure, Result};
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use std::io::{Read, Write};
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -30,14 +30,14 @@ impl DataItem {
     pub const IDENTIFIER: &'static [u8; 16] = b"[mrm_dataitem] \0";
 
     pub fn read(r: &mut impl Read) -> Result<Self> {
-        ensure!(r.read_u32::<LittleEndian>()? == 0);
-        let num_strings = r.read_u16::<LittleEndian>()? as usize;
-        let num_blobs = r.read_u16::<LittleEndian>()? as usize;
-        let total_data_length = r.read_u32::<LittleEndian>()? as usize;
+        ensure!(r.read_u32::<LE>()? == 0);
+        let num_strings = r.read_u16::<LE>()? as usize;
+        let num_blobs = r.read_u16::<LE>()? as usize;
+        let total_data_length = r.read_u32::<LE>()? as usize;
         let mut string_spans = Vec::with_capacity(num_strings);
         for _ in 0..num_strings {
-            let offset = r.read_u16::<LittleEndian>()? as usize;
-            let length = r.read_u16::<LittleEndian>()? as usize;
+            let offset = r.read_u16::<LE>()? as usize;
+            let length = r.read_u16::<LE>()? as usize;
             string_spans.push(Span { offset, length });
         }
         let string_data_length = if let Some(span) = string_spans.last() {
@@ -47,8 +47,8 @@ impl DataItem {
         };
         let mut blob_spans = Vec::with_capacity(num_blobs);
         for _ in 0..num_blobs {
-            let offset = r.read_u32::<LittleEndian>()? as usize - string_data_length;
-            let length = r.read_u32::<LittleEndian>()? as usize;
+            let offset = r.read_u32::<LE>()? as usize - string_data_length;
+            let length = r.read_u32::<LE>()? as usize;
             blob_spans.push(Span { offset, length });
         }
         let blob_data_length = total_data_length - string_data_length;
@@ -67,18 +67,18 @@ impl DataItem {
     }
 
     pub fn write(&self, w: &mut impl Write) -> Result<()> {
-        w.write_u32::<LittleEndian>(0)?;
-        w.write_u16::<LittleEndian>(self.string_spans.len() as u16)?;
-        w.write_u16::<LittleEndian>(self.blob_spans.len() as u16)?;
-        w.write_u32::<LittleEndian>((self.string_data.len() + self.blob_data.len()) as u32)?;
+        w.write_u32::<LE>(0)?;
+        w.write_u16::<LE>(self.string_spans.len() as u16)?;
+        w.write_u16::<LE>(self.blob_spans.len() as u16)?;
+        w.write_u32::<LE>((self.string_data.len() + self.blob_data.len()) as u32)?;
         for span in &self.string_spans {
-            w.write_u16::<LittleEndian>(span.offset as _)?;
-            w.write_u16::<LittleEndian>(span.length as _)?;
+            w.write_u16::<LE>(span.offset as _)?;
+            w.write_u16::<LE>(span.length as _)?;
         }
         let offset = self.string_data.len() as u32;
         for span in &self.blob_spans {
-            w.write_u32::<LittleEndian>(span.offset as u32 + offset)?;
-            w.write_u32::<LittleEndian>(span.length as u32)?;
+            w.write_u32::<LE>(span.offset as u32 + offset)?;
+            w.write_u32::<LE>(span.length as u32)?;
         }
         w.write_all(&self.string_data)?;
         w.write_all(&self.blob_data)?;

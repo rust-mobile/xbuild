@@ -1,5 +1,5 @@
 use anyhow::{ensure, Result};
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use std::collections::hash_map::{Entry, HashMap};
 use std::io::{Read, Seek, SeekFrom, Write};
 
@@ -14,16 +14,16 @@ impl DecisionInfo {
     pub const IDENTIFIER: &'static [u8; 16] = b"[mrm_decn_info]\0";
 
     pub fn read<R: Read + Seek>(r: &mut R) -> Result<Self> {
-        let num_distinct_qualifiers = r.read_u16::<LittleEndian>()? as usize;
-        let num_qualifiers = r.read_u16::<LittleEndian>()? as usize;
-        let num_qualifier_sets = r.read_u16::<LittleEndian>()? as usize;
-        let num_decisions = r.read_u16::<LittleEndian>()? as usize;
-        let num_index_table_entries = r.read_u16::<LittleEndian>()? as usize;
-        let _total_data_length = r.read_u16::<LittleEndian>()?;
+        let num_distinct_qualifiers = r.read_u16::<LE>()? as usize;
+        let num_qualifiers = r.read_u16::<LE>()? as usize;
+        let num_qualifier_sets = r.read_u16::<LE>()? as usize;
+        let num_decisions = r.read_u16::<LE>()? as usize;
+        let num_index_table_entries = r.read_u16::<LE>()? as usize;
+        let _total_data_length = r.read_u16::<LE>()?;
         let mut decision_infos = Vec::with_capacity(num_decisions);
         for _ in 0..num_decisions {
-            let first_qualifier_set_index_index = r.read_u16::<LittleEndian>()? as usize;
-            let num_qualifier_sets_in_decision = r.read_u16::<LittleEndian>()? as usize;
+            let first_qualifier_set_index_index = r.read_u16::<LE>()? as usize;
+            let num_qualifier_sets_in_decision = r.read_u16::<LE>()? as usize;
             decision_infos.push(DecisionInf {
                 first_qualifier_set_index_index,
                 num_qualifier_sets_in_decision,
@@ -31,8 +31,8 @@ impl DecisionInfo {
         }
         let mut qualifier_set_infos = Vec::with_capacity(num_qualifier_sets);
         for _ in 0..num_qualifier_sets {
-            let first_qualifier_index_index = r.read_u16::<LittleEndian>()? as usize;
-            let num_qualifiers_in_set = r.read_u16::<LittleEndian>()? as usize;
+            let first_qualifier_index_index = r.read_u16::<LE>()? as usize;
+            let num_qualifiers_in_set = r.read_u16::<LE>()? as usize;
             qualifier_set_infos.push(QualifierSetInfo {
                 first_qualifier_index_index,
                 num_qualifiers_in_set,
@@ -40,10 +40,10 @@ impl DecisionInfo {
         }
         let mut qualifier_infos = Vec::with_capacity(num_qualifiers);
         for _ in 0..num_qualifiers {
-            let index = r.read_u16::<LittleEndian>()? as usize;
-            let priority = r.read_u16::<LittleEndian>()?;
-            let fallback_score = r.read_u16::<LittleEndian>()?;
-            ensure!(r.read_u16::<LittleEndian>()? == 0);
+            let index = r.read_u16::<LE>()? as usize;
+            let priority = r.read_u16::<LE>()?;
+            let fallback_score = r.read_u16::<LE>()?;
+            ensure!(r.read_u16::<LE>()? == 0);
             qualifier_infos.push(QualifierInfo {
                 index,
                 priority,
@@ -52,11 +52,11 @@ impl DecisionInfo {
         }
         let mut distinct_qualifier_infos = Vec::with_capacity(num_distinct_qualifiers);
         for _ in 0..num_distinct_qualifiers {
-            r.read_u16::<LittleEndian>()?;
-            let qualifier_type = r.read_u16::<LittleEndian>()?;
-            r.read_u16::<LittleEndian>()?;
-            r.read_u16::<LittleEndian>()?;
-            let operand_value_offset = r.read_u32::<LittleEndian>()?;
+            r.read_u16::<LE>()?;
+            let qualifier_type = r.read_u16::<LE>()?;
+            r.read_u16::<LE>()?;
+            r.read_u16::<LE>()?;
+            let operand_value_offset = r.read_u32::<LE>()?;
             distinct_qualifier_infos.push(DistinctQualifierInfo {
                 qualifier_type,
                 operand_value_offset,
@@ -64,7 +64,7 @@ impl DecisionInfo {
         }
         let mut index_table = Vec::with_capacity(num_index_table_entries);
         for _ in 0..num_index_table_entries {
-            let index = r.read_u16::<LittleEndian>()?;
+            let index = r.read_u16::<LE>()?;
             index_table.push(index as usize);
         }
         let data_start = r.seek(SeekFrom::Current(0))?;
@@ -76,7 +76,7 @@ impl DecisionInfo {
                 r.seek(SeekFrom::Start(string_start))?;
                 let mut value = String::with_capacity(15);
                 loop {
-                    let c = r.read_u16::<LittleEndian>()?;
+                    let c = r.read_u16::<LE>()?;
                     if c == 0 {
                         break;
                     }
@@ -128,11 +128,11 @@ impl DecisionInfo {
             let entry = distinct_qualifiers.entry((qualifier.qualifier_type, &qualifier.value));
             let index = distinct_qualifier_infos.len();
             if let Entry::Vacant(_) = entry {
-                let current_offset = values.len();
+                let current_offset = values.len() / 2;
                 for c in qualifier.value.chars() {
-                    values.write_u16::<LittleEndian>(c as u16)?;
+                    values.write_u16::<LE>(c as u16)?;
                 }
-                values.write_u16::<LittleEndian>(0)?;
+                values.write_u16::<LE>(0)?;
                 distinct_qualifier_infos.push(DistinctQualifierInfo {
                     qualifier_type: qualifier.qualifier_type as u16,
                     operand_value_offset: current_offset as u32,
@@ -170,41 +170,41 @@ impl DecisionInfo {
                 num_qualifier_sets_in_decision,
             });
         }
-        w.write_u16::<LittleEndian>(distinct_qualifier_infos.len() as u16)?;
-        w.write_u16::<LittleEndian>(qualifier_infos.len() as u16)?;
-        w.write_u16::<LittleEndian>(qualifier_set_infos.len() as u16)?;
-        w.write_u16::<LittleEndian>(decision_infos.len() as u16)?;
-        w.write_u16::<LittleEndian>(index_table.len() as u16)?;
-        w.write_u16::<LittleEndian>(0)?;
+        w.write_u16::<LE>(distinct_qualifier_infos.len() as u16)?;
+        w.write_u16::<LE>(qualifier_infos.len() as u16)?;
+        w.write_u16::<LE>(qualifier_set_infos.len() as u16)?;
+        w.write_u16::<LE>(decision_infos.len() as u16)?;
+        w.write_u16::<LE>(index_table.len() as u16)?;
+        w.write_u16::<LE>(0)?;
         let start = w.seek(SeekFrom::Current(0))?;
         for info in decision_infos {
-            w.write_u16::<LittleEndian>(info.first_qualifier_set_index_index as u16)?;
-            w.write_u16::<LittleEndian>(info.num_qualifier_sets_in_decision as u16)?;
+            w.write_u16::<LE>(info.first_qualifier_set_index_index as u16)?;
+            w.write_u16::<LE>(info.num_qualifier_sets_in_decision as u16)?;
         }
         for info in qualifier_set_infos {
-            w.write_u16::<LittleEndian>(info.first_qualifier_index_index as u16)?;
-            w.write_u16::<LittleEndian>(info.num_qualifiers_in_set as u16)?;
+            w.write_u16::<LE>(info.first_qualifier_index_index as u16)?;
+            w.write_u16::<LE>(info.num_qualifiers_in_set as u16)?;
         }
         for info in qualifier_infos {
-            w.write_u16::<LittleEndian>(info.index as u16)?;
-            w.write_u16::<LittleEndian>(info.priority)?;
-            w.write_u16::<LittleEndian>(info.fallback_score)?;
-            w.write_u16::<LittleEndian>(0)?;
+            w.write_u16::<LE>(info.index as u16)?;
+            w.write_u16::<LE>(info.priority)?;
+            w.write_u16::<LE>(info.fallback_score)?;
+            w.write_u16::<LE>(0)?;
         }
         for info in distinct_qualifier_infos {
-            w.write_u16::<LittleEndian>(0)?;
-            w.write_u16::<LittleEndian>(info.qualifier_type)?;
-            w.write_u16::<LittleEndian>(0)?;
-            w.write_u16::<LittleEndian>(0)?;
-            w.write_u32::<LittleEndian>(info.operand_value_offset)?;
+            w.write_u16::<LE>(0)?;
+            w.write_u16::<LE>(info.qualifier_type)?;
+            w.write_u16::<LE>(0)?;
+            w.write_u16::<LE>(0)?;
+            w.write_u32::<LE>(info.operand_value_offset)?;
         }
         for index in index_table {
-            w.write_u16::<LittleEndian>(index)?;
+            w.write_u16::<LE>(index)?;
         }
         w.write_all(&values)?;
         let end = w.seek(SeekFrom::Current(0))?;
         w.seek(SeekFrom::Start(start - 2))?;
-        w.write_u16::<LittleEndian>((end - start) as u16)?;
+        w.write_u16::<LE>((end - start) as u16)?;
         w.seek(SeekFrom::Start(end))?;
         Ok(())
     }

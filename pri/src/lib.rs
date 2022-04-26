@@ -1,6 +1,8 @@
 use anyhow::{bail, ensure, Result};
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use std::io::{Read, Seek, SeekFrom, Write};
+use byteorder::{ReadBytesExt, WriteBytesExt, LE};
+use std::fs::File;
+use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
+use std::path::Path;
 
 mod data_item;
 mod decision_info;
@@ -12,7 +14,7 @@ pub use data_item::DataItem;
 pub use decision_info::{Decision, DecisionInfo, Qualifier, QualifierSet, QualifierType};
 pub use hierarchical_schema::{HierarchicalSchema, ResourceMapEntry};
 pub use pri_descriptor::{PriDescriptor, PriDescriptorFlags};
-pub use resource_map::ResourceMap;
+pub use resource_map::{ResourceMap, ResourceValueType};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PriFile {
@@ -25,6 +27,10 @@ impl PriFile {
     pub const MRM_PRI2: &'static str = "mrm_pri2";
     pub const MRM_PRIF: &'static str = "mrm_prif";
 
+    pub fn open<T: AsRef<Path>>(path: T) -> Result<Self> {
+        Self::read(&mut BufReader::new(File::open(path)?))
+    }
+
     pub fn read<R: Read + Seek>(r: &mut R) -> Result<Self> {
         let mut magic = [0; 8];
         r.read_exact(&mut magic)?;
@@ -35,17 +41,17 @@ impl PriFile {
             b"mrm_prif" => Self::MRM_PRIF,
             _ => bail!("Data does not start with a PRI file header."),
         };
-        ensure!(r.read_u16::<LittleEndian>()? == 0);
-        ensure!(r.read_u16::<LittleEndian>()? == 1);
-        let total_file_size = r.read_u32::<LittleEndian>()?;
-        let toc_offset = r.read_u32::<LittleEndian>()?;
-        let section_start_offset = r.read_u32::<LittleEndian>()?;
-        let num_sections = r.read_u16::<LittleEndian>()?;
-        ensure!(r.read_u16::<LittleEndian>()? == 0xffff);
-        ensure!(r.read_u32::<LittleEndian>()? == 0, "expected 0");
+        ensure!(r.read_u16::<LE>()? == 0);
+        ensure!(r.read_u16::<LE>()? == 1);
+        let total_file_size = r.read_u32::<LE>()?;
+        let toc_offset = r.read_u32::<LE>()?;
+        let section_start_offset = r.read_u32::<LE>()?;
+        let num_sections = r.read_u16::<LE>()?;
+        ensure!(r.read_u16::<LE>()? == 0xffff);
+        ensure!(r.read_u32::<LE>()? == 0, "expected 0");
         r.seek(SeekFrom::Start(total_file_size as u64 - 16))?;
-        ensure!(r.read_u32::<LittleEndian>()? == 0xdefffade);
-        ensure!(r.read_u32::<LittleEndian>()? == total_file_size);
+        ensure!(r.read_u32::<LE>()? == 0xdefffade);
+        ensure!(r.read_u32::<LE>()? == total_file_size);
         r.read_exact(&mut magic)?;
         ensure!(magic == version.as_bytes());
         r.seek(SeekFrom::Start(toc_offset as u64))?;
@@ -54,27 +60,31 @@ impl PriFile {
             toc.push(TocEntry::read(r)?);
         }
         let mut sections = Vec::with_capacity(num_sections as usize);
-        for i in 0..(num_sections as usize) {
+        for entry in toc {
             r.seek(SeekFrom::Start(
-                section_start_offset as u64 + toc[i].section_offset as u64,
+                section_start_offset as u64 + entry.section_offset as u64,
             ))?;
             sections.push(Section::read(r)?);
         }
         Ok(Self { sections })
     }
 
+    pub fn create<T: AsRef<Path>>(&self, path: T) -> Result<()> {
+        self.write(&mut BufWriter::new(File::create(path)?))
+    }
+
     pub fn write<W: Write + Seek>(&self, w: &mut W) -> Result<()> {
         w.write_all(Self::MRM_PRI2.as_bytes())?;
-        w.write_u16::<LittleEndian>(0)?;
-        w.write_u16::<LittleEndian>(1)?;
-        w.write_u32::<LittleEndian>(0)?;
+        w.write_u16::<LE>(0)?;
+        w.write_u16::<LE>(1)?;
+        w.write_u32::<LE>(0)?;
         let toc_offset = 30;
-        w.write_u32::<LittleEndian>(toc_offset)?;
+        w.write_u32::<LE>(toc_offset)?;
         let section_start_offset = self.sections.len() as u64 * 32 + toc_offset as u64;
-        w.write_u32::<LittleEndian>(section_start_offset as u32)?;
-        w.write_u16::<LittleEndian>(self.sections.len() as u16)?;
-        w.write_u16::<LittleEndian>(0xffff)?;
-        w.write_u32::<LittleEndian>(0)?;
+        w.write_u32::<LE>(section_start_offset as u32)?;
+        w.write_u16::<LE>(self.sections.len() as u16)?;
+        w.write_u16::<LE>(0xffff)?;
+        w.write_u32::<LE>(0)?;
         for section in &self.sections {
             TocEntry {
                 section_identifier: section.data.section_identifier(),
@@ -93,17 +103,17 @@ impl PriFile {
             let offset = start - section_start_offset;
             let length = end - start;
             w.seek(SeekFrom::Start(toc_offset as u64 + 32 * i as u64 + 24))?;
-            w.write_u32::<LittleEndian>(offset as u32)?;
-            w.write_u32::<LittleEndian>(length as u32)?;
+            w.write_u32::<LE>(offset as u32)?;
+            w.write_u32::<LE>(length as u32)?;
             w.seek(SeekFrom::Start(end))?;
         }
         let pos = w.seek(SeekFrom::Current(0))?;
         let total_file_size = pos + 16;
-        w.write_u32::<LittleEndian>(0xdefffade)?;
-        w.write_u32::<LittleEndian>(total_file_size as u32)?;
+        w.write_u32::<LE>(0xdefffade)?;
+        w.write_u32::<LE>(total_file_size as u32)?;
         w.write_all(Self::MRM_PRI2.as_bytes())?;
         w.seek(SeekFrom::Start(12))?;
-        w.write_u32::<LittleEndian>(total_file_size as u32)?;
+        w.write_u32::<LE>(total_file_size as u32)?;
         Ok(())
     }
 
@@ -151,11 +161,11 @@ impl TocEntry {
     pub fn read(r: &mut impl Read) -> Result<Self> {
         let mut section_identifier = [0; 16];
         r.read_exact(&mut section_identifier)?;
-        let flags = r.read_u16::<LittleEndian>()?;
-        let section_flags = r.read_u16::<LittleEndian>()?;
-        let section_qualifier = r.read_u32::<LittleEndian>()?;
-        let section_offset = r.read_u32::<LittleEndian>()?;
-        let section_length = r.read_u32::<LittleEndian>()?;
+        let flags = r.read_u16::<LE>()?;
+        let section_flags = r.read_u16::<LE>()?;
+        let section_qualifier = r.read_u32::<LE>()?;
+        let section_offset = r.read_u32::<LE>()?;
+        let section_length = r.read_u32::<LE>()?;
         Ok(Self {
             section_identifier,
             flags,
@@ -168,11 +178,11 @@ impl TocEntry {
 
     pub fn write(&self, w: &mut impl Write) -> Result<()> {
         w.write_all(&self.section_identifier)?;
-        w.write_u16::<LittleEndian>(self.flags)?;
-        w.write_u16::<LittleEndian>(self.section_flags)?;
-        w.write_u32::<LittleEndian>(self.section_qualifier)?;
-        w.write_u32::<LittleEndian>(self.section_offset)?;
-        w.write_u32::<LittleEndian>(self.section_length)?;
+        w.write_u16::<LE>(self.flags)?;
+        w.write_u16::<LE>(self.section_flags)?;
+        w.write_u32::<LE>(self.section_qualifier)?;
+        w.write_u32::<LE>(self.section_offset)?;
+        w.write_u32::<LE>(self.section_length)?;
         Ok(())
     }
 }
@@ -190,15 +200,15 @@ impl Section {
         let start = r.seek(SeekFrom::Current(0))?;
         let mut section_identifier = [0; 16];
         r.read_exact(&mut section_identifier)?;
-        let section_qualifier = r.read_u32::<LittleEndian>()?;
-        let flags = r.read_u16::<LittleEndian>()?;
-        let section_flags = r.read_u16::<LittleEndian>()?;
-        let section_length = r.read_u32::<LittleEndian>()?;
-        ensure!(r.read_u32::<LittleEndian>()? == 0);
+        let section_qualifier = r.read_u32::<LE>()?;
+        let flags = r.read_u16::<LE>()?;
+        let section_flags = r.read_u16::<LE>()?;
+        let section_length = r.read_u32::<LE>()?;
+        ensure!(r.read_u32::<LE>()? == 0);
         let data = SectionData::read(section_identifier, section_length - 16 - 24, r)?;
         r.seek(SeekFrom::Start(start + section_length as u64 - 8))?;
-        ensure!(r.read_u32::<LittleEndian>()? == 0xdef5fade);
-        ensure!(r.read_u32::<LittleEndian>()? == section_length);
+        ensure!(r.read_u32::<LE>()? == 0xdef5fade);
+        ensure!(r.read_u32::<LE>()? == section_length);
         Ok(Self {
             section_qualifier,
             flags,
@@ -209,19 +219,19 @@ impl Section {
 
     pub fn write<W: Write + Seek>(&self, w: &mut W) -> Result<()> {
         w.write_all(&self.data.section_identifier())?;
-        w.write_u32::<LittleEndian>(self.section_qualifier)?;
-        w.write_u16::<LittleEndian>(self.flags)?;
-        w.write_u16::<LittleEndian>(self.section_flags)?;
-        w.write_u32::<LittleEndian>(0)?;
-        w.write_u32::<LittleEndian>(0)?;
+        w.write_u32::<LE>(self.section_qualifier)?;
+        w.write_u16::<LE>(self.flags)?;
+        w.write_u16::<LE>(self.section_flags)?;
+        w.write_u32::<LE>(0)?;
+        w.write_u32::<LE>(0)?;
         let start = w.seek(SeekFrom::Current(0))?;
         self.data.write(w)?;
         let end = w.seek(SeekFrom::Current(0))?;
         let section_length = (end - start) as u32 + 40;
-        w.write_u32::<LittleEndian>(0xdef5fade)?;
-        w.write_u32::<LittleEndian>(section_length)?;
+        w.write_u32::<LE>(0xdef5fade)?;
+        w.write_u32::<LE>(section_length)?;
         w.seek(SeekFrom::Start(start - 8))?;
-        w.write_u32::<LittleEndian>(section_length)?;
+        w.write_u32::<LE>(section_length)?;
         w.seek(SeekFrom::Start(end + 8))?;
         Ok(())
     }
@@ -253,7 +263,7 @@ impl SectionData {
         match &identifier {
             DataItem::IDENTIFIER => Ok(Self::DataItem(DataItem::read(r)?)),
             PriDescriptor::IDENTIFIER => Ok(Self::PriDescriptor(PriDescriptor::read(r)?)),
-            //ResourceMap::IDENTIFIER => Ok(Self::ResourceMap(ResourceMap::read(r)?)),
+            ResourceMap::IDENTIFIER => Ok(Self::ResourceMap(ResourceMap::read(r)?)),
             DecisionInfo::IDENTIFIER => Ok(Self::DecisionInfo(DecisionInfo::read(r)?)),
             HierarchicalSchema::IDENTIFIER => {
                 Ok(Self::HierarchicalSchema(HierarchicalSchema::read(r)?))
@@ -266,11 +276,10 @@ impl SectionData {
         match self {
             Self::DataItem(section) => section.write(w)?,
             Self::PriDescriptor(section) => section.write(w)?,
-            //Self::ResourceMap(section) => section.write(w)?,
+            Self::ResourceMap(section) => section.write(w)?,
             Self::DecisionInfo(section) => section.write(w)?,
             Self::HierarchicalSchema(section) => section.write(w)?,
             Self::Unknown(section) => section.write(w)?,
-            _ => {}
         }
         Ok(())
     }
@@ -306,5 +315,29 @@ impl std::fmt::Debug for UnknownSection {
             .field("identifier", &identifier)
             .field("length", &self.data.len())
             .finish_non_exhaustive()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    static RESOURCES: &[u8] = include_bytes!("../assets/resources.pri");
+
+    #[test]
+    fn test_parse_gen_parse() -> Result<()> {
+        let pri = PriFile::read(&mut Cursor::new(RESOURCES))?;
+        //println!("{:#?}", pri);
+        let mut buf = vec![];
+        pri.write(&mut Cursor::new(&mut buf))?;
+        //assert_eq!(RESOURCES, &buf[..]);
+        let pri2 = PriFile::read(&mut Cursor::new(&buf))?;
+        for i in 0..pri.num_sections() {
+            let s1 = pri.section(i).unwrap();
+            let s2 = pri2.section(i).unwrap();
+            assert_eq!(s1, s2);
+        }
+        Ok(())
     }
 }
