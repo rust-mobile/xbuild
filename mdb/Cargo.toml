@@ -1,0 +1,22 @@
+[package]
+name = "mdb"
+version = "0.1.0"
+authors = ["David Craven <david@craven.ch>", "Flux Xu <fluxxu@gmail.com>"]
+edition = "2021"
+description = "Mobile device debug bridge. Supports android and ios devices."
+repository = "https://github.com/cloudpeers/xbuild"
+license = "MIT"
+keywords = ["adb", "imobiledevice", "ios-deploy"]
+
+[dependencies]
+anyhow = "1.0.57"
+base64 = "0.13.0"
+byteorder = "1.4.3"
+log = "0.4.16"
+num-bigint-dig = "0.8.1"
+num-traits = "0.2.14"
+rsa = "0.6.1"
+rusb = "0.9.1"
+
+[dev-dependencies]
+env_logger = "0.9.0"
