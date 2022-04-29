@@ -77,38 +77,36 @@ pub struct UsbDevice {
 impl UsbDevice {
     fn new(device: Device<GlobalContext>) -> Result<Option<Self>> {
         let device_desc = device.device_descriptor()?;
-        for config in 0..device_desc.num_configurations() {
-            let config_desc = device.config_descriptor(config)?;
-            for iface in config_desc.interfaces() {
-                for iface_desc in iface.descriptors() {
-                    if let Some(protocol) = Protocol::new(&iface_desc) {
-                        let ep_read = iface_desc
-                            .endpoint_descriptors()
-                            .filter(|ep| ep.transfer_type() == TransferType::Bulk)
-                            .filter(|ep| ep.direction() == Direction::In)
-                            .map(|ep| ep.address())
-                            .next()
-                            .ok_or_else(|| anyhow::anyhow!("invalid endpoint"))?;
-                        let ep_write = iface_desc
-                            .endpoint_descriptors()
-                            .filter(|ep| ep.transfer_type() == TransferType::Bulk)
-                            .filter(|ep| ep.direction() == Direction::Out)
-                            .map(|ep| ep.address())
-                            .next()
-                            .ok_or_else(|| anyhow::anyhow!("invalid endpoint"))?;
-                        let handle = device.open().map_err(error)?;
-                        let serial = handle.read_serial_number_string_ascii(&device_desc)?;
-                        return Ok(Some(Self {
-                            handle,
-                            serial,
-                            protocol,
-                            config: config_desc.number(),
-                            iface: iface_desc.interface_number(),
-                            setting: iface_desc.setting_number(),
-                            ep_read,
-                            ep_write,
-                        }));
-                    }
+        let config_desc = device.active_config_descriptor()?;
+        for iface in config_desc.interfaces() {
+            for iface_desc in iface.descriptors() {
+                if let Some(protocol) = Protocol::new(&iface_desc) {
+                    let ep_read = iface_desc
+                        .endpoint_descriptors()
+                        .filter(|ep| ep.transfer_type() == TransferType::Bulk)
+                        .filter(|ep| ep.direction() == Direction::In)
+                        .map(|ep| ep.address())
+                        .next()
+                        .ok_or_else(|| anyhow::anyhow!("invalid endpoint"))?;
+                    let ep_write = iface_desc
+                        .endpoint_descriptors()
+                        .filter(|ep| ep.transfer_type() == TransferType::Bulk)
+                        .filter(|ep| ep.direction() == Direction::Out)
+                        .map(|ep| ep.address())
+                        .next()
+                        .ok_or_else(|| anyhow::anyhow!("invalid endpoint"))?;
+                    let handle = device.open().map_err(error)?;
+                    let serial = handle.read_serial_number_string_ascii(&device_desc)?;
+                    return Ok(Some(Self {
+                        handle,
+                        serial,
+                        protocol,
+                        config: config_desc.number(),
+                        iface: iface_desc.interface_number(),
+                        setting: iface_desc.setting_number(),
+                        ep_read,
+                        ep_write,
+                    }));
                 }
             }
         }
@@ -119,14 +117,10 @@ impl UsbDevice {
         let mut device = usb_devices()?
             .iter()
             .filter_map(|res| res.ok())
-            .find(|dev| &dev.serial == serial && dev.protocol == protocol)
+            .find(|dev| dev.serial == serial && dev.protocol == protocol)
             .ok_or_else(|| anyhow::anyhow!("device with serial {} not found", serial))?;
         device.handle.reset()?;
         device.handle.detach_kernel_driver(device.iface).ok();
-        device
-            .handle
-            .set_active_configuration(device.config)
-            .map_err(error)?;
         device.handle.claim_interface(device.iface).map_err(error)?;
         device
             .handle
