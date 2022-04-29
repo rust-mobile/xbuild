@@ -129,6 +129,11 @@ impl UsbDevice {
         Ok(device)
     }
 
+    // TODO: Just pass a `UsbDevice` around
+    pub fn serial(&self) -> &str {
+        self.serial.as_str()
+    }
+
     pub fn send(&self, buf: &[u8], timeout: Duration) -> Result<usize> {
         Ok(self.handle.write_bulk(self.ep_write, buf, timeout)?)
     }

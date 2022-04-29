@@ -82,19 +82,24 @@ impl AndroidPublicKey {
 
 #[cfg(test)]
 mod tests {
+    use crate::adbkey;
+
     use super::*;
-    use rsa::pkcs8::DecodePrivateKey;
-    use rsa::RsaPrivateKey;
+
+    pub fn adbpublickey() -> Result<AndroidPublicKey> {
+        let home = dirs::home_dir().unwrap();
+        let public_key2 = std::fs::read_to_string(home.join(".android/adbkey.pub"))?;
+        let public_key2 = public_key2.split_once(' ').unwrap().0.to_string();
+        AndroidPublicKey::decode(&public_key2)
+    }
 
     #[test]
     fn test_public_key() -> Result<()> {
-        let private_key = RsaPrivateKey::read_pkcs8_pem_file("/home/dvc/.android/adbkey").unwrap();
+        let private_key = adbkey()?;
         let public_key = RsaPublicKey::from(&private_key);
         let public_key = AndroidPublicKey::new(public_key);
 
-        let public_key2 = std::fs::read_to_string("/home/dvc/.android/adbkey.pub")?;
-        let public_key2 = public_key2.split_once(' ').unwrap().0.to_string();
-        let public_key2 = AndroidPublicKey::decode(&public_key2)?;
+        let public_key2 = adbpublickey()?;
         assert_eq!(public_key2.n0inv, public_key.n0inv);
         assert_eq!(public_key2.modulus, public_key.modulus);
         assert_eq!(public_key2.rr, public_key.rr);

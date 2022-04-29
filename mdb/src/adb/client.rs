@@ -78,12 +78,11 @@ impl<T: Transport<AdbPacket>> AdbConnection<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rsa::pkcs8::DecodePrivateKey;
-
+    use crate::{adbkey, usb_devices};
     #[test]
     fn test_client_tcp() -> Result<()> {
         env_logger::try_init().ok();
-        let private_key = RsaPrivateKey::read_pkcs8_pem_file("/home/dvc/.android/adbkey")?;
+        let private_key = adbkey()?;
         let _conn = AdbConnection::tcp(&private_key, "192.168.2.43:5555")?;
         Ok(())
     }
@@ -91,8 +90,11 @@ mod tests {
     #[test]
     fn test_client_usb() -> Result<()> {
         env_logger::try_init().ok();
-        let private_key = RsaPrivateKey::read_pkcs8_pem_file("/home/dvc/.android/adbkey")?;
-        let _conn = AdbConnection::usb(&private_key, "16ee50bc")?;
+        let private_key = adbkey()?;
+        let devices = usb_devices()?;
+        for d in devices.iter() {
+            let _conn = AdbConnection::usb(&private_key, d?.serial())?;
+        }
         Ok(())
     }
 }

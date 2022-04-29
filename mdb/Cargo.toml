@@ -12,6 +12,7 @@ keywords = ["adb", "imobiledevice", "ios-deploy"]
 anyhow = "1.0.57"
 base64 = "0.13.0"
 byteorder = "1.4.3"
+dirs = "4.0.0"
 log = "0.4.16"
 num-bigint-dig = "0.8.1"
 num-traits = "0.2.14"

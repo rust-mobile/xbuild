@@ -23,6 +23,8 @@ impl Adb {
     }
 
     pub fn connect(device: String) -> Result<Self> {
+        // TODO:
+        // let private_key = mdb::adb::adbkey()?;
         let private_key = RsaPrivateKey::read_pkcs8_pem_file("/home/dvc/.android/adbkey").unwrap();
         Ok(Self {
             conn: AdbClient::new(private_key, "host::").connect(&device)?,
