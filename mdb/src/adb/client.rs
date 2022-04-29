@@ -63,7 +63,9 @@ impl Adb {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{adbkey, usb_devices};
+    use crate::adbkey;
+    use crate::usb::usb_devices;
+
     #[test]
     fn test_client_tcp() -> Result<()> {
         env_logger::try_init().ok();
@@ -81,8 +83,10 @@ mod tests {
     fn test_client_usb() -> Result<()> {
         env_logger::try_init().ok();
         let private_key = adbkey()?;
-        let device = DeviceId::new("16ee50bc".into(), Protocol::Adb, Transport::Usb);
-        let _conn = Adb::connect(&private_key, &device)?;
+        for device in usb_devices()?.iter() {
+            let device = DeviceId::new(device?.serial().into(), Protocol::Adb, Transport::Usb);
+            let _conn = Adb::connect(&private_key, &device)?;
+        }
         Ok(())
     }
 }
