@@ -58,7 +58,7 @@ impl Transport<AdbPacket> for AdbUsbTransport {
             .send(&self.send_buffer[..24], Duration::from_secs(1))?;
         anyhow::ensure!(n == 24);
         log::debug!("sent header");
-        if packet.payload().len() > 0 {
+        if !packet.payload().is_empty() {
             let n = self
                 .device
                 .send(&self.send_buffer[24..], Duration::from_secs(1))?;

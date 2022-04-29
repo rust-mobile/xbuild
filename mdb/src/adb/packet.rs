@@ -32,11 +32,7 @@ impl Command {
 }
 
 fn crc(payload: &[u8]) -> u32 {
-    let mut crc = 0;
-    for byte in payload {
-        crc = (crc + *byte as u32) & 0xffffffff;
-    }
-    crc
+    payload.iter().map(|&b| b as u32).sum()
 }
 
 #[derive(Debug)]

@@ -53,7 +53,7 @@ impl<'a> Iterator for UsbDevices<'a> {
     type Item = Result<UsbDevice>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(device) = self.0.next() {
+        for device in self.0.by_ref() {
             if let Some(res) = UsbDevice::new(device).transpose() {
                 return Some(res);
             }

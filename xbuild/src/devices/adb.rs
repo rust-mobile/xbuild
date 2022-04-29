@@ -45,7 +45,7 @@ impl Adb {
 
     pub fn shell(&mut self, command: &str) -> Result<Vec<u8>> {
         println!("{}", command);
-        Ok(self.conn.shell(command)?)
+        self.conn.shell(command)
     }
 
     fn getprop(&mut self, prop: &str) -> Result<String> {
