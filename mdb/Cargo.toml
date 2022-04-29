@@ -10,10 +10,14 @@ keywords = ["adb", "imobiledevice", "ios-deploy"]
 
 [dependencies]
 anyhow = "1.0.57"
+async-global-executor = "2.0.4"
+async-io = "1.6.0"
 base64 = "0.13.0"
 byteorder = "1.4.3"
 dirs = "4.0.0"
+futures = { version = "0.3.21", default-features = false }
 log = "0.4.16"
+mdns = { git = "https://github.com/dvc94ch/mdns", branch = "fix-discovery" }
 num-bigint-dig = "0.8.1"
 num-traits = "0.2.14"
 rsa = "0.6.1"

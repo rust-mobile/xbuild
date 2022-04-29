@@ -1,3 +1,4 @@
+use crate::Protocol;
 use anyhow::Result;
 use rusb::{
     Device, DeviceHandle, DeviceList, Devices, Direction, GlobalContext, InterfaceDescriptor,
@@ -13,23 +14,15 @@ fn error(err: rusb::Error) -> anyhow::Error {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Protocol {
-    Adb,
-    Usbmux,
-}
-
-impl Protocol {
-    fn new(desc: &InterfaceDescriptor) -> Option<Self> {
-        match (
-            desc.class_code(),
-            desc.sub_class_code(),
-            desc.protocol_code(),
-        ) {
-            (0xff, 0x42, 0x1) => Some(Protocol::Adb),
-            (0xff, 0xfe, 0x2) => Some(Protocol::Usbmux),
-            _ => None,
-        }
+fn protocol(desc: &InterfaceDescriptor) -> Option<Protocol> {
+    match (
+        desc.class_code(),
+        desc.sub_class_code(),
+        desc.protocol_code(),
+    ) {
+        (0xff, 0x42, 0x1) => Some(Protocol::Adb),
+        (0xff, 0xfe, 0x2) => Some(Protocol::Usbmux),
+        _ => None,
     }
 }
 
@@ -65,8 +58,8 @@ impl<'a> Iterator for UsbDevices<'a> {
 #[derive(Debug, Eq, PartialEq)]
 pub struct UsbDevice {
     handle: DeviceHandle<GlobalContext>,
-    serial: String,
-    protocol: Protocol,
+    pub(crate) serial: String,
+    pub(crate) protocol: Protocol,
     config: u8,
     iface: u8,
     setting: u8,
@@ -80,7 +73,7 @@ impl UsbDevice {
         let config_desc = device.active_config_descriptor()?;
         for iface in config_desc.interfaces() {
             for iface_desc in iface.descriptors() {
-                if let Some(protocol) = Protocol::new(&iface_desc) {
+                if let Some(protocol) = protocol(&iface_desc) {
                     let ep_read = iface_desc
                         .endpoint_descriptors()
                         .filter(|ep| ep.transfer_type() == TransferType::Bulk)

@@ -1,40 +1,25 @@
 use crate::adb::packet::{AdbPacket, Command};
-use crate::adb::{AdbTcpTransport, AdbUsbTransport};
-use crate::Transport;
+use crate::adb::transport::{AdbTcpTransport, AdbUsbTransport, Transport as TTransport};
+use crate::{DeviceId, Protocol, Transport};
 use anyhow::Result;
 use rsa::{Hash, PaddingScheme, RsaPrivateKey, RsaPublicKey};
-use std::net::ToSocketAddrs;
 
 const VERSION: u32 = 0x0100_0000;
 const MAX_DATA: u32 = 0x10_0000;
 
-pub struct AdbConnection<T> {
-    transport: T,
+pub struct Adb {
+    transport: Box<dyn TTransport<AdbPacket>>,
 }
 
-impl AdbConnection<AdbUsbTransport> {
-    pub fn usb(private_key: &RsaPrivateKey, serial: &str) -> Result<Self> {
-        let transport = AdbUsbTransport::connect(serial)?;
-        Self::new(transport, VERSION, MAX_DATA, "host::", private_key)
-    }
-}
+impl Adb {
+    pub fn connect(private_key: &RsaPrivateKey, device_id: &DeviceId) -> Result<Self> {
+        anyhow::ensure!(device_id.protocol() == Protocol::Adb);
+        let mut transport: Box<dyn TTransport<AdbPacket>> = match device_id.transport() {
+            Transport::Usb => Box::new(AdbUsbTransport::connect(device_id.serial())?),
+            Transport::Tcp(addr) => Box::new(AdbTcpTransport::connect(addr)?),
+        };
 
-impl AdbConnection<AdbTcpTransport> {
-    pub fn tcp(private_key: &RsaPrivateKey, addrs: impl ToSocketAddrs) -> Result<Self> {
-        let transport = AdbTcpTransport::connect(addrs)?;
-        Self::new(transport, VERSION, MAX_DATA, "host::", private_key)
-    }
-}
-
-impl<T: Transport<AdbPacket>> AdbConnection<T> {
-    pub fn new(
-        mut transport: T,
-        version: u32,
-        max_data: u32,
-        system_identity: &str,
-        private_key: &RsaPrivateKey,
-    ) -> Result<Self> {
-        transport.send(AdbPacket::connect(version, max_data, system_identity))?;
+        transport.send(AdbPacket::connect(VERSION, MAX_DATA, "host::"))?;
         let mut auth = 0;
         loop {
             let packet = transport.recv()?;
@@ -83,7 +68,12 @@ mod tests {
     fn test_client_tcp() -> Result<()> {
         env_logger::try_init().ok();
         let private_key = adbkey()?;
-        let _conn = AdbConnection::tcp(&private_key, "192.168.2.43:5555")?;
+        let device = DeviceId::new(
+            "16ee50bc".into(),
+            Protocol::Adb,
+            Transport::Tcp("192.168.2.43:5555".parse()?),
+        );
+        let _conn = Adb::connect(&private_key, &device)?;
         Ok(())
     }
 
@@ -91,10 +81,8 @@ mod tests {
     fn test_client_usb() -> Result<()> {
         env_logger::try_init().ok();
         let private_key = adbkey()?;
-        let devices = usb_devices()?;
-        for d in devices.iter() {
-            let _conn = AdbConnection::usb(&private_key, d?.serial())?;
-        }
+        let device = DeviceId::new("16ee50bc".into(), Protocol::Adb, Transport::Usb);
+        let _conn = Adb::connect(&private_key, &device)?;
         Ok(())
     }
 }
