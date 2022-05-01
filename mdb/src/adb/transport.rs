@@ -5,9 +5,9 @@ use anyhow::Result;
 use std::net::{TcpStream, ToSocketAddrs};
 use std::time::Duration;
 
-pub trait Transport<P> {
-    fn send(&mut self, packet: P) -> Result<()>;
-    fn recv(&mut self) -> Result<P>;
+pub trait AdbTransport {
+    fn send(&mut self, packet: AdbPacket) -> Result<()>;
+    fn recv(&mut self) -> Result<AdbPacket>;
 }
 
 pub struct AdbTcpTransport(TcpStream);
@@ -18,7 +18,7 @@ impl AdbTcpTransport {
     }
 }
 
-impl Transport<AdbPacket> for AdbTcpTransport {
+impl AdbTransport for AdbTcpTransport {
     fn send(&mut self, packet: AdbPacket) -> Result<()> {
         log::debug!("send {:?}", packet);
         packet.encode(&mut self.0)
@@ -47,7 +47,7 @@ impl AdbUsbTransport {
     }
 }
 
-impl Transport<AdbPacket> for AdbUsbTransport {
+impl AdbTransport for AdbUsbTransport {
     fn send(&mut self, packet: AdbPacket) -> Result<()> {
         log::debug!("send {:?}", packet);
         self.send_buffer.clear();

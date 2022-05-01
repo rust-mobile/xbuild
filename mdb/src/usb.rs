@@ -1,8 +1,8 @@
 use crate::Protocol;
 use anyhow::Result;
 use rusb::{
-    Device, DeviceHandle, DeviceList, Devices, Direction, GlobalContext, InterfaceDescriptor,
-    TransferType, UsbContext,
+    ConfigDescriptor, Device, DeviceDescriptor, DeviceHandle, DeviceList, Devices, Direction,
+    GlobalContext, InterfaceDescriptor, TransferType, UsbContext,
 };
 use std::time::Duration;
 
@@ -58,8 +58,8 @@ impl<'a> Iterator for UsbDevices<'a> {
 #[derive(Debug, Eq, PartialEq)]
 pub struct UsbDevice {
     handle: DeviceHandle<GlobalContext>,
-    pub(crate) serial: String,
-    pub(crate) protocol: Protocol,
+    serial: String,
+    protocol: Protocol,
     config: u8,
     iface: u8,
     setting: u8,
@@ -71,6 +71,23 @@ impl UsbDevice {
     fn new(device: Device<GlobalContext>) -> Result<Option<Self>> {
         let device_desc = device.device_descriptor()?;
         let config_desc = device.active_config_descriptor()?;
+        if let Some(device) = Self::new_with_config(&device, &device_desc, &config_desc)? {
+            return Ok(Some(device));
+        }
+        for i in 0..device_desc.num_configurations() {
+            let config_desc = device.config_descriptor(i)?;
+            if let Some(device) = Self::new_with_config(&device, &device_desc, &config_desc)? {
+                return Ok(Some(device));
+            }
+        }
+        Ok(None)
+    }
+
+    fn new_with_config(
+        device: &Device<GlobalContext>,
+        device_desc: &DeviceDescriptor,
+        config_desc: &ConfigDescriptor,
+    ) -> Result<Option<UsbDevice>> {
         for iface in config_desc.interfaces() {
             for iface_desc in iface.descriptors() {
                 if let Some(protocol) = protocol(&iface_desc) {
@@ -114,17 +131,26 @@ impl UsbDevice {
             .ok_or_else(|| anyhow::anyhow!("device with serial {} not found", serial))?;
         device.handle.reset()?;
         device.handle.detach_kernel_driver(device.iface).ok();
+        device
+            .handle
+            .set_active_configuration(device.config)
+            .map_err(error)?;
         device.handle.claim_interface(device.iface).map_err(error)?;
         device
             .handle
             .set_alternate_setting(device.iface, device.setting)
             .map_err(error)?;
+        log::debug!("opened device {}", serial);
         Ok(device)
     }
 
     // TODO: Just pass a `UsbDevice` around
     pub fn serial(&self) -> &str {
         self.serial.as_str()
+    }
+
+    pub fn protocol(&self) -> Protocol {
+        self.protocol
     }
 
     pub fn send(&self, buf: &[u8], timeout: Duration) -> Result<usize> {

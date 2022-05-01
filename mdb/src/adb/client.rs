@@ -1,5 +1,5 @@
 use crate::adb::packet::{AdbPacket, Command};
-use crate::adb::transport::{AdbTcpTransport, AdbUsbTransport, Transport as TTransport};
+use crate::adb::transport::{AdbTcpTransport, AdbTransport, AdbUsbTransport};
 use crate::{DeviceId, Protocol, Transport};
 use anyhow::Result;
 use rsa::{Hash, PaddingScheme, RsaPrivateKey, RsaPublicKey};
@@ -8,13 +8,13 @@ const VERSION: u32 = 0x0100_0000;
 const MAX_DATA: u32 = 0x10_0000;
 
 pub struct Adb {
-    transport: Box<dyn TTransport<AdbPacket>>,
+    transport: Box<dyn AdbTransport>,
 }
 
 impl Adb {
     pub fn connect(private_key: &RsaPrivateKey, device_id: &DeviceId) -> Result<Self> {
         anyhow::ensure!(device_id.protocol() == Protocol::Adb);
-        let mut transport: Box<dyn TTransport<AdbPacket>> = match device_id.transport() {
+        let mut transport: Box<dyn AdbTransport> = match device_id.transport() {
             Transport::Usb => Box::new(AdbUsbTransport::connect(device_id.serial())?),
             Transport::Tcp(addr) => Box::new(AdbTcpTransport::connect(addr)?),
         };

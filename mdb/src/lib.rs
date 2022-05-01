@@ -1,8 +1,8 @@
 use anyhow::Result;
-use rsa::pkcs8::DecodePrivateKey;
-use rsa::RsaPrivateKey;
 use async_io::Timer;
 use futures::stream::{Stream, StreamExt};
+use rsa::pkcs8::DecodePrivateKey;
+use rsa::RsaPrivateKey;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::time::Duration;
@@ -65,8 +65,8 @@ pub fn devices() -> Result<Vec<DeviceId>> {
     for device in usb::usb_devices()?.iter() {
         let device = device?;
         devices.push(DeviceId {
-            serial: device.serial,
-            protocol: device.protocol,
+            serial: device.serial().into(),
+            protocol: device.protocol(),
             transport: Transport::Usb,
         });
     }

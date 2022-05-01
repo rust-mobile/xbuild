@@ -4,8 +4,8 @@ use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use rsa::RsaPublicKey;
 use std::io::{Read, Write};
 
-#[repr(u32)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u32)]
 pub enum Command {
     Sync = 0x434e5953,
     Connect = 0x4e584e43,
