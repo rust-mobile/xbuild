@@ -443,7 +443,7 @@ impl BuildTargetArgs {
         } else if let Some(device) = device.as_mut() {
             vec![device.arch()?]
         } else {
-            unreachable!();
+            anyhow::bail!("--arch --device or --store needs to be provided");
         };
         let opt = if self.release || (!self.debug && self.store.is_some()) {
             Opt::Release
