@@ -8,9 +8,13 @@ use std::pin::Pin;
 use std::time::Duration;
 
 mod adb;
+mod lockdown;
 mod usb;
+mod usbmux;
 
 pub use crate::adb::Adb;
+pub use crate::lockdown::Lockdown;
+pub use crate::usbmux::Usbmux;
 
 pub fn adbkey() -> Result<RsaPrivateKey> {
     let home = dirs::home_dir().unwrap();
@@ -99,8 +103,19 @@ pub fn devices() -> Result<Vec<DeviceId>> {
                 .listen()
                 .filter_map(|resp| async move {
                     if let Ok(resp) = resp {
+                        let any_addr = resp.ip_addr()?;
+                        let addr = resp
+                            .records()
+                            .find_map(|rec| {
+                                if let mdns::RecordKind::A(addr) = rec.kind {
+                                    Some(addr.into())
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or(any_addr);
                         let serial = "unknown".to_string();
-                        let transport = Transport::Tcp(resp.socket_address()?);
+                        let transport = Transport::Tcp(SocketAddr::new(addr, 62078));
                         let protocol = Protocol::Usbmux;
                         Some(DeviceId {
                             serial,
