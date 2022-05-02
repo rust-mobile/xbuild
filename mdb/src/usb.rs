@@ -131,10 +131,12 @@ impl UsbDevice {
             .ok_or_else(|| anyhow::anyhow!("device with serial {} not found", serial))?;
         device.handle.reset()?;
         device.handle.detach_kernel_driver(device.iface).ok();
-        device
-            .handle
-            .set_active_configuration(device.config)
-            .map_err(error)?;
+        if device.handle.active_configuration()? != device.config {
+            device
+                .handle
+                .set_active_configuration(device.config)
+                .map_err(error)?;
+        }
         device.handle.claim_interface(device.iface).map_err(error)?;
         device
             .handle
