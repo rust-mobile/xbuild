@@ -442,7 +442,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        artifact: [helloworld, raqote-winit, template]
+        # template fails with a weird link error (#72).
+        artifact: [helloworld, raqote-winit]
     runs-on: windows-latest
     needs: build-windows-latest
     steps:
@@ -892,7 +893,7 @@ jobs:
         - ubuntu-latest-windows-x64-debug
         - macos-latest-windows-x64-debug
         - windows-latest-windows-x64-debug
-        artifact: [helloworld, template]
+        artifact: [helloworld]
     runs-on: windows-latest
     needs:
     - build-windows-latest
