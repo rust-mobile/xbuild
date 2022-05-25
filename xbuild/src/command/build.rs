@@ -205,7 +205,8 @@ pub fn build(env: &BuildEnv) -> Result<()> {
             }
         }
         Platform::Android => {
-            let out = platform_dir.join(format!("{}.apk", env.name()));
+            let out = platform_dir.join(format!("{}.{}", env.name(), env.target().format()));
+
             let mut apk = Apk::new(
                 out,
                 env.manifest().android().clone(),

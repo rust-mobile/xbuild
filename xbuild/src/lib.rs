@@ -185,7 +185,7 @@ impl Format {
     pub fn platform_default(platform: Platform, opt: Opt) -> Self {
         match (platform, opt) {
             (Platform::Android, Opt::Debug) => Self::Apk,
-            (Platform::Android, Opt::Release) => Self::Aab,
+            (Platform::Android, Opt::Release) => Self::Apk, /* TODO: Aab is not currently supported */
             (Platform::Ios, Opt::Debug) => Self::Appbundle,
             (Platform::Ios, Opt::Release) => Self::Ipa,
             (Platform::Linux, Opt::Debug) => Self::Appdir,
