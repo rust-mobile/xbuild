@@ -80,16 +80,16 @@ struct SpcIndirectData {
 impl SpcIndirectData {
     pub fn new(digests: &Digests) -> Self {
         let mut payload = Vec::with_capacity(184);
-        payload.extend_from_slice(&*b"APPX");
-        payload.extend_from_slice(&*b"AXPC");
+        payload.extend_from_slice(b"APPX");
+        payload.extend_from_slice(b"AXPC");
         payload.extend_from_slice(&digests.axpc);
-        payload.extend_from_slice(&*b"AXCD");
+        payload.extend_from_slice(b"AXCD");
         payload.extend_from_slice(&digests.axcd);
-        payload.extend_from_slice(&*b"AXCT");
+        payload.extend_from_slice(b"AXCT");
         payload.extend_from_slice(&digests.axct);
-        payload.extend_from_slice(&*b"AXBM");
+        payload.extend_from_slice(b"AXBM");
         payload.extend_from_slice(&digests.axbm);
-        payload.extend_from_slice(&*b"AXCI");
+        payload.extend_from_slice(b"AXCI");
         payload.extend_from_slice(&digests.axci);
         Self {
             sip_info: Default::default(),
