@@ -1,7 +1,6 @@
 use crate::cargo::{Cargo, CargoBuild, CrateType};
 use crate::config::{Config, Manifest};
 use crate::devices::Device;
-use crate::flutter::Flutter;
 use anyhow::Result;
 use clap::Parser;
 use std::path::{Path, PathBuf};
@@ -23,7 +22,6 @@ pub mod command;
 pub mod config;
 pub mod devices;
 pub mod download;
-pub mod flutter;
 pub mod task;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -567,9 +565,7 @@ pub struct BuildEnv {
     icon: Option<PathBuf>,
     target_file: PathBuf,
     cargo: Cargo,
-    pubspec: PathBuf,
     manifest: Manifest,
-    flutter: Option<Flutter>,
     verbose: bool,
     offline: bool,
 }
@@ -582,26 +578,11 @@ impl BuildEnv {
         let build_target = args.build_target.build_target()?;
         let build_dir = cargo.target_dir().join("x");
         let cache_dir = dirs::cache_dir().unwrap().join("x");
-        let pubspec = cargo.root_dir().join("pubspec.yaml");
-        let flutter = if pubspec.exists() {
-            Some(Flutter::new(
-                build_dir.join("flutter"),
-                cache_dir.join("flutter"),
-                verbose,
-            )?)
-        } else {
-            None
-        };
-        let (config, mut manifest) = if flutter.is_some() {
-            let config = &pubspec;
-            let manifest = config.parent().unwrap().join("manifest.yaml");
-            (Config::pubspec_yaml(&pubspec)?, Manifest::parse(&manifest)?)
-        } else {
-            let config = cargo.manifest();
-            let manifest = config.parent().unwrap().join("manifest.yaml");
-            (Config::cargo_toml(config)?, Manifest::parse(&manifest)?)
-        };
-        manifest.apply_config(&config, build_target.opt(), flutter.is_some());
+        let config = cargo.manifest();
+        let manifest = config.parent().unwrap().join("manifest.yaml");
+        let config = Config::cargo_toml(config)?;
+        let mut manifest = Manifest::parse(&manifest)?;
+        manifest.apply_config(&config, build_target.opt());
         let target_file = manifest.target_file(cargo.root_dir(), build_target.platform());
         let icon = manifest
             .icon(build_target.platform())
@@ -610,11 +591,9 @@ impl BuildEnv {
         Ok(Self {
             name,
             build_target,
-            pubspec,
             target_file,
             icon,
             cargo,
-            flutter,
             manifest,
             build_dir,
             cache_dir,
@@ -637,14 +616,6 @@ impl BuildEnv {
 
     pub fn offline(&self) -> bool {
         self.offline
-    }
-
-    pub fn has_dart_code(&self) -> bool {
-        self.flutter.is_some()
-    }
-
-    pub fn pubspec(&self) -> &Path {
-        &self.pubspec
     }
 
     pub fn root_dir(&self) -> &Path {
@@ -703,10 +674,6 @@ impl BuildEnv {
 
     pub fn cargo(&self) -> &Cargo {
         &self.cargo
-    }
-
-    pub fn flutter(&self) -> Option<&Flutter> {
-        self.flutter.as_ref()
     }
 
     pub fn manifest(&self) -> &Manifest {
@@ -796,20 +763,6 @@ impl BuildEnv {
             if sdk.exists() {
                 let minimum_version = self.manifest().ios().minimum_os_version.as_ref().unwrap();
                 cargo.use_ios_sdk(&sdk, minimum_version)?;
-            }
-        }
-        if let Some(flutter) = self.flutter() {
-            match self.target().platform() {
-                Platform::Linux => {
-                    cargo.add_lib_dir(&flutter.engine_dir(target)?);
-                }
-                Platform::Macos => {
-                    cargo.add_framework_dir(&flutter.engine_dir(target)?);
-                }
-                Platform::Windows => {
-                    cargo.add_lib_dir(&flutter.engine_dir(target)?);
-                }
-                _ => {}
             }
         }
         Ok(cargo)

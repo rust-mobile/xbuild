@@ -30,16 +30,6 @@ enum Commands {
     Doctor,
     /// List all connected devices
     Devices,
-    /// Creates a new flutter/rust project
-    New {
-        /// Project name
-        name: String,
-    },
-    /// Updates the flutter sdk and cargo/pub dependencies
-    Update {
-        #[clap(flatten)]
-        args: BuildArgs,
-    },
     /// Build an executable app or install bundle
     Build {
         #[clap(flatten)]
@@ -55,16 +45,6 @@ enum Commands {
         #[clap(flatten)]
         args: BuildArgs,
     },
-    /*Attach {
-        #[clap(long)]
-        url: String,
-        #[clap(long)]
-        root_dir: PathBuf,
-        #[clap(long)]
-        target_file: PathBuf,
-        #[clap(long)]
-        host_vmservice_port: Option<u16>,
-    },*/
 }
 
 impl Commands {
@@ -72,11 +52,6 @@ impl Commands {
         match self {
             Self::Doctor => command::doctor(),
             Self::Devices => command::devices()?,
-            Self::New { name } => command::new(&name)?,
-            Self::Update { args } => {
-                let env = BuildEnv::new(args)?;
-                command::update(&env)?;
-            }
             Self::Build { args } => {
                 let env = BuildEnv::new(args)?;
                 command::build(&env)?;
@@ -90,12 +65,7 @@ impl Commands {
                 let env = BuildEnv::new(args)?;
                 command::build(&env)?;
                 command::lldb(&env)?;
-            } /*Self::Attach {
-                  url,
-                  root_dir,
-                  target_file,
-                  host_vmservice_port,
-              } => command::attach(&url, &root_dir, &target_file, host_vmservice_port)?,*/
+            }
         }
         Ok(())
     }

@@ -1,6 +1,6 @@
 use crate::{Opt, Platform};
 use anyhow::Result;
-use apk::manifest::{Activity, AndroidManifest, IntentFilter, MetaData, Permission};
+use apk::manifest::{Activity, AndroidManifest, IntentFilter, MetaData};
 use apk::VersionCode;
 use appbundle::InfoPlist;
 use msix::AppxManifest;
@@ -17,10 +17,6 @@ pub struct Config {
 impl Config {
     pub fn cargo_toml(path: &Path) -> Result<Self> {
         CargoToml::parse(path)
-    }
-
-    pub fn pubspec_yaml(path: &Path) -> Result<Self> {
-        PubspecYaml::parse(path)
     }
 }
 
@@ -44,25 +40,6 @@ impl CargoToml {
             name: toml.package.name,
             version: toml.package.version,
             description: toml.package.description.unwrap_or_default(),
-        })
-    }
-}
-
-#[derive(Deserialize)]
-struct PubspecYaml {
-    name: String,
-    version: String,
-    description: Option<String>,
-}
-
-impl PubspecYaml {
-    pub fn parse(path: &Path) -> Result<Config> {
-        let contents = std::fs::read_to_string(path)?;
-        let yaml: PubspecYaml = serde_yaml::from_str(&contents)?;
-        Ok(Config {
-            name: yaml.name,
-            version: yaml.version,
-            description: yaml.description.unwrap_or_default(),
         })
     }
 }
@@ -117,7 +94,7 @@ impl Manifest {
         }
     }
 
-    pub fn apply_config(&mut self, config: &Config, opt: Opt, flutter: bool) {
+    pub fn apply_config(&mut self, config: &Config, opt: Opt) {
         let manifest = &mut self.android.manifest;
         manifest
             .package
@@ -148,32 +125,13 @@ impl Manifest {
             .target_sdk_version
             .get_or_insert(target_sdk_version);
         manifest.sdk.min_sdk_version.get_or_insert(min_sdk_version);
-        if flutter && opt == Opt::Debug {
-            manifest.uses_permission.push(Permission {
-                name: "android.permission.INTERNET".into(),
-                max_sdk_version: None,
-            });
-        }
 
         let application = &mut manifest.application;
         application.label.get_or_insert_with(|| config.name.clone());
         application
             .debuggable
             .get_or_insert_with(|| opt == Opt::Debug);
-        if flutter {
-            application
-                .theme
-                .get_or_insert_with(|| "@android:style/Theme.Light.NoTitleBar".into());
-            application
-                .app_component_factory
-                .get_or_insert_with(|| "androidx.core.app.CoreComponentFactory".into());
-            application.meta_data.push(MetaData {
-                name: "flutterEmbedding".into(),
-                value: "2".into(),
-            });
-        } else {
-            application.has_code.get_or_insert(false);
-        }
+        application.has_code.get_or_insert(false);
         if application.activities.is_empty() {
             let activity = Activity {
                 config_changes: Some(
@@ -194,23 +152,15 @@ impl Manifest {
                 ),
                 label: None,
                 launch_mode: Some("singleTop".into()),
-                name: Some(if flutter {
-                    "io.flutter.embedding.android.FlutterActivity".into()
-                } else {
-                    "android.app.NativeActivity".into()
-                }),
+                name: Some("android.app.NativeActivity".into()),
                 orientation: None,
                 window_soft_input_mode: Some("adjustResize".into()),
                 hardware_accelerated: Some(true),
                 exported: Some(true),
-                meta_data: if flutter {
-                    vec![]
-                } else {
-                    vec![MetaData {
-                        name: "android.app.lib_name".into(),
-                        value: config.name.replace('-', "_"),
-                    }]
-                },
+                meta_data: vec![MetaData {
+                    name: "android.app.lib_name".into(),
+                    value: config.name.replace('-', "_"),
+                }],
                 intent_filters: vec![IntentFilter {
                     actions: vec!["android.intent.action.MAIN".into()],
                     categories: vec!["android.intent.category.LAUNCHER".into()],

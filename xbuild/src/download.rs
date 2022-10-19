@@ -1,4 +1,4 @@
-use crate::{Arch, BuildEnv, CompileTarget, Opt, Platform};
+use crate::{BuildEnv, Platform};
 use anyhow::Result;
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
 use mvn::Download;
@@ -113,7 +113,7 @@ impl<'a> DownloadManager<'a> {
         result
     }
 
-    pub fn prefetch(&self, build_classes_dex: bool) -> Result<()> {
+    pub fn prefetch(&self) -> Result<()> {
         match self.env().target().platform() {
             Platform::Linux if Platform::host()? != Platform::Linux => {
                 anyhow::bail!("cross compiling to linux is not yet supported");
@@ -132,22 +132,6 @@ impl<'a> DownloadManager<'a> {
                 self.ios_sdk()?;
             }
             _ => {}
-        }
-        if self.env.flutter().is_some() {
-            let host = CompileTarget::new(Platform::host()?, Arch::host()?, Opt::Debug);
-            for target in self
-                .env
-                .target()
-                .compile_targets()
-                .chain(std::iter::once(host))
-            {
-                self.flutter_engine(target)?;
-            }
-            self.material_fonts()?;
-            if build_classes_dex && self.env().target().platform() == Platform::Android {
-                self.r8()?;
-                self.flutter_embedding()?;
-            }
         }
         Ok(())
     }
