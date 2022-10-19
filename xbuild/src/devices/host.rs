@@ -1,4 +1,3 @@
-use crate::devices::PartialRunner;
 use crate::{Arch, Platform};
 use anyhow::Result;
 use std::io::{BufRead, BufReader};
@@ -48,38 +47,16 @@ impl Host {
         }
     }
 
-    pub fn run(&self, path: &Path, flutter_attach: bool) -> Result<PartialRunner> {
+    pub fn run(&self, path: &Path) -> Result<()> {
         let mut child = Command::new(path)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .spawn()?;
-        let mut lines = BufReader::new(child.stdout.take().unwrap()).lines();
-        let url = if flutter_attach {
-            let url = loop {
-                if let Some(line) = lines.next() {
-                    let line = line?;
-                    let line = line.trim();
-                    if let Some((_, url)) = line.rsplit_once(' ') {
-                        if url.starts_with("http://127.0.0.1") {
-                            break url.trim().to_string();
-                        }
-                    }
-                    println!("{}", line);
-                }
-            };
-            Some(url)
-        } else {
-            None
-        };
-        Ok(PartialRunner {
-            url,
-            logger: Box::new(move || {
-                for line in lines.flatten() {
-                    println!("{}", line.trim());
-                }
-            }),
-            child: Some(child),
-        })
+        let lines = BufReader::new(child.stdout.take().unwrap()).lines();
+        for line in lines.flatten() {
+            println!("{}", line.trim());
+        }
+        Ok(())
     }
 
     pub fn lldb(&self, executable: &Path) -> Result<()> {

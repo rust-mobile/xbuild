@@ -1,4 +1,4 @@
-use crate::devices::{Backend, Device, PartialRunner};
+use crate::devices::{Backend, Device};
 use crate::{Arch, Platform};
 use anyhow::Result;
 use std::path::{Path, PathBuf};
@@ -55,16 +55,12 @@ impl IMobileDevice {
         Ok(())
     }
 
-    pub fn run(&self, device: &str, path: &Path, _flutter_attach: bool) -> Result<PartialRunner> {
+    pub fn run(&self, device: &str, path: &Path) -> Result<()> {
         let bundle_identifier = appbundle::app_bundle_identifier(path)?;
         self.install(device, path)?;
         self.start(device, &bundle_identifier)?;
         // TODO: log, attach
-        Ok(PartialRunner {
-            url: None,
-            logger: Box::new(|| unimplemented!()),
-            child: None,
-        })
+        Ok(())
     }
 
     pub fn devices(&self, devices: &mut Vec<Device>) -> Result<()> {

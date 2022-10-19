@@ -4,7 +4,6 @@ use crate::devices::imd::IMobileDevice;
 use crate::{Arch, Platform};
 use anyhow::Result;
 use std::path::Path;
-use std::process::{Child, Command};
 
 mod adb;
 mod host;
@@ -111,13 +110,13 @@ impl Device {
         }
     }
 
-    pub fn run(&self, path: &Path, attach: bool) -> Result<Runner> {
-        let runner = match &self.backend {
-            Backend::Adb(adb) => adb.run(&self.id, path, attach, false),
-            Backend::Host(host) => host.run(path, attach),
-            Backend::Imd(imd) => imd.run(&self.id, path, attach),
+    pub fn run(&self, path: &Path) -> Result<()> {
+        match &self.backend {
+            Backend::Adb(adb) => adb.run(&self.id, path, false),
+            Backend::Host(host) => host.run(path),
+            Backend::Imd(imd) => imd.run(&self.id, path),
         }?;
-        Ok(Runner::new(self.clone(), runner))
+        Ok(())
     }
 
     pub fn lldb(&self, executable: &Path, lldb_server: Option<&Path>) -> Result<()> {
@@ -132,90 +131,5 @@ impl Device {
             Backend::Host(host) => host.lldb(executable),
             Backend::Imd(imd) => imd.lldb(&self.id, executable),
         }
-    }
-
-    pub fn attach(&self, url: &str, root_dir: &Path, target: &Path) -> Result<()> {
-        let port = url
-            .strip_prefix("http://127.0.0.1:")
-            .unwrap()
-            .split_once('/')
-            .unwrap()
-            .0
-            .parse()?;
-        let host_vmservice_port = match &self.backend {
-            Backend::Adb(adb) => Some(adb.forward(&self.id, port)?),
-            _ => None,
-        };
-        // TODO: finish porting flutter attach to rust
-        //crate::command::attach(url, root_dir, target, host_vmservice_port).await?;
-        let device = match &self.backend {
-            Backend::Host(host) => host.platform()?.to_string(),
-            _ => self.id.to_string(),
-        };
-        let mut attach = Command::new("flutter");
-        attach
-            .current_dir(root_dir)
-            .arg("attach")
-            .arg("--device-id")
-            .arg(device)
-            .arg("--debug-url")
-            .arg(url)
-            .arg("--target")
-            .arg(target);
-        if let Some(port) = host_vmservice_port {
-            attach.arg("--host-vmservice-port").arg(port.to_string());
-        }
-        attach.status()?;
-        Ok(())
-    }
-}
-
-pub(crate) struct PartialRunner {
-    url: Option<String>,
-    logger: Box<dyn FnOnce() + Send>,
-    child: Option<Child>,
-}
-
-#[must_use]
-pub struct Runner {
-    device: Device,
-    url: Option<String>,
-    logger: Box<dyn FnOnce() + Send>,
-    child: Option<Child>,
-}
-
-impl Runner {
-    fn new(device: Device, runner: PartialRunner) -> Self {
-        Self {
-            device,
-            url: runner.url,
-            logger: runner.logger,
-            child: runner.child,
-        }
-    }
-
-    pub fn wait(self) {
-        (self.logger)();
-    }
-
-    pub fn url(&self) -> Option<&str> {
-        self.url.as_deref()
-    }
-
-    pub fn attach(self, root_dir: &Path, target: &Path) -> Result<()> {
-        if let Some(url) = self.url.as_ref() {
-            std::thread::spawn(self.logger);
-            self.device.attach(url, root_dir, target)?;
-        } else {
-            self.wait();
-        }
-        Ok(())
-    }
-
-    pub fn kill(self) -> Result<()> {
-        if let Some(mut child) = self.child {
-            child.kill()?;
-        }
-        Ok(())
     }
 }

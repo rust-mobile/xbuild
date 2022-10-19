@@ -26,11 +26,10 @@ impl Default for Doctor {
                 },
                 Group {
                     name: "misc",
-                    checks: vec![
-                        Check::new("cargo", Some(VersionCheck::new("--version", 0, 1))),
-                        Check::new("git", Some(VersionCheck::new("--version", 0, 2))),
-                        Check::new("flutter", Some(VersionCheck::new("--version", 0, 1))),
-                    ],
+                    checks: vec![Check::new(
+                        "cargo",
+                        Some(VersionCheck::new("--version", 0, 1)),
+                    )],
                 },
                 Group {
                     name: "android",

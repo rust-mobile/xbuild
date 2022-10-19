@@ -1,4 +1,4 @@
-use crate::devices::{Backend, Device, PartialRunner};
+use crate::devices::{Backend, Device};
 use crate::{Arch, Platform};
 use anyhow::Result;
 use apk::Apk;
@@ -279,13 +279,7 @@ impl Adb {
         Ok(())
     }
 
-    pub fn run(
-        &self,
-        device: &str,
-        path: &Path,
-        flutter_attach: bool,
-        debug: bool,
-    ) -> Result<PartialRunner> {
+    pub fn run(&self, device: &str, path: &Path, debug: bool) -> Result<()> {
         let entry_point = Apk::entry_point(path)?;
         let package = &entry_point.package;
         let activity = &entry_point.activity;
@@ -299,31 +293,11 @@ impl Adb {
         let last_timestamp = self.logcat_last_timestamp(device)?;
         self.start(device, package, activity)?;
         let pid = self.pidof(device, package)?;
-        let mut logcat = self.logcat(device, pid, &last_timestamp)?;
-        let url = if flutter_attach {
-            let url = loop {
-                if let Some(line) = logcat.next() {
-                    if let Some((_, url)) = line.rsplit_once(' ') {
-                        if url.starts_with("http") {
-                            break url.trim().to_string();
-                        }
-                    }
-                    println!("{}", line);
-                }
-            };
-            Some(url)
-        } else {
-            None
-        };
-        Ok(PartialRunner {
-            url,
-            logger: Box::new(move || {
-                for line in logcat {
-                    println!("{}", line);
-                }
-            }),
-            child: None,
-        })
+        let logcat = self.logcat(device, pid, &last_timestamp)?;
+        for line in logcat {
+            println!("{}", line);
+        }
+        Ok(())
     }
 
     pub fn name(&self, device: &str) -> Result<String> {
