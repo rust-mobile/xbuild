@@ -1,8 +1,7 @@
 use crate::{Arch, Platform};
 use anyhow::Result;
-use std::io::{BufRead, BufReader};
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::Command;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Host;
@@ -48,14 +47,7 @@ impl Host {
     }
 
     pub fn run(&self, path: &Path) -> Result<()> {
-        let mut child = Command::new(path)
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .spawn()?;
-        let lines = BufReader::new(child.stdout.take().unwrap()).lines();
-        for line in lines.flatten() {
-            println!("{}", line.trim());
-        }
+        Command::new(path).status()?;
         Ok(())
     }
 

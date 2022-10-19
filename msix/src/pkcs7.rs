@@ -4,6 +4,7 @@ use rasn_cms::pkcs7_compat::{EncapsulatedContentInfo, SignedData};
 use rasn_cms::{AlgorithmIdentifier, IssuerAndSerialNumber, SignerIdentifier, SignerInfo};
 use rasn_pkix::Attribute;
 use sha2::{Digest, Sha256};
+use std::collections::BTreeSet;
 
 pub const SPC_INDIRECT_DATA_OBJID: ConstOid = ConstOid(&[1, 3, 6, 1, 4, 1, 311, 2, 1, 4]);
 pub const SPC_SP_OPUS_INFO_OBJID: ConstOid = ConstOid(&[1, 3, 6, 1, 4, 1, 311, 2, 1, 12]);
@@ -31,27 +32,25 @@ pub fn build_pkcs7(signer: &Signer, encap_content_info: EncapsulatedContentInfo)
             let mut signed_attrs = SetOf::default();
             signed_attrs.insert(Attribute {
                 r#type: Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_CONTENT_TYPE.into(),
-                value: {
-                    let mut content_type = SetOf::default();
-                    content_type.insert(ObjectIdentifier::from(SPC_INDIRECT_DATA_OBJID));
-                    Any::new(rasn::der::encode(&content_type).unwrap())
+                values: {
+                    let oid = ObjectIdentifier::from(SPC_INDIRECT_DATA_OBJID);
+                    let mut content_type = BTreeSet::default();
+                    content_type.insert(Any::new(rasn::der::encode(&oid).unwrap()));
+                    content_type
                 },
             });
             signed_attrs.insert(Attribute {
                 r#type: Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_MESSAGE_DIGEST.into(),
-                value: {
-                    let mut digests = SetOf::default();
-                    digests.insert(OctetString::from(digest.to_vec()));
-                    Any::new(rasn::der::encode(&digests).unwrap())
+                values: {
+                    let digest = OctetString::from(digest.to_vec());
+                    let mut digests = BTreeSet::default();
+                    digests.insert(Any::new(rasn::der::encode(&digest).unwrap()));
+                    digests
                 },
             });
             signed_attrs.insert(Attribute {
                 r#type: SPC_SP_OPUS_INFO_OBJID.into(),
-                value: {
-                    let mut info = SetOf::default();
-                    info.insert(SequenceOf::<()>::default());
-                    Any::new(rasn::der::encode(&info).unwrap())
-                },
+                values: Default::default(),
             });
             signed_attrs
         }),

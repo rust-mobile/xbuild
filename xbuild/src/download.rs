@@ -16,10 +16,10 @@ pub struct DownloadManager<'a> {
 
 impl<'a> Download for DownloadManager<'a> {
     fn download(&self, url: &str, dest: &Path) -> Result<()> {
-        let pb = ProgressBar::with_draw_target(0, ProgressDrawTarget::stdout())
+        let pb = ProgressBar::with_draw_target(Some(0), ProgressDrawTarget::stdout())
         .with_style(
             ProgressStyle::default_bar()
-                .template("{spinner:.green} {prefix:.bold} [{elapsed}] {wide_bar:.green} {bytes}/{total_bytes} {msg}")
+                .template("{spinner:.green} {prefix:.bold} [{elapsed}] {wide_bar:.green} {bytes}/{total_bytes} {msg}")?
                 .progress_chars("█▇▆▅▄▃▂▁  ")
         );
         let file_name = dest.file_name().unwrap().to_str().unwrap().to_string();

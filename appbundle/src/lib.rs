@@ -1,4 +1,5 @@
 use anyhow::Result;
+use apple_codesign::app_store_connect::notary_api::SubmissionResponseStatus;
 use apple_codesign::dmg::DmgSigner;
 use apple_codesign::stapling::Stapler;
 use apple_codesign::{
@@ -212,7 +213,8 @@ impl AppBundle {
             let mut signing_settings = SigningSettings::default();
             let cert =
                 CapturedX509Certificate::from_der(rasn::der::encode(signer.cert()).unwrap())?;
-            let key = InMemorySigningKeyPair::from_pkcs8_der(signer.key().to_pkcs8_der().unwrap())?;
+            let secret = signer.key().to_pkcs8_der().unwrap();
+            let key = InMemorySigningKeyPair::from_pkcs8_der(secret.as_bytes())?;
             signing_settings.set_signing_key(&key, cert);
             signing_settings.chain_apple_certificates();
             signing_settings
@@ -240,7 +242,8 @@ impl AppBundle {
         let mut f = OpenOptions::new().read(true).write(true).open(path)?;
         let mut signing_settings = SigningSettings::default();
         let cert = CapturedX509Certificate::from_der(rasn::der::encode(signer.cert()).unwrap())?;
-        let key = InMemorySigningKeyPair::from_pkcs8_der(signer.key().to_pkcs8_der().unwrap())?;
+        let secret = signer.key().to_pkcs8_der().unwrap();
+        let key = InMemorySigningKeyPair::from_pkcs8_der(secret.as_bytes())?;
         signing_settings.set_signing_key(&key, cert);
         signing_settings.chain_apple_certificates();
         signing_settings
@@ -273,28 +276,25 @@ pub fn notarize(path: &Path, api_issuer: &str, api_key: &str) -> Result<()> {
     println!("notarizing {}", path.display());
     let mut notarizer = Notarizer::new()?;
     notarizer.set_api_key(api_issuer, api_key)?;
-    let upload_id =
-        if let NotarizationUpload::UploadId(upload_id) = notarizer.notarize_path(path, None)? {
-            upload_id
+    let submission_id =
+        if let NotarizationUpload::UploadId(submission_id) = notarizer.notarize_path(path, None)? {
+            submission_id
         } else {
             anyhow::bail!("impossible");
         };
+    println!("submission id: {}", submission_id);
     let start_time = Instant::now();
     loop {
-        let status = notarizer.get_upload_status(&upload_id)?;
+        let resp = notarizer.wait_on_notarization(&submission_id, Duration::from_secs(3))?;
+        let status = resp.data.attributes.status;
         let elapsed = start_time.elapsed();
-        println!(
-            "poll state after {}s: {}",
-            elapsed.as_secs(),
-            status.state_str()
-        );
-        if status.is_done() {
-            let log = notarizer.fetch_upload_log(&status)?;
+        println!("poll state after {}s: {:?}", elapsed.as_secs(), status,);
+        if status != SubmissionResponseStatus::InProgress {
+            let log = notarizer.fetch_notarization_log(&submission_id)?;
             println!("{}", log);
-            status.into_result()?;
+            resp.into_result()?;
             break;
         }
-        std::thread::sleep(Duration::from_secs(3));
     }
     let stapler = Stapler::new()?;
     stapler.staple_path(path)?;

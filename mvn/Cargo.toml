@@ -7,8 +7,8 @@ repository = "https://github.com/cloudpeers/x"
 license = "Apache-2.0 OR MIT"
 
 [dependencies]
-anyhow = "1.0.55"
-log = "0.4.14"
+anyhow = "1.0.65"
+log = "0.4.17"
 pubgrub = "0.2.1"
-quick-xml = { version = "0.23.0-alpha2", features = ["serialize"] }
-serde = { version = "1.0.136", features = ["derive"] }
+quick-xml = { version = "0.25.0", features = ["serialize"] }
+serde = { version = "1.0.145", features = ["derive"] }
