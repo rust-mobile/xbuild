@@ -12,3 +12,6 @@ members = [
 ]
 default-members = ["xbuild"]
 exclude = ["examples"]
+
+[patch.crates-io]
+aws-smithy-xml = { path = "../smithy-rs/rust-runtime/aws-smithy-xml" }

@@ -426,7 +426,7 @@ impl BuildTargetArgs {
         } else if let Some(device) = device.as_ref() {
             device.platform()?
         } else {
-            unreachable!();
+            anyhow::bail!("--platform, --store or --device must be provided");
         };
         let archs = if let Some(arch) = self.arch {
             vec![arch]
@@ -440,7 +440,7 @@ impl BuildTargetArgs {
         } else if let Some(device) = device.as_ref() {
             vec![device.arch()?]
         } else {
-            unreachable!();
+            anyhow::bail!("--arch, --store or --device must be provided");
         };
         let opt = if self.release || (!self.debug && self.store.is_some()) {
             Opt::Release

@@ -4,7 +4,7 @@ use image::imageops::FilterType;
 use image::io::Reader as ImageReader;
 use image::{DynamicImage, GenericImageView, ImageOutputFormat, RgbaImage};
 use rsa::pkcs8::DecodePrivateKey;
-use rsa::{Hash, PaddingScheme, RsaPrivateKey, RsaPublicKey};
+use rsa::{PaddingScheme, RsaPrivateKey, RsaPublicKey};
 use sha2::{Digest, Sha256};
 use std::fs::{File, OpenOptions, Permissions};
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
@@ -175,7 +175,7 @@ impl Signer {
 
     pub fn sign(&self, bytes: &[u8]) -> Vec<u8> {
         let digest = Sha256::digest(bytes);
-        let padding = PaddingScheme::new_pkcs1v15_sign(Some(Hash::SHA2_256));
+        let padding = PaddingScheme::new_pkcs1v15_sign::<sha2::Sha256>();
         self.key.sign(padding, &digest).unwrap()
     }
 

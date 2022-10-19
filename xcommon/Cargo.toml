@@ -7,12 +7,12 @@ repository = "https://github.com/cloudpeers/x"
 license = "Apache-2.0 OR MIT"
 
 [dependencies]
-anyhow = "1.0.53"
+anyhow = "1.0.65"
 byteorder = "1.4.3"
-image = { version = "0.24.0", default-features = false, features = ["png"] }
-pem = "1.0.2"
-rasn = "0.5.0"
-rasn-pkix = "0.5.0"
-rsa = "0.6.0"
-sha2 = "0.10.1"
-zip = { version = "0.6.0", default-features = false, features = ["deflate"] }
+image = { version = "0.24.4", default-features = false, features = ["png"] }
+pem = "1.1.0"
+rasn = "0.6.1"
+rasn-pkix = "0.6.0"
+rsa = "0.7.0"
+sha2 = { version = "0.10.6", features = ["oid"] }
+zip = { version = "0.6.3", default-features = false, features = ["deflate"] }
