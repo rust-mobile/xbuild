@@ -132,4 +132,20 @@ impl Device {
             Backend::Imd(imd) => imd.lldb(&self.id, executable),
         }
     }
+
+    pub fn ios_product_version(&self) -> Result<(u32, u32)> {
+        if let Backend::Imd(imd) = &self.backend {
+            imd.product_version(&self.id)
+        } else {
+            anyhow::bail!("not ios device");
+        }
+    }
+
+    pub fn ios_mount_disk_image(&self, disk_image: &Path) -> Result<()> {
+        if let Backend::Imd(imd) = &self.backend {
+            imd.mount_disk_image(&self.id, disk_image)
+        } else {
+            anyhow::bail!("not ios device");
+        }
+    }
 }

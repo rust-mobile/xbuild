@@ -25,6 +25,11 @@ pub fn devices() -> Result<()> {
 pub fn run(env: &BuildEnv) -> Result<()> {
     let out = env.executable();
     if let Some(device) = env.target().device() {
+        if env.target().platform() == Platform::Ios {
+            let (major, minor) = device.ios_product_version()?;
+            let disk_image = env.developer_disk_image(major, minor);
+            device.ios_mount_disk_image(&disk_image)?;
+        }
         device.run(&out)?;
     } else {
         anyhow::bail!("no device specified");
