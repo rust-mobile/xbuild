@@ -25,11 +25,11 @@ impl Default for Doctor {
                     ],
                 },
                 Group {
-                    name: "misc",
-                    checks: vec![Check::new(
-                        "cargo",
-                        Some(VersionCheck::new("--version", 0, 1)),
-                    )],
+                    name: "rust",
+                    checks: vec![
+                        Check::new("rustup", Some(VersionCheck::new("--version", 0, 1))),
+                        Check::new("cargo", Some(VersionCheck::new("--version", 0, 1))),
+                    ],
                 },
                 Group {
                     name: "android",

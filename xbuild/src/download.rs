@@ -6,6 +6,7 @@ use reqwest::blocking::Client;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use tar::{Archive, EntryType};
 use zstd::Decoder;
 
@@ -113,22 +114,36 @@ impl<'a> DownloadManager<'a> {
         result
     }
 
+    fn rustup_target(&self, target: &str) -> Result<()> {
+        let status = Command::new("rustup")
+            .arg("target")
+            .arg("add")
+            .arg(target)
+            .status()?;
+        anyhow::ensure!(status.success(), "failure running rustup target add");
+        Ok(())
+    }
+
     pub fn prefetch(&self) -> Result<()> {
         match self.env().target().platform() {
             Platform::Linux if Platform::host()? != Platform::Linux => {
                 anyhow::bail!("cross compiling to linux is not yet supported");
             }
             Platform::Windows if Platform::host()? != Platform::Windows => {
+                self.rustup_target("x86_64-pc-windows-msvc")?;
                 self.windows_sdk()?;
             }
             Platform::Macos if Platform::host()? != Platform::Macos => {
+                self.rustup_target("x86_64-apple-darwin")?;
                 self.macos_sdk()?;
             }
             Platform::Android => {
+                self.rustup_target("aarch64-linux-android")?;
                 self.android_ndk()?;
                 self.android_jar()?;
             }
             Platform::Ios => {
+                self.rustup_target("aarch64-apple-ios")?;
                 self.ios_sdk()?;
                 if let Some(device) = self.env().target().device() {
                     let (major, minor) = device.ios_product_version()?;
