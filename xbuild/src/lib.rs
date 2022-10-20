@@ -712,6 +712,14 @@ impl BuildEnv {
         self.cache_dir().join("iPhoneOS.sdk")
     }
 
+    pub fn developer_disk_image(&self, major: u32, minor: u32) -> PathBuf {
+        self.cache_dir()
+            .join("iPhoneOS.platform")
+            .join("DeviceSupport")
+            .join(format!("{}.{}", major, minor))
+            .join("DeveloperDiskImage.dmg")
+    }
+
     pub fn lldb_server(&self, target: CompileTarget) -> Result<PathBuf> {
         match target.platform() {
             Platform::Android => {

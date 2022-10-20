@@ -130,6 +130,10 @@ impl<'a> DownloadManager<'a> {
             }
             Platform::Ios => {
                 self.ios_sdk()?;
+                if let Some(device) = self.env().target().device() {
+                    let (major, minor) = device.ios_product_version()?;
+                    self.developer_disk_image(major, minor)?;
+                }
             }
             _ => {}
         }
@@ -184,6 +188,22 @@ impl WorkItem {
             format!(
                 "https://github.com/{}/{}/releases/download/{}/{}",
                 org, name, version, artifact
+            ),
+        )
+    }
+
+    pub fn github_content(
+        output: PathBuf,
+        org: &str,
+        name: &str,
+        branch: &str,
+        artifact: &str,
+    ) -> Self {
+        Self::new(
+            output,
+            format!(
+                "https://raw.githubusercontent.com/{}/{}/{}/{}",
+                org, name, branch, artifact
             ),
         )
     }
@@ -248,6 +268,21 @@ impl<'a> DownloadManager<'a> {
         if cfg!(target_os = "windows") {
             item.no_colons();
         }
+        self.fetch(item)
+    }
+
+    pub fn developer_disk_image(&self, major: u32, minor: u32) -> Result<()> {
+        let output = self.env.developer_disk_image(major, minor);
+        let item = WorkItem::github_content(
+            output,
+            "haikieu",
+            "xcode-developer-disk-image-all-platforms",
+            "master",
+            &format!(
+                "DiskImages/iPhoneOS.platform/DeviceSupport/{}.{}.zip",
+                major, minor
+            ),
+        );
         self.fetch(item)
     }
 }
