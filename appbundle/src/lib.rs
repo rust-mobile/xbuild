@@ -178,7 +178,7 @@ impl AppBundle {
             .1;
 
         if let Some(bundle_identifier) = self.info.bundle_identifier.as_ref() {
-            let bundle_prefix = if bundle_prefix.ends_with(".*") {
+            let bundle_prefix = if bundle_prefix.ends_with("*") {
                 bundle_prefix.strip_suffix('*').unwrap()
             } else {
                 bundle_prefix
