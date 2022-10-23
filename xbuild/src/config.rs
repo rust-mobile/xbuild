@@ -85,15 +85,6 @@ impl Manifest {
         self.generic.icon.as_deref()
     }
 
-    pub fn target_file(&self, path: &Path, platform: Platform) -> PathBuf {
-        let file = path.join("lib").join(format!("{}.dart", platform));
-        if file.exists() {
-            file
-        } else {
-            path.join("lib").join("main.dart")
-        }
-    }
-
     pub fn apply_config(&mut self, config: &Config, opt: Opt) {
         let manifest = &mut self.android.manifest;
         manifest
