@@ -563,7 +563,6 @@ pub struct BuildEnv {
     build_dir: PathBuf,
     cache_dir: PathBuf,
     icon: Option<PathBuf>,
-    target_file: PathBuf,
     cargo: Cargo,
     manifest: Manifest,
     verbose: bool,
@@ -583,7 +582,6 @@ impl BuildEnv {
         let config = Config::cargo_toml(config)?;
         let mut manifest = Manifest::parse(&manifest)?;
         manifest.apply_config(&config, build_target.opt());
-        let target_file = manifest.target_file(cargo.root_dir(), build_target.platform());
         let icon = manifest
             .icon(build_target.platform())
             .map(|icon| cargo.root_dir().join(icon));
@@ -591,7 +589,6 @@ impl BuildEnv {
         Ok(Self {
             name,
             build_target,
-            target_file,
             icon,
             cargo,
             manifest,
@@ -662,10 +659,6 @@ impl BuildEnv {
             }
             _ => out,
         }
-    }
-
-    pub fn target_file(&self) -> &Path {
-        &self.target_file
     }
 
     pub fn icon(&self) -> Option<&Path> {
