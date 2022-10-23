@@ -1,12 +1,13 @@
 use crate::metadata::Metadata;
 use crate::package::Artifact;
-use crate::pom::Pom;
+use crate::pom::{Pom, Dependency};
 use anyhow::Result;
 use pubgrub::error::PubGrubError;
 use pubgrub::range::Range;
 use pubgrub::report::{DefaultStringReporter, Reporter};
 use pubgrub::solver::{Dependencies, DependencyProvider};
 use std::borrow::Borrow;
+use std::collections::HashMap;
 use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -26,6 +27,7 @@ pub struct Maven<D: Download> {
     client: D,
     cache_dir: PathBuf,
     repositories: Vec<&'static str>,
+    local: HashMap<(Package, Version), Dependencies<Package, Version>>,
 }
 
 impl<D: Download> Maven<D> {
@@ -35,11 +37,20 @@ impl<D: Download> Maven<D> {
             cache_dir,
             client,
             repositories: vec![],
+            local: Default::default(),
         })
     }
 
     pub fn add_repository(&mut self, repo: &'static str) {
         self.repositories.push(repo);
+    }
+
+    pub fn add_package(&mut self, package: Package, version: Version, deps: Vec<Dependency>) {
+        let deps = deps
+            .into_iter()
+            .map(|dep| (dep.package(), dep.range().unwrap()))
+            .collect();
+        self.local.insert((package, version), Dependencies::Known(deps));
     }
 
     pub fn resolve(&self, package: Package, version: Version) -> Result<Vec<PathBuf>> {
@@ -90,18 +101,7 @@ impl<D: Download> Maven<D> {
                 .versions()
                 .iter()
                 .filter_map(|version| Version::from_str(version).ok())
-                .filter(|version| {
-                    if let Some(suffix) = version.suffix.as_ref() {
-                        if suffix.starts_with("alpha")
-                            || suffix.starts_with("beta")
-                            || suffix.starts_with("RC")
-                            || suffix.starts_with('M')
-                        {
-                            return false;
-                        }
-                    }
-                    true
-                })
+                .filter(|version| version.suffix.is_none())
                 .filter(|version| range.contains(version))
                 .rev()
                 .collect(),
@@ -160,6 +160,13 @@ impl<D: Download> Maven<D> {
             }
             anyhow::ensure!(downloaded, "artifact not found {} {}", artifact, ext);
         }
+        if ext == "aar" {
+            let jar = self.cache_dir.join(artifact.file_name("jar"));
+            if !jar.exists() {
+                let classes = xcommon::extract_zip_file(&path, "classes.jar")?;
+                std::fs::write(jar, classes)?;
+            }
+        }
         Ok(path)
     }
 }
@@ -194,6 +201,9 @@ impl<D: Download> DependencyProvider<Package, Version> for Maven<D> {
         package: &Package,
         version: &Version,
     ) -> Result<Dependencies<Package, Version>, Box<dyn Error>> {
+        if let Some(deps) = self.local.get(&(package.clone(), version.clone())) {
+            return Ok(deps.clone());
+        }
         //println!("get dependencies {} {}", package, version);
         let pom = self.pom(Artifact { package, version }).unwrap();
         let deps = pom

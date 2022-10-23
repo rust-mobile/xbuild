@@ -2,6 +2,7 @@ use crate::package::{Package, Version};
 use anyhow::Result;
 use pubgrub::range::Range;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
 #[derive(Default, Deserialize, Serialize)]
 #[serde(rename = "project")]
@@ -60,6 +61,25 @@ impl Dependency {
 
     pub fn range(&self) -> Result<Range<Version>> {
         crate::range::range(&self.version)
+    }
+}
+
+impl FromStr for Dependency {
+    type Err = anyhow::Error;
+
+    fn from_str(dep: &str) -> Result<Self> {
+        let (group, rest) = dep
+            .split_once(':')
+            .ok_or_else(|| anyhow::anyhow!("invalid dep"))?;
+        let (name, version) = rest
+            .split_once(':')
+            .ok_or_else(|| anyhow::anyhow!("invalid dep"))?;
+        Ok(Self {
+            group: group.into(),
+            name: name.into(),
+            version: version.into(),
+            scope: None,
+        })
     }
 }
 

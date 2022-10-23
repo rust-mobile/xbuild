@@ -12,3 +12,4 @@ log = "0.4.17"
 pubgrub = "0.2.1"
 quick-xml = { version = "0.25.0", features = ["serialize"] }
 serde = { version = "1.0.145", features = ["derive"] }
+xcommon = { path = "../xcommon" }
