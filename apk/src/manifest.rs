@@ -246,7 +246,7 @@ pub struct Permission {
 }
 
 /// Android [uses-sdk element](https://developer.android.com/guide/topics/manifest/uses-sdk-element).
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Sdk {
     #[serde(rename(serialize = "android:minSdkVersion"))]
     pub min_sdk_version: Option<u32>,
@@ -254,16 +254,6 @@ pub struct Sdk {
     pub target_sdk_version: Option<u32>,
     #[serde(rename(serialize = "android:maxSdkVersion"))]
     pub max_sdk_version: Option<u32>,
-}
-
-impl Default for Sdk {
-    fn default() -> Self {
-        Self {
-            min_sdk_version: Some(23),
-            target_sdk_version: None,
-            max_sdk_version: None,
-        }
-    }
 }
 
 fn default_namespace() -> String {
