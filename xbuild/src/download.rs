@@ -267,7 +267,7 @@ impl<'a> DownloadManager<'a> {
     pub fn android_ndk(&self) -> Result<()> {
         let output = self.env.android_ndk();
         let item =
-            WorkItem::github_release(output, "cloudpeers", "x", "v0.1.0+2", "Android.ndk.tar.zst");
+            WorkItem::github_release(output, "cloudpeers", "x", "v0.1.0+3", "Android.ndk.tar.zst");
         self.fetch(item)
     }
 

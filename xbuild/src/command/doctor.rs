@@ -37,6 +37,8 @@ impl Default for Doctor {
                         Check::new("adb", Some(VersionCheck::new("--version", 0, 4))),
                         Check::new("javac", Some(VersionCheck::new("--version", 0, 1))),
                         Check::new("java", Some(VersionCheck::new("--version", 0, 1))),
+                        Check::new("kotlin", Some(VersionCheck::new("-version", 0, 2))),
+                        Check::new("gradle", Some(VersionCheck::new("--version", 2, 1))),
                     ],
                 },
                 Group {

@@ -23,6 +23,7 @@ pub mod config;
 pub mod devices;
 pub mod download;
 pub mod task;
+pub mod wry;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Opt {

@@ -1,6 +1,6 @@
 use crate::{Opt, Platform};
 use anyhow::Result;
-use apk::manifest::{Activity, AndroidManifest, IntentFilter, MetaData};
+use apk::manifest::{Activity, AndroidManifest, IntentFilter};
 use apk::VersionCode;
 use appbundle::InfoPlist;
 use msix::AppxManifest;
@@ -96,8 +96,8 @@ impl Manifest {
         if let Ok(code) = VersionCode::from_semver(&config.version) {
             manifest.version_code.get_or_insert_with(|| code.to_code(1));
         }
-        let target_sdk_version = 31;
-        let target_sdk_codename = 11;
+        let target_sdk_version = 33;
+        let target_sdk_codename = 13;
         let min_sdk_version = 21;
         manifest
             .compile_sdk_version
@@ -122,7 +122,7 @@ impl Manifest {
         application
             .debuggable
             .get_or_insert_with(|| opt == Opt::Debug);
-        application.has_code.get_or_insert(false);
+        application.has_code.get_or_insert(true);
         if application.activities.is_empty() {
             let activity = Activity {
                 config_changes: Some(
@@ -143,15 +143,12 @@ impl Manifest {
                 ),
                 label: None,
                 launch_mode: Some("singleTop".into()),
-                name: Some("android.app.NativeActivity".into()),
+                name: Some(".MainActivity".into()),
                 orientation: None,
                 window_soft_input_mode: Some("adjustResize".into()),
                 hardware_accelerated: Some(true),
                 exported: Some(true),
-                meta_data: vec![MetaData {
-                    name: "android.app.lib_name".into(),
-                    value: config.name.replace('-', "_"),
-                }],
+                meta_data: vec![],
                 intent_filters: vec![IntentFilter {
                     actions: vec!["android.intent.action.MAIN".into()],
                     categories: vec!["android.intent.category.LAUNCHER".into()],
