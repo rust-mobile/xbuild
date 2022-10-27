@@ -9,17 +9,25 @@ jobs:
   android:
     runs-on: ubuntu-latest
     steps:
+    - run: echo "TOOLCHAIN=$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64" >> $GITHUB_ENV
+    - run: ls $TOOLCHAIN/lib64/clang | xargs -0 printf "CLANG_VERSION=%s" >> $GITHUB_ENV
+    - run: echo "CLANG=$TOOLCHAIN/lib64/clang/$CLANG_VERSION" >> $GITHUB_ENV
+
+    - run: echo $ANDROID_NDK_LATEST_HOME
+    - run: echo $CLANG_VERSION
+
     - run: mkdir Android.ndk
-    - run: ls $ANDROID_NDK_LATEST_HOME
-    - run: cp -r $ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr Android.ndk/
-    - run: cp -r $ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib64/clang/12.0.8/lib/linux/aarch64/* Android.ndk/usr/lib/aarch64-linux-android/
-    - run: cp -r $ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib64/clang/12.0.8/lib/linux/arm/* Android.ndk/usr/lib/arm-linux-androideabi/
-    - run: cp -r $ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib64/clang/12.0.8/lib/linux/x86_64/* Android.ndk/usr/lib/x86_64-linux-android/
-    - run: cp -r $ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib64/clang/12.0.8/lib/linux/i386/* Android.ndk/usr/lib/i686-linux-android/
+    - run: cp -r $TOOLCHAIN/sysroot/usr Android.ndk/
+    - run: cp -r $CLANG/lib/linux/aarch64/* Android.ndk/usr/lib/aarch64-linux-android/
+    - run: cp -r $CLANG/lib/linux/arm/* Android.ndk/usr/lib/arm-linux-androideabi/
+    - run: cp -r $CLANG/lib/linux/x86_64/* Android.ndk/usr/lib/x86_64-linux-android/
+    - run: cp -r $CLANG/lib/linux/i386/* Android.ndk/usr/lib/i686-linux-android/
+
     - run: echo "INPUT(-lunwind)" > Android.ndk/usr/lib/aarch64-linux-android/libgcc.a
     - run: echo "INPUT(-lunwind)" > Android.ndk/usr/lib/arm-linux-androideabi/libgcc.a
     - run: echo "INPUT(-lunwind)" > Android.ndk/usr/lib/x86_64-linux-android/libgcc.a
     - run: echo "INPUT(-lunwind)" > Android.ndk/usr/lib/i686-linux-android/libgcc.a
+
     - run: tar --zstd -cf Android.ndk.tar.zst Android.ndk
     - run: gh release upload $TAG Android.ndk.tar.zst -R cloudpeers/x
       env:
