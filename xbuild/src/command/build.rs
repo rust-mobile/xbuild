@@ -3,7 +3,6 @@ use crate::download::DownloadManager;
 use crate::task::TaskRunner;
 use crate::{BuildEnv, Format, Opt, Platform};
 use anyhow::Result;
-use apk::Apk;
 use appbundle::AppBundle;
 use appimage::AppImage;
 use msix::Msix;
@@ -27,6 +26,9 @@ pub fn build(env: &BuildEnv) -> Result<()> {
     let bin_target = env.target().platform() != Platform::Android;
     let has_lib = env.root_dir().join("src").join("lib.rs").exists();
     if bin_target || has_lib {
+        if env.target().platform() == Platform::Android {
+            crate::wry::setup_env(&env)?;
+        }
         for target in env.target().compile_targets() {
             let arch_dir = platform_dir.join(target.arch().to_string());
             let mut cargo = env.cargo_build(target, &arch_dir.join("cargo"))?;
@@ -66,8 +68,9 @@ pub fn build(env: &BuildEnv) -> Result<()> {
         }
         Platform::Android => {
             let out = platform_dir.join(format!("{}.{}", env.name(), env.target().format()));
+            crate::wry::build_apk(env, &out)?;
 
-            let mut apk = Apk::new(
+            /*let mut apk = Apk::new(
                 out,
                 env.manifest().android().clone(),
                 env.target().opt() != Opt::Debug,
@@ -83,7 +86,7 @@ pub fn build(env: &BuildEnv) -> Result<()> {
                 }
             }
 
-            apk.finish(env.target().signer().cloned())?;
+            apk.finish(env.target().signer().cloned())?;*/
         }
         Platform::Macos => {
             let target = env.target().compile_targets().next().unwrap();
