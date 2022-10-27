@@ -120,6 +120,9 @@ impl Manifest {
         let application = &mut manifest.application;
         application.label.get_or_insert_with(|| config.name.clone());
         application
+            .theme
+            .get_or_insert_with(|| "@style/Theme.AppCompat.Light.NoActionBar".into());
+        application
             .debuggable
             .get_or_insert_with(|| opt == Opt::Debug);
         application.has_code.get_or_insert(true);
