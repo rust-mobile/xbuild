@@ -167,6 +167,10 @@ impl Manifest {
             .get_or_insert_with(|| config.name.clone());
         self.ios
             .info
+            .bundle_identifier
+            .get_or_insert_with(|| config.name.clone());
+        self.ios
+            .info
             .short_version
             .get_or_insert_with(|| config.version.clone());
         self.ios
