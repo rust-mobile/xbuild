@@ -187,13 +187,6 @@ impl AppBundle {
                 bundle_identifier.starts_with(bundle_prefix),
                 "bundle identifier mismatch"
             );
-        } else {
-            let bundle_id = if let Some(bundle_prefix) = bundle_prefix.strip_suffix(".*") {
-                format!("{}.{}", bundle_prefix, self.info.name.as_ref().unwrap())
-            } else {
-                bundle_prefix.to_string()
-            };
-            self.info.bundle_identifier = Some(bundle_id);
         }
         self.entitlements = Some(entitlements);
         std::fs::write(self.appdir().join("embedded.mobileprovision"), raw_profile)?;

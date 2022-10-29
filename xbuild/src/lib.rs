@@ -468,10 +468,6 @@ impl BuildTargetArgs {
         } else {
             None
         };
-        anyhow::ensure!(
-            provisioning_profile.is_some() || platform != Platform::Ios,
-            "missing provisioning profile"
-        );
         let mut notarization_key_and_issuer = None;
         if platform == Platform::Macos {
             if let (Some(api_key), Some(api_issuer)) = (self.api_key, self.api_issuer) {

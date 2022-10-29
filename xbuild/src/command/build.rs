@@ -130,7 +130,9 @@ pub fn build(env: &BuildEnv) -> Result<()> {
             }
             let main = env.cargo_artefact(&arch_dir.join("cargo"), target, CrateType::Bin)?;
             app.add_executable(&main)?;
-            app.add_provisioning_profile(env.target().provisioning_profile().unwrap())?;
+            if let Some(provisioning_profile) = env.target().provisioning_profile() {
+                app.add_provisioning_profile(provisioning_profile)?;
+            }
             app.finish(env.target().signer().cloned())?;
         }
         Platform::Windows => {
