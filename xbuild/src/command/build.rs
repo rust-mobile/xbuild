@@ -3,6 +3,7 @@ use crate::download::DownloadManager;
 use crate::task::TaskRunner;
 use crate::{BuildEnv, Format, Opt, Platform};
 use anyhow::Result;
+use apk::Apk;
 use appbundle::AppBundle;
 use appimage::AppImage;
 use msix::Msix;
@@ -26,8 +27,8 @@ pub fn build(env: &BuildEnv) -> Result<()> {
     let bin_target = env.target().platform() != Platform::Android;
     let has_lib = env.root_dir().join("src").join("lib.rs").exists();
     if bin_target || has_lib {
-        if env.target().platform() == Platform::Android {
-            crate::wry::setup_env(&env)?;
+        if env.target().platform() == Platform::Android && env.config().android().gradle {
+            crate::gradle::prepare(&env)?;
         }
         for target in env.target().compile_targets() {
             let arch_dir = platform_dir.join(target.arch().to_string());
@@ -68,31 +69,35 @@ pub fn build(env: &BuildEnv) -> Result<()> {
         }
         Platform::Android => {
             let out = platform_dir.join(format!("{}.{}", env.name(), env.target().format()));
-            crate::wry::build_apk(env, &out)?;
+            if env.config().android().gradle {
+                crate::gradle::build(env, &out)?;
+                runner.end_verbose_task();
+                return Ok(());
+            } else {
+                let mut apk = Apk::new(
+                    out,
+                    env.config().android().manifest.clone(),
+                    env.target().opt() != Opt::Debug,
+                )?;
+                apk.add_res(env.icon(), &env.android_jar())?;
 
-            /*let mut apk = Apk::new(
-                out,
-                env.manifest().android().clone(),
-                env.target().opt() != Opt::Debug,
-            )?;
-            apk.add_res(env.icon(), &env.android_jar())?;
-
-            if has_lib {
-                for target in env.target().compile_targets() {
-                    let arch_dir = platform_dir.join(target.arch().to_string());
-                    let lib =
-                        env.cargo_artefact(&arch_dir.join("cargo"), target, CrateType::Cdylib)?;
-                    apk.add_lib(target.android_abi(), &lib)?;
+                if has_lib {
+                    for target in env.target().compile_targets() {
+                        let arch_dir = platform_dir.join(target.arch().to_string());
+                        let lib =
+                            env.cargo_artefact(&arch_dir.join("cargo"), target, CrateType::Cdylib)?;
+                        apk.add_lib(target.android_abi(), &lib)?;
+                    }
                 }
-            }
 
-            apk.finish(env.target().signer().cloned())?;*/
+                apk.finish(env.target().signer().cloned())?;
+            }
         }
         Platform::Macos => {
             let target = env.target().compile_targets().next().unwrap();
             let arch_dir = platform_dir.join(target.arch().to_string());
 
-            let mut app = AppBundle::new(&arch_dir, env.manifest().macos().clone())?;
+            let mut app = AppBundle::new(&arch_dir, env.config().macos().info.clone())?;
             if let Some(icon) = env.icon() {
                 app.add_icon(icon)?;
             }
@@ -124,7 +129,7 @@ pub fn build(env: &BuildEnv) -> Result<()> {
             let target = env.target().compile_targets().next().unwrap();
             let arch_dir = platform_dir.join(target.arch().to_string());
             std::fs::create_dir_all(&arch_dir)?;
-            let mut app = AppBundle::new(&arch_dir, env.manifest().ios().clone())?;
+            let mut app = AppBundle::new(&arch_dir, env.config().ios().info.clone())?;
             if let Some(icon) = env.icon() {
                 app.add_icon(icon)?;
             }
@@ -142,7 +147,7 @@ pub fn build(env: &BuildEnv) -> Result<()> {
             let out = arch_dir.join(format!("{}.msix", env.name()));
             let mut msix = Msix::new(
                 out,
-                env.manifest().windows().clone(),
+                env.config().windows().manifest.clone(),
                 target.opt() != Opt::Debug,
             )?;
             if let Some(icon) = env.icon() {

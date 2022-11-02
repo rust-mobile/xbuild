@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize, Serializer};
 /// Android [manifest element](https://developer.android.com/guide/topics/manifest/manifest-element), containing an [`Application`] element.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename = "manifest")]
+#[serde(deny_unknown_fields)]
 pub struct AndroidManifest {
     #[serde(rename(serialize = "xmlns:android"))]
     #[serde(default = "default_namespace")]
@@ -61,6 +62,7 @@ impl std::fmt::Display for AndroidManifest {
 
 /// Android [application element](https://developer.android.com/guide/topics/manifest/application-element), containing an [`Activity`] element.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct Application {
     #[serde(rename(serialize = "android:debuggable"))]
     pub debuggable: Option<bool>,
@@ -84,6 +86,7 @@ pub struct Application {
 
 /// Android [activity element](https://developer.android.com/guide/topics/manifest/activity-element).
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct Activity {
     #[serde(rename(serialize = "android:configChanges"))]
     pub config_changes: Option<String>,
@@ -112,6 +115,7 @@ pub struct Activity {
 
 /// Android [intent filter element](https://developer.android.com/guide/topics/manifest/intent-filter-element).
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct IntentFilter {
     /// Serialize strings wrapped in `<action android:name="..." />`
     #[serde(serialize_with = "serialize_actions")]
@@ -170,6 +174,7 @@ where
 
 /// Android [intent filter data element](https://developer.android.com/guide/topics/manifest/data-element).
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct IntentFilterData {
     #[serde(rename(serialize = "android:scheme"))]
     pub scheme: Option<String>,
@@ -189,6 +194,7 @@ pub struct IntentFilterData {
 
 /// Android [meta-data element](https://developer.android.com/guide/topics/manifest/meta-data-element).
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct MetaData {
     #[serde(rename(serialize = "android:name"))]
     pub name: String,
@@ -198,6 +204,7 @@ pub struct MetaData {
 
 /// Android [uses-feature element](https://developer.android.com/guide/topics/manifest/uses-feature-element).
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct Feature {
     #[serde(rename(serialize = "android:name"))]
     pub name: Option<String>,
@@ -238,6 +245,7 @@ where
 
 /// Android [uses-permission element](https://developer.android.com/guide/topics/manifest/uses-permission-element).
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct Permission {
     #[serde(rename(serialize = "android:name"))]
     pub name: String,
@@ -247,6 +255,7 @@ pub struct Permission {
 
 /// Android [uses-sdk element](https://developer.android.com/guide/topics/manifest/uses-sdk-element).
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct Sdk {
     #[serde(rename(serialize = "android:minSdkVersion"))]
     pub min_sdk_version: Option<u32>,
