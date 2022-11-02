@@ -1,6 +1,6 @@
 use crate::{Opt, Platform};
 use anyhow::Result;
-use apk::manifest::{Activity, AndroidManifest, IntentFilter};
+use apk::manifest::{Activity, AndroidManifest, IntentFilter, MetaData};
 use apk::VersionCode;
 use appbundle::InfoPlist;
 use msix::AppxManifest;
@@ -8,35 +8,29 @@ use serde::Deserialize;
 use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug)]
-pub struct Config {
+pub struct CargoToml {
     pub name: String,
     pub version: String,
     pub description: String,
 }
 
-impl Config {
-    pub fn cargo_toml(path: &Path) -> Result<Self> {
-        CargoToml::parse(path)
-    }
-}
-
-#[derive(Deserialize)]
-struct CargoToml {
-    package: Package,
-}
-
-#[derive(Deserialize)]
-struct Package {
-    name: String,
-    version: String,
-    description: Option<String>,
-}
-
 impl CargoToml {
-    pub fn parse(path: &Path) -> Result<Config> {
+    pub fn parse(path: &Path) -> Result<Self> {
+        #[derive(Deserialize)]
+        struct CargoToml {
+            package: Package,
+        }
+
+        #[derive(Deserialize)]
+        struct Package {
+            name: String,
+            version: String,
+            description: Option<String>,
+        }
+
         let contents = std::fs::read_to_string(path)?;
         let toml: CargoToml = toml::from_str(&contents)?;
-        Ok(Config {
+        Ok(Self {
             name: toml.package.name,
             version: toml.package.version,
             description: toml.package.description.unwrap_or_default(),
@@ -45,23 +39,23 @@ impl CargoToml {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct Manifest {
+pub struct Config {
     generic: GenericConfig,
-    android: ApkConfig,
-    ios: AppbundleConfig,
-    linux: AppimageConfig,
-    macos: AppbundleConfig,
-    windows: MsixConfig,
+    android: AndroidConfig,
+    ios: IosConfig,
+    linux: LinuxConfig,
+    macos: MacosConfig,
+    windows: WindowsConfig,
 }
 
-impl Manifest {
+impl Config {
     pub fn parse<P: AsRef<Path>>(path: P) -> Result<Self> {
         if !path.as_ref().exists() {
             return Ok(Default::default());
         }
         let contents = std::fs::read_to_string(path.as_ref())?;
         let config: RawConfig = serde_yaml::from_str(&contents)?;
-        Ok(Manifest {
+        Ok(Self {
             generic: config.generic.unwrap_or_default(),
             android: config.android.unwrap_or_default(),
             ios: config.ios.unwrap_or_default(),
@@ -85,7 +79,13 @@ impl Manifest {
         self.generic.icon.as_deref()
     }
 
-    pub fn apply_config(&mut self, config: &Config, opt: Opt) {
+    pub fn apply_config(&mut self, config: &CargoToml, opt: Opt) {
+        let wry = self.android.wry;
+        if wry {
+            self.android
+                .dependencies
+                .push("androidx.appcompat:appcompat:1.4.1".into());
+        }
         let manifest = &mut self.android.manifest;
         manifest
             .package
@@ -119,47 +119,63 @@ impl Manifest {
 
         let application = &mut manifest.application;
         application.label.get_or_insert_with(|| config.name.clone());
-        application
-            .theme
-            .get_or_insert_with(|| "@style/Theme.AppCompat.Light.NoActionBar".into());
+        if wry {
+            application
+                .theme
+                .get_or_insert_with(|| "@style/Theme.AppCompat.Light.NoActionBar".into());
+        }
         application
             .debuggable
             .get_or_insert_with(|| opt == Opt::Debug);
-        application.has_code.get_or_insert(true);
+        application.has_code.get_or_insert(wry);
+
         if application.activities.is_empty() {
-            let activity = Activity {
-                config_changes: Some(
-                    [
-                        "orientation",
-                        "keyboardHidden",
-                        "keyboard",
-                        "screenSize",
-                        "smallestScreenSize",
-                        "locale",
-                        "layoutDirection",
-                        "fontScale",
-                        "screenLayout",
-                        "density",
-                        "uiMode",
-                    ]
-                    .join("|"),
-                ),
-                label: None,
-                launch_mode: Some("singleTop".into()),
-                name: Some(".MainActivity".into()),
-                orientation: None,
-                window_soft_input_mode: Some("adjustResize".into()),
-                hardware_accelerated: Some(true),
-                exported: Some(true),
-                meta_data: vec![],
-                intent_filters: vec![IntentFilter {
-                    actions: vec!["android.intent.action.MAIN".into()],
-                    categories: vec!["android.intent.category.LAUNCHER".into()],
-                    data: vec![],
-                }],
-            };
-            application.activities.push(activity);
+            application.activities.push(Activity::default());
         }
+
+        let activity = application.activities.get_mut(0).unwrap();
+        activity.config_changes.get_or_insert_with(|| {
+            [
+                "orientation",
+                "keyboardHidden",
+                "keyboard",
+                "screenSize",
+                "smallestScreenSize",
+                "locale",
+                "layoutDirection",
+                "fontScale",
+                "screenLayout",
+                "density",
+                "uiMode",
+            ]
+            .join("|")
+        });
+        activity
+            .launch_mode
+            .get_or_insert_with(|| "singleTop".into());
+        activity.name.get_or_insert_with(|| {
+            if wry {
+                ".MainActivity".into()
+            } else {
+                "android.app.NativeActivity".into()
+            }
+        });
+        activity
+            .window_soft_input_mode
+            .get_or_insert_with(|| "adjustResize".into());
+        activity.hardware_accelerated.get_or_insert(true);
+        activity.exported.get_or_insert(true);
+        if !wry {
+            activity.meta_data.push(MetaData {
+                name: "android.app.lib_name".into(),
+                value: config.name.replace('-', "_"),
+            });
+        }
+        activity.intent_filters.push(IntentFilter {
+            actions: vec!["android.intent.action.MAIN".into()],
+            categories: vec!["android.intent.category.LAUNCHER".into()],
+            data: vec![],
+        });
 
         self.ios
             .info
@@ -213,20 +229,24 @@ impl Manifest {
             .get_or_insert_with(|| config.description.clone());
     }
 
-    pub fn android(&self) -> &AndroidManifest {
-        &self.android.manifest
+    pub fn android(&self) -> &AndroidConfig {
+        &self.android
     }
 
-    pub fn ios(&self) -> &InfoPlist {
-        &self.ios.info
+    pub fn linux(&self) -> &LinuxConfig {
+        &self.linux
     }
 
-    pub fn macos(&self) -> &InfoPlist {
-        &self.macos.info
+    pub fn ios(&self) -> &IosConfig {
+        &self.ios
     }
 
-    pub fn windows(&self) -> &AppxManifest {
-        &self.windows.manifest
+    pub fn macos(&self) -> &MacosConfig {
+        &self.macos
+    }
+
+    pub fn windows(&self) -> &WindowsConfig {
+        &self.windows
     }
 }
 
@@ -234,11 +254,11 @@ impl Manifest {
 struct RawConfig {
     #[serde(flatten)]
     generic: Option<GenericConfig>,
-    android: Option<ApkConfig>,
-    linux: Option<AppimageConfig>,
-    ios: Option<AppbundleConfig>,
-    macos: Option<AppbundleConfig>,
-    windows: Option<MsixConfig>,
+    android: Option<AndroidConfig>,
+    linux: Option<LinuxConfig>,
+    ios: Option<IosConfig>,
+    macos: Option<MacosConfig>,
+    windows: Option<WindowsConfig>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -247,28 +267,41 @@ pub struct GenericConfig {
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
-pub struct AppbundleConfig {
+pub struct AndroidConfig {
     #[serde(flatten)]
     generic: GenericConfig,
-    info: InfoPlist,
+    pub manifest: AndroidManifest,
+    #[serde(default)]
+    pub dependencies: Vec<String>,
+    #[serde(default)]
+    pub gradle: bool,
+    #[serde(default)]
+    pub wry: bool,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
-pub struct ApkConfig {
+pub struct IosConfig {
     #[serde(flatten)]
     generic: GenericConfig,
-    manifest: AndroidManifest,
+    pub info: InfoPlist,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
-pub struct AppimageConfig {
+pub struct MacosConfig {
+    #[serde(flatten)]
+    generic: GenericConfig,
+    pub info: InfoPlist,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct LinuxConfig {
     #[serde(flatten)]
     generic: GenericConfig,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
-pub struct MsixConfig {
+pub struct WindowsConfig {
     #[serde(flatten)]
     generic: GenericConfig,
-    manifest: AppxManifest,
+    pub manifest: AppxManifest,
 }

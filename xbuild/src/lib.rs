@@ -1,5 +1,5 @@
 use crate::cargo::{Cargo, CargoBuild, CrateType};
-use crate::config::{Config, Manifest};
+use crate::config::{CargoToml, Config};
 use crate::devices::Device;
 use anyhow::Result;
 use clap::Parser;
@@ -22,8 +22,8 @@ pub mod command;
 pub mod config;
 pub mod devices;
 pub mod download;
+pub mod gradle;
 pub mod task;
-pub mod wry;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Opt {
@@ -561,7 +561,7 @@ pub struct BuildEnv {
     cache_dir: PathBuf,
     icon: Option<PathBuf>,
     cargo: Cargo,
-    manifest: Manifest,
+    config: Config,
     verbose: bool,
     offline: bool,
 }
@@ -574,21 +574,21 @@ impl BuildEnv {
         let build_target = args.build_target.build_target()?;
         let build_dir = cargo.target_dir().join("x");
         let cache_dir = dirs::cache_dir().unwrap().join("x");
-        let config = cargo.manifest();
-        let manifest = config.parent().unwrap().join("manifest.yaml");
-        let config = Config::cargo_toml(config)?;
-        let mut manifest = Manifest::parse(&manifest)?;
-        manifest.apply_config(&config, build_target.opt());
-        let icon = manifest
+        let cargo_toml = cargo.manifest();
+        let manifest = cargo_toml.parent().unwrap().join("manifest.yaml");
+        let cargo_toml = CargoToml::parse(cargo_toml)?;
+        let mut config = Config::parse(&manifest)?;
+        config.apply_config(&cargo_toml, build_target.opt());
+        let icon = config
             .icon(build_target.platform())
             .map(|icon| cargo.root_dir().join(icon));
-        let name = config.name;
+        let name = cargo_toml.name;
         Ok(Self {
             name,
             build_target,
             icon,
             cargo,
-            manifest,
+            config,
             build_dir,
             cache_dir,
             verbose,
@@ -666,12 +666,17 @@ impl BuildEnv {
         &self.cargo
     }
 
-    pub fn manifest(&self) -> &Manifest {
-        &self.manifest
+    pub fn config(&self) -> &Config {
+        &self.config
     }
 
     pub fn target_sdk_version(&self) -> u32 {
-        self.manifest().android().sdk.target_sdk_version.unwrap()
+        self.config()
+            .android()
+            .manifest
+            .sdk
+            .target_sdk_version
+            .unwrap()
     }
 
     pub fn android_jar(&self) -> PathBuf {
@@ -732,7 +737,13 @@ impl BuildEnv {
         }
         if target.platform() == Platform::Android {
             let ndk = self.android_ndk();
-            let target_sdk_version = self.manifest().android().sdk.target_sdk_version.unwrap();
+            let target_sdk_version = self
+                .config()
+                .android()
+                .manifest
+                .sdk
+                .target_sdk_version
+                .unwrap();
             cargo.use_android_ndk(&ndk, target_sdk_version)?;
         }
         if target.platform() == Platform::Windows {
@@ -745,8 +756,9 @@ impl BuildEnv {
             let sdk = self.macos_sdk();
             if sdk.exists() {
                 let minimum_version = self
-                    .manifest()
+                    .config()
                     .macos()
+                    .info
                     .minimum_system_version
                     .as_ref()
                     .unwrap();
@@ -759,7 +771,13 @@ impl BuildEnv {
         if target.platform() == Platform::Ios {
             let sdk = self.ios_sdk();
             if sdk.exists() {
-                let minimum_version = self.manifest().ios().minimum_os_version.as_ref().unwrap();
+                let minimum_version = self
+                    .config()
+                    .ios()
+                    .info
+                    .minimum_os_version
+                    .as_ref()
+                    .unwrap();
                 cargo.use_ios_sdk(&sdk, minimum_version)?;
             }
         }
