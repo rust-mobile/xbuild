@@ -175,6 +175,12 @@ impl Apk {
                             .map(|attr| attr.raw_value);
                     }
                     x if x == activity => {
+                        // should really select the activity with the intent-filter
+                        // `android.intent.action.MAIN`. for now we settle for the
+                        // first activity
+                        if name_value.is_some() {
+                            continue;
+                        }
                         name_value = attrs
                             .iter()
                             .find(|attr| attr.name == name)
