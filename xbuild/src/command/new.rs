@@ -5,7 +5,7 @@ pub fn new(name: &str) -> Result<()> {
     let root = Path::new(name);
     let src = root.join("src");
     let kotlin = root.join("kotlin");
-    std::fs::create_dir(&root)?;
+    std::fs::create_dir(root)?;
     std::fs::create_dir(&src)?;
     std::fs::create_dir(&kotlin)?;
     std::fs::write(

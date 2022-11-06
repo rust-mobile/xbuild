@@ -80,16 +80,16 @@ struct SpcIndirectData {
 impl SpcIndirectData {
     pub fn new(digests: &Digests) -> Self {
         let mut payload = Vec::with_capacity(184);
-        payload.extend_from_slice(&*b"APPX");
-        payload.extend_from_slice(&*b"AXPC");
+        payload.extend_from_slice(b"APPX");
+        payload.extend_from_slice(b"AXPC");
         payload.extend_from_slice(&digests.axpc);
-        payload.extend_from_slice(&*b"AXCD");
+        payload.extend_from_slice(b"AXCD");
         payload.extend_from_slice(&digests.axcd);
-        payload.extend_from_slice(&*b"AXCT");
+        payload.extend_from_slice(b"AXCT");
         payload.extend_from_slice(&digests.axct);
-        payload.extend_from_slice(&*b"AXBM");
+        payload.extend_from_slice(b"AXBM");
         payload.extend_from_slice(&digests.axbm);
-        payload.extend_from_slice(&*b"AXCI");
+        payload.extend_from_slice(b"AXCI");
         payload.extend_from_slice(&digests.axci);
         Self {
             sip_info: Default::default(),
@@ -165,7 +165,7 @@ impl Default for SpcSipInfoContent {
 mod tests {
     use super::*;
     use rsa::pkcs8::DecodePrivateKey;
-    use rsa::{Hash, PaddingScheme, RsaPrivateKey};
+    use rsa::{PaddingScheme, RsaPrivateKey};
     use sha2::{Digest, Sha256};
 
     const HASHES: Digests = Digests {
@@ -257,7 +257,7 @@ mod tests {
         assert_eq!(&orig_digest[..], &digest[..]);
         let orig_signature = b"\x7f\x13uP\xc8m:\x99\xb6\x89u\x85y\xea\xfc\xd8Cw\x96w\x10>j\xa7Z\x8c\xa3\x1f\\\xf4\x82\\\xdf\x8eh;\x10\x16o/\"i\x89\xb9\xf1\x03\x9c\xb0)\x9f\xc4\xfe\xf1\x05\x93\xbeJ\xd2\xeb\xe3\xb1f\xb1rq\x89\xdf\x7f\xe4\xe1\n\xae\xa70\x8c|\xd3\xe6\xe6/\xad\x97\xcb1\xb6\xa0\xf9\x16z\x83R#\xe8n\r\xfdErJ\x01\xfb\xd4\xef\x05\xf9\xab\x08o\x16\xbc)C\xee\x03=$\x88>G\xa4\xba)\xbc\xf4n6\xaa\xfd\xa7e\x15\xb9,|\xd6\xf9\x9b>\xe8\x95\xf7\xc6\x08\n\t\x8a\xd5{j\x8a\xfe{,O\xf3\xd9\x8a\xc79\x9f\x80\xcd\x17k8\xf8\xb3\xc3\x96\xd8\x1a/\xa8\x14R\x14\xaf\x813\x91;>\x99\xd24\x86J\x12\x0e\x89\x0c\xb8?\xfa\xa8\x1dM\x98@vz'\xe6y\xab\xc0\xcb\xc5\xb3\xbeC'$\"\xd2\x15\xaf0\xa3\x05\xcbj\x18j\x11\xa2\xfd\xe7\xe6y\xcf\xadd\x99\xa9\xdc\xc4\xc2`\x1d\xb0\xe3\xdb\xfeC\xdc\xce\xe5@\xde;P\xfav\x8c\xff";
         let key = RsaPrivateKey::from_pkcs8_pem(crate::DEBUG_PEM).unwrap();
-        let padding = PaddingScheme::new_pkcs1v15_sign(Some(Hash::SHA2_256));
+        let padding = PaddingScheme::new_pkcs1v15_sign::<sha2::Sha256>();
         let sig = key.sign(padding, &digest).unwrap();
         assert_eq!(sig.len(), orig_signature.len());
         assert_eq!(sig, orig_signature);

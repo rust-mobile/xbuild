@@ -436,7 +436,7 @@ pub fn extract_zip(archive: &Path, directory: &Path) -> Result<()> {
         } else {
             if let Some(p) = outpath.parent() {
                 if !p.exists() {
-                    std::fs::create_dir_all(&p)?;
+                    std::fs::create_dir_all(p)?;
                 }
             }
             if let Some(target) = get_symlink_source(&mut file)? {

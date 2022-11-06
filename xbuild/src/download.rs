@@ -37,7 +37,7 @@ impl<'a> Download for DownloadManager<'a> {
         let len = resp.content_length().unwrap_or_default();
         pb.set_length(len);
 
-        let dest = BufWriter::new(File::create(&dest)?);
+        let dest = BufWriter::new(File::create(dest)?);
         std::io::copy(&mut resp, &mut pb.wrap_write(dest))?;
         pb.finish_with_message("📥 downloaded");
 
@@ -75,7 +75,7 @@ impl<'a> DownloadManager<'a> {
                 let archive = BufReader::new(File::open(&archive)?);
                 let mut archive = Archive::new(Decoder::new(archive)?);
                 let dest = item.output.parent().unwrap();
-                std::fs::create_dir_all(&dest)?;
+                std::fs::create_dir_all(dest)?;
                 for entry in archive.entries()? {
                     let mut entry = entry?;
                     if item.no_symlinks && entry.header().entry_type() == EntryType::Symlink {
@@ -84,7 +84,7 @@ impl<'a> DownloadManager<'a> {
                     if item.no_colons && entry.header().path()?.to_str().unwrap().contains(':') {
                         continue;
                     }
-                    entry.unpack_in(&dest)?;
+                    entry.unpack_in(dest)?;
                 }
             } else if name.ends_with(".framework.zip") {
                 let download_dir = self.env().cache_dir().join("download");

@@ -114,7 +114,7 @@ pub struct Block {
 impl Block {
     pub fn new(bytes: &[u8]) -> Self {
         Self {
-            hash: base64::encode(&Sha256::digest(bytes)),
+            hash: base64::encode(Sha256::digest(bytes)),
             size: None,
         }
     }
