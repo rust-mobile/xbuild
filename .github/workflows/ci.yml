@@ -4,7 +4,7 @@ on:
     - master
   pull_request:
 
-name: x
+name: xbuild
 
 jobs:
   lint:
@@ -17,10 +17,6 @@ jobs:
     - run: cargo fmt --all -- --check
     - run: cargo clippy --workspace --examples --tests --all-features -- -D warnings
     - run: cargo test
-
-  #
-  # Build x for all platforms
-  #
 
   build:
     strategy:
@@ -36,177 +32,32 @@ jobs:
         name: ${{ matrix.host }}-x
         path: bin/x${{ matrix.host == 'windows-latest' && '.exe' || '' }}
 
-  #
-  # Build template
-  #
-
   build-template:
-    if: github.event_name != 'pull_request' && github.repository_owner == 'cloudpeers'
     strategy:
       fail-fast: false
       matrix:
-        x:
-        - host: ubuntu-latest
-          platform: linux
+        host:
+        - ubuntu-latest
+        - macos-latest
+        - windows-latest
+        opt:
+        - debug
+        - release
+        target:
+        - platform: linux
           arch: x64
-          opt: debug
-          tar: true
-          ext: .AppDir
+        - platform: macos
+          arch: x64
+        - platform: windows
+          arch: x64
+        - platform: android
+          arch: arm64
+        - platform: ios
+          arch: arm64
 
-        - host: ubuntu-latest
-          platform: linux
-          arch: x64
-          opt: release
-          tar: false
-          ext: .AppImage
-
-        # TODO: macos -> linux
-        # TODO: windows -> linux
-
-        - host: ubuntu-latest
-          platform: macos
-          arch: x64
-          opt: debug
-          tar: true
-          ext: .app
-        - host: ubuntu-latest
-          platform: macos
-          arch: x64
-          opt: release
-          tar: false
-          ext: .dmg
-        - host: macos-latest
-          platform: macos
-          arch: x64
-          opt: debug
-          tar: true
-          ext: .app
-        - host: macos-latest
-          platform: macos
-          arch: x64
-          opt: release
-          tar: false
-          ext: .dmg
-
-        # TODO: windows -> macos
-
-        - host: ubuntu-latest
-          platform: windows
-          arch: x64
-          opt: debug
-          tar: false
-          ext: .msix
-        - host: ubuntu-latest
-          platform: windows
-          arch: x64
-          opt: release
-          tar: false
-          ext: .msix
-        - host: macos-latest
-          platform: windows
-          arch: x64
-          opt: debug
-          tar: false
-          ext: .msix
-        - host: macos-latest
-          platform: windows
-          arch: x64
-          opt: release
-          tar: false
-          ext: .msix
-        - host: windows-latest
-          platform: windows
-          arch: x64
-          opt: debug
-          tar: false
-          ext: .msix
-        - host: windows-latest
-          platform: windows
-          arch: x64
-          opt: release
-          tar: false
-          ext: .msix
-
-        - host: ubuntu-latest
-          platform: android
-          arch: arm64
-          opt: debug
-          tar: false
-          ext: .apk
-        - host: ubuntu-latest
-          platform: android
-          arch: arm64
-          opt: release
-          tar: false
-          ext: .apk
-        - host: macos-latest
-          platform: android
-          arch: arm64
-          opt: debug
-          tar: false
-          ext: .apk
-        - host: macos-latest
-          platform: android
-          arch: arm64
-          opt: release
-          tar: false
-          ext: .apk
-        - host: windows-latest
-          platform: android
-          arch: arm64
-          opt: debug
-          tar: false
-          ext: .apk
-        - host: windows-latest
-          platform: android
-          arch: arm64
-          opt: release
-          tar: false
-          ext: .apk
-
-        - host: ubuntu-latest
-          platform: ios
-          arch: arm64
-          opt: debug
-          tar: true
-          ext: .app
-        - host: ubuntu-latest
-          platform: ios
-          arch: arm64
-          opt: release
-          tar: true
-          ext: .app
-        - host: macos-latest
-          platform: ios
-          arch: arm64
-          opt: debug
-          tar: true
-          ext: .app
-        - host: macos-latest
-          platform: ios
-          arch: arm64
-          opt: release
-          tar: true
-          ext: .app
-        - host: windows-latest
-          platform: ios
-          arch: arm64
-          opt: debug
-          tar: true
-          ext: .app
-        - host: windows-latest
-          platform: ios
-          arch: arm64
-          opt: release
-          tar: true
-          ext: .app
-
-    runs-on: ${{ matrix.x.host }}
+    runs-on: ${{ matrix.host }}
     needs: build
     steps:
-    - name: fetch sources
-      uses: actions/checkout@v2
-
     - name: install rust
       uses: hecrj/setup-rust-action@v1
       with:
@@ -217,7 +68,7 @@ jobs:
       with:
         name: ${{ matrix.host }}-x
     - run: chmod +x ./x
-      if: ${{ matrix.x.host == 'ubuntu-latest' || matrix.x.host == 'macos-latest' }}
+      if: ${{ matrix.host == 'ubuntu-latest' || matrix.host == 'macos-latest' }}
 
     - name: install llvm
       uses: KyleMayes/install-llvm-action@v1
@@ -235,26 +86,12 @@ jobs:
         java-version: 11
 
     - name: install linux dependencies
-      if: ${{ matrix.x.host == 'ubuntu-latest' }}
+      if: ${{ matrix.host == 'ubuntu-latest' }}
       run: sudo apt-get update && sudo apt-get install libgtk-3-dev squashfs-tools
 
     - name: create project
       run: x new template
 
     - name: build project
-      run: ../x build --platform ${{ matrix.x.platform }} --arch ${{ matrix.x.arch }} --${{ matrix.x.opt }}
+      run: ../x build --platform ${{ matrix.target.platform }} --arch ${{ matrix.target.arch }} --${{ matrix.opt }}
       working-directory: template
-      env:
-        X_PEM: ${{ secrets.X_PEM }}
-        X_PROVISIONING_PROFILE: ${{ secrets.X_PROVISIONING_PROFILE }}
-
-    - name: tar artifact
-      if: ${{ matrix.x.tar }}
-      run: ${{ matrix.x.host == 'macos-latest' && 'g' || '' }}tar --zstd -cf template${{ matrix.x.ext }}.tar.zst template${{ matrix.x.ext }}
-      working-directory: template/target/x/${{ matrix.x.opt }}/${{ matrix.x.platform }}/${{ matrix.x.arch }}
-
-    - name: upload artifact
-      uses: actions/upload-artifact@v2
-      with:
-        name: ${{ matrix.x.host }}-${{ matrix.x.platform }}-${{ matrix.x.arch }}-${{ matrix.x.opt }}-template
-        path: template/target/x/${{ matrix.x.opt }}/${{ matrix.x.platform }}/${{ matrix.x.arch }}/template${{ matrix.x.ext }}${{ matrix.x.tar && '.tar.zst' || '' }}

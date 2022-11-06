@@ -5,9 +5,11 @@ use anyhow::Result;
 
 mod build;
 mod doctor;
+mod new;
 
 pub use build::build;
 pub use doctor::doctor;
+pub use new::new;
 
 pub fn devices() -> Result<()> {
     for device in Device::list()? {
