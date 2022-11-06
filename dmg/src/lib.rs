@@ -199,7 +199,7 @@ fn add_dir<T: ReadWriteSeek>(src: &Path, dest: &Dir<'_, T>) -> Result<()> {
         let entry = entry?;
         let file_name = entry.file_name();
         let file_name = file_name.to_str().unwrap();
-        let source = src.join(&file_name);
+        let source = src.join(file_name);
         let file_type = entry.file_type()?;
         if file_type.is_dir() {
             let d = dest.create_dir(file_name)?;

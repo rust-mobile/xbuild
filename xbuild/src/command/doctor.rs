@@ -131,12 +131,12 @@ impl Check {
     }
 
     fn path(self) -> Result<PathBuf> {
-        Ok(which::which(&self.name)?)
+        Ok(which::which(self.name)?)
     }
 
     fn version(self) -> Result<Option<String>> {
         if let Some(version) = self.version {
-            let output = Command::new(&self.name)
+            let output = Command::new(self.name)
                 .args(version.arg.split(' '))
                 .output()?;
             anyhow::ensure!(output.status.success(), "failed to run {}", self.name);

@@ -28,7 +28,7 @@ pub fn build(env: &BuildEnv) -> Result<()> {
     let has_lib = env.root_dir().join("src").join("lib.rs").exists();
     if bin_target || has_lib {
         if env.target().platform() == Platform::Android && env.config().android().gradle {
-            crate::gradle::prepare(&env)?;
+            crate::gradle::prepare(env)?;
         }
         for target in env.target().compile_targets() {
             let arch_dir = platform_dir.join(target.arch().to_string());

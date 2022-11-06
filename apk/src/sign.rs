@@ -142,17 +142,17 @@ fn compute_digest<R: Read + Seek>(
     let mut cursor = Cursor::new(&mut chunk);
     cursor.seek(SeekFrom::Start(16))?;
     cursor.write_u32::<LittleEndian>(sb_start as u32)?;
-    hasher.update(&[0xa5]);
+    hasher.update([0xa5]);
     assert!(chunk.len() <= MAX_CHUNK_SIZE);
-    hasher.update(&(chunk.len() as u32).to_le_bytes());
-    hasher.update(&chunk);
+    hasher.update((chunk.len() as u32).to_le_bytes());
+    hasher.update(chunk);
     chunks.push(hasher.finalize_reset().into());
 
     // compute root
-    hasher.update(&[0x5a]);
-    hasher.update(&(chunks.len() as u32).to_le_bytes());
+    hasher.update([0x5a]);
+    hasher.update((chunks.len() as u32).to_le_bytes());
     for chunk in &chunks {
-        hasher.update(&chunk);
+        hasher.update(chunk);
     }
     Ok(hasher.finalize().into())
 }
@@ -169,9 +169,9 @@ fn hash_chunk<R: Read + Seek>(
     let len = (end - *pos) as usize;
     buffer.resize(len, 0);
     r.read_exact(buffer).unwrap();
-    hasher.update(&[0xa5]);
-    hasher.update(&(len as u32).to_le_bytes());
-    hasher.update(&buffer);
+    hasher.update([0xa5]);
+    hasher.update((len as u32).to_le_bytes());
+    hasher.update(buffer);
     chunks.push(hasher.finalize_reset().into());
     *pos = end;
     Ok(())
