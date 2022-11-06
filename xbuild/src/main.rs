@@ -26,6 +26,11 @@ fn main() -> Result<()> {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Creates a new rust project
+    New {
+        /// Project name
+        name: String,
+    },
     /// Show information about the installed tooling
     Doctor,
     /// List all connected devices
@@ -50,6 +55,7 @@ enum Commands {
 impl Commands {
     pub fn run(self) -> Result<()> {
         match self {
+            Self::New { name } => command::new(&name)?,
             Self::Doctor => command::doctor(),
             Self::Devices => command::devices()?,
             Self::Build { args } => {
