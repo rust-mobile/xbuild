@@ -1,6 +1,6 @@
 use crate::metadata::Metadata;
 use crate::package::Artifact;
-use crate::pom::{Pom, Dependency};
+use crate::pom::{Dependency, Pom};
 use anyhow::Result;
 use pubgrub::error::PubGrubError;
 use pubgrub::range::Range;
@@ -50,7 +50,8 @@ impl<D: Download> Maven<D> {
             .into_iter()
             .map(|dep| (dep.package(), dep.range().unwrap()))
             .collect();
-        self.local.insert((package, version), Dependencies::Known(deps));
+        self.local
+            .insert((package, version), Dependencies::Known(deps));
     }
 
     pub fn resolve(&self, package: Package, version: Version) -> Result<Vec<PathBuf>> {
