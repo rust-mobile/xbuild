@@ -270,6 +270,7 @@ pub struct GenericConfig {
 pub struct AndroidConfig {
     #[serde(flatten)]
     generic: GenericConfig,
+    #[serde(default)]
     pub manifest: AndroidManifest,
     #[serde(default)]
     pub dependencies: Vec<String>,
