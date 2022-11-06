@@ -909,7 +909,8 @@ impl Chunk {
                         };
                         let mut buf = vec![0; bytes as usize];
                         r.read_exact(&mut buf)?;
-                        let s = String::from_utf8(buf)?;
+                        // some times there is an invalid string?
+                        let s = String::from_utf8(buf).unwrap_or_default();
                         strings.push(s);
                         if r.read_u8()? != 0 {
                             // fails to read some files otherwise
