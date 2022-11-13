@@ -1,5 +1,5 @@
 use crate::devices::{Backend, Device};
-use crate::{Arch, Platform};
+use crate::{Arch, BuildEnv, Platform};
 use anyhow::Result;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -11,6 +11,7 @@ pub(crate) struct IMobileDevice {
     ideviceimagemounter: PathBuf,
     ideviceinstaller: PathBuf,
     idevicedebug: PathBuf,
+    idevicedebugserverproxy: PathBuf,
 }
 
 impl IMobileDevice {
@@ -21,6 +22,7 @@ impl IMobileDevice {
             ideviceimagemounter: which::which(exe!("ideviceimagemounter"))?,
             ideviceinstaller: which::which(exe!("ideviceinstaller"))?,
             idevicedebug: which::which(exe!("idevicedebug"))?,
+            idevicedebugserverproxy: which::which(exe!("idevicedebugserverproxy"))?,
         })
     }
 
@@ -75,7 +77,9 @@ impl IMobileDevice {
         Ok(num_images > 0)
     }
 
-    pub fn mount_disk_image(&self, device: &str, disk_image: &Path) -> Result<()> {
+    pub fn mount_disk_image(&self, env: &BuildEnv, device: &str) -> Result<()> {
+        let (major, minor) = self.product_version(device)?;
+        let disk_image = env.developer_disk_image(major, minor);
         if self.disk_image_mounted(device)? {
             return Ok(());
         }
@@ -88,11 +92,11 @@ impl IMobileDevice {
         Ok(())
     }
 
-    pub fn run(&self, device: &str, path: &Path) -> Result<()> {
+    pub fn run(&self, env: &BuildEnv, device: &str, path: &Path) -> Result<()> {
         let bundle_identifier = appbundle::app_bundle_identifier(path)?;
+        self.mount_disk_image(env, device)?;
         self.install(device, path)?;
         self.start(device, &bundle_identifier)?;
-        // TODO: log, attach
         Ok(())
     }
 
@@ -144,7 +148,83 @@ impl IMobileDevice {
         Ok(format!("{} {}", name, version))
     }
 
-    pub fn lldb(&self, _device: &str, _executable: &Path) -> Result<()> {
-        anyhow::bail!("unimplemented");
+    pub fn bundle_path_device(&self, device: &str, bundle_identifier: &str) -> Result<PathBuf> {
+        let output = Command::new(&self.ideviceinstaller)
+            .arg("--udid")
+            .arg(device)
+            .arg("-l")
+            .arg("-o")
+            .arg("xml")
+            .output()?;
+        anyhow::ensure!(output.status.success(), "failed to run ideviceinstaller");
+        let plist: plist::Value = plist::from_reader_xml(&*output.stdout)?;
+        let apps = plist
+            .as_array()
+            .ok_or_else(|| anyhow::anyhow!("invalid Info.plist"))?;
+        for app in apps {
+            let app = app
+                .as_dictionary()
+                .ok_or_else(|| anyhow::anyhow!("invalid Info.plist"))?;
+            let app_bundle_identifier = app
+                .get("CFBundleIdentifier")
+                .ok_or_else(|| anyhow::anyhow!("invalid Info.plist"))?
+                .as_string()
+                .ok_or_else(|| anyhow::anyhow!("invalid Info.plist"))?;
+            if bundle_identifier != app_bundle_identifier {
+                continue;
+            }
+            let path = app
+                .get("Path")
+                .ok_or_else(|| anyhow::anyhow!("invalid Info.plist"))?
+                .as_string()
+                .ok_or_else(|| anyhow::anyhow!("invalid Info.plist"))?;
+            return Ok(Path::new(path).to_path_buf());
+        }
+        anyhow::bail!("app with bundle identifier {} not found", bundle_identifier);
+    }
+
+    pub fn start_debug_server_proxy(&self, device: &str, port: u16) -> Result<()> {
+        let mut cmd = Command::new(&self.idevicedebugserverproxy);
+        cmd.arg("--udid")
+            .arg(device)
+            .arg("--lldb")
+            .arg(port.to_string());
+        std::thread::spawn(move || {
+            cmd.status().unwrap();
+        });
+        Ok(())
+    }
+
+    pub fn lldb(&self, env: &BuildEnv, device: &str, path: &Path) -> Result<()> {
+        let bundle_identifier = appbundle::app_bundle_identifier(path)?;
+        self.mount_disk_image(env, device)?;
+        self.install(device, path)?;
+
+        let port = 1234;
+        let bundle_path = self.bundle_path_device(device, &bundle_identifier)?;
+        let work_dir = path.parent().unwrap();
+        let script = include_str!("../../scripts/lldb.cmd")
+            .replace("{sysroot}", env.ios_sdk().to_str().unwrap())
+            .replace("{disk_app}", path.join(env.name()).to_str().unwrap())
+            .replace("{device_app}", bundle_path.to_str().unwrap())
+            .replace("{device_port}", &port.to_string())
+            .replace(
+                "{python_file_path}",
+                work_dir.join("fruitstrap.py").to_str().unwrap(),
+            )
+            .replace("{python_command}", "fruitstrap");
+        std::fs::write(work_dir.join("fruitstrap.cmd"), script)?;
+        std::fs::write(
+            work_dir.join("fruitstrap.py"),
+            include_str!("../../scripts/lldb.py"),
+        )?;
+        self.start_debug_server_proxy(device, port)?;
+        let status = Command::new("lldb")
+            .current_dir(work_dir)
+            .arg("-s")
+            .arg("fruitstrap.cmd")
+            .status()?;
+        anyhow::ensure!(status.success(), "failed to run lldb");
+        Ok(())
     }
 }

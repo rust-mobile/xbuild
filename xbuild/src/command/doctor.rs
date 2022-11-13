@@ -49,6 +49,10 @@ impl Default for Doctor {
                         Check::new("ideviceinstaller", Some(VersionCheck::new("-v", 0, 1))),
                         Check::new("ideviceimagemounter", Some(VersionCheck::new("-v", 0, 1))),
                         Check::new("idevicedebug", Some(VersionCheck::new("-v", 0, 1))),
+                        Check::new(
+                            "idevicedebugserverproxy",
+                            Some(VersionCheck::new("-v", 0, 1)),
+                        ),
                     ],
                 },
                 Group {
