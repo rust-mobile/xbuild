@@ -1,7 +1,7 @@
 use crate::devices::adb::Adb;
 use crate::devices::host::Host;
 use crate::devices::imd::IMobileDevice;
-use crate::{Arch, Platform};
+use crate::{Arch, BuildEnv, Platform};
 use anyhow::Result;
 use std::path::Path;
 
@@ -110,16 +110,21 @@ impl Device {
         }
     }
 
-    pub fn run(&self, path: &Path) -> Result<()> {
+    pub fn run(&self, env: &BuildEnv, path: &Path) -> Result<()> {
         match &self.backend {
             Backend::Adb(adb) => adb.run(&self.id, path, false),
             Backend::Host(host) => host.run(path),
-            Backend::Imd(imd) => imd.run(&self.id, path),
+            Backend::Imd(imd) => imd.run(env, &self.id, path),
         }?;
         Ok(())
     }
 
-    pub fn lldb(&self, executable: &Path, lldb_server: Option<&Path>) -> Result<()> {
+    pub fn lldb(
+        &self,
+        env: &BuildEnv,
+        executable: &Path,
+        lldb_server: Option<&Path>,
+    ) -> Result<()> {
         match &self.backend {
             Backend::Adb(adb) => {
                 if let Some(lldb_server) = lldb_server {
@@ -129,21 +134,13 @@ impl Device {
                 }
             }
             Backend::Host(host) => host.lldb(executable),
-            Backend::Imd(imd) => imd.lldb(&self.id, executable),
+            Backend::Imd(imd) => imd.lldb(env, &self.id, executable),
         }
     }
 
     pub fn ios_product_version(&self) -> Result<(u32, u32)> {
         if let Backend::Imd(imd) = &self.backend {
             imd.product_version(&self.id)
-        } else {
-            anyhow::bail!("not ios device");
-        }
-    }
-
-    pub fn ios_mount_disk_image(&self, disk_image: &Path) -> Result<()> {
-        if let Backend::Imd(imd) = &self.backend {
-            imd.mount_disk_image(&self.id, disk_image)
         } else {
             anyhow::bail!("not ios device");
         }
