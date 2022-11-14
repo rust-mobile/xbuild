@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct InfoPlist {
     /// A user-visible short name for the bundle.
     #[serde(rename(serialize = "CFBundleName"))]
@@ -67,4 +68,7 @@ pub struct InfoPlist {
 
     #[serde(rename(serialize = "UILaunchStoryboardName"))]
     pub storyboard_name: Option<String>,
+
+    #[serde(rename(serialize = "NSCameraUsageDescription"))]
+    pub camera_usage_description: Option<String>,
 }
