@@ -3,7 +3,6 @@ members = [
     "apk",
     "appbundle",
     "appimage",
-    "dmg",
     "mvn",
     "msix",
     "pri",
@@ -14,4 +13,4 @@ default-members = ["xbuild"]
 exclude = ["examples"]
 
 [patch.crates-io]
-aws-smithy-xml = { git = "https://github.com/dvc94ch/smithy-rs", branch = "master" }
+apple-codesign = { git = "https://github.com/indygreg/apple-platform-rs", branch = "main" }
