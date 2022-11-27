@@ -8,17 +8,24 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 anyhow = "1.0.66"
-dioxus = { git = "https://github.com/dioxuslabs/dioxus" }
+dioxus = "0.2.4"
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-dioxus-desktop = { git = "https://github.com/dioxuslabs/dioxus" }
+dioxus-desktop = "0.2.3"
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = "0.11.1"
 log = "0.4.17"
 ndk-context = "0.1.1"
 paste = "1.0.9"
-wry = { version = "0.22.0", git = "https://github.com/tauri-apps/wry", branch = "release" }
+wry = "0.22.0"
 
-[patch.'https://github.com/tauri-apps/tao']
-tao = { git = "https://github.com/dvc94ch/tao", branch = "master" }
+[target.'cfg(target_family = "wasm")'.dependencies]
+console_error_panic_hook = "0.1.7"
+dioxus-web = "0.2.1"
+wasm-logger = "0.2.0"
+
+[patch.crates-io]
+dioxus = { git = "https://github.com/dioxuslabs/dioxus" }
+dioxus-desktop = { git = "https://github.com/dioxuslabs/dioxus" }
+dioxus-web = { git = "https://github.com/dioxuslabs/dioxus" }
