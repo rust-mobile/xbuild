@@ -22,11 +22,18 @@ fn _start_app() {
     }
 }
 
+#[cfg(not(target_family = "wasm"))]
 pub fn main() {
     #[cfg(any(target_os = "android", target_os = "ios"))]
     std::env::set_var("RUST_BACKTRACE", "1");
-
     dioxus_desktop::launch(app);
+}
+
+#[cfg(target_family = "wasm")]
+pub fn main() {
+    wasm_logger::init(wasm_logger::Config::default());
+    console_error_panic_hook::set_once();
+    dioxus_web::launch(app);
 }
 
 fn app(cx: Scope) -> Element {
