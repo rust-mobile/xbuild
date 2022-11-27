@@ -30,12 +30,6 @@ info: component 'rust-std' for target 'aarch64-linux-android' is up to date
 
 ![x](https://user-images.githubusercontent.com/741807/162616805-30b48faa-84f0-4fec-851a-4c94fd35c6bd.png)
 
-## Scope and limitations of xbuild
-Flutter plugins won't be supported.
-
-Cross compiling release builds is currently not possible because dart/flutter lack support for
-cross compiling aot snapshots
-
 ### Android
  - Building Android app bundles is not implemented yet (#6).
 
