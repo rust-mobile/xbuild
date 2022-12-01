@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::fs::{File, Permissions};
 use std::io::{BufReader, BufWriter, Write};
 #[cfg(unix)]
@@ -50,7 +50,7 @@ impl AppImage {
             .extension()
             .map(|ext| ext.to_str())
             .unwrap_or_default()
-            .ok_or_else(|| anyhow::anyhow!("unsupported extension"))?;
+            .context("unsupported extension")?;
         let name = format!("{}.{}", self.name, ext);
         self.add_file(path, Path::new(&name))?;
         #[cfg(unix)]

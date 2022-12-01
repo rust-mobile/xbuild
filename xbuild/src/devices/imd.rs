@@ -1,6 +1,6 @@
 use crate::devices::{Backend, Device};
 use crate::{Arch, BuildEnv, Platform};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -68,10 +68,10 @@ impl IMobileDevice {
         anyhow::ensure!(output.status.success(), "failed to run ideviceimagemounter");
         let num_images: u32 = std::str::from_utf8(&output.stdout)?
             .split_once('[')
-            .ok_or_else(|| anyhow::anyhow!("unexpected output"))?
+            .context("unexpected output")?
             .1
             .split_once(']')
-            .ok_or_else(|| anyhow::anyhow!("unexpected output"))?
+            .context("unexpected output")?
             .0
             .parse()?;
         Ok(num_images > 0)
@@ -133,12 +133,8 @@ impl IMobileDevice {
 
     pub fn product_version(&self, device: &str) -> Result<(u32, u32)> {
         let version = self.getkey(device, "ProductVersion")?;
-        let (major, version) = version
-            .split_once('.')
-            .ok_or_else(|| anyhow::anyhow!("invalid product version"))?;
-        let (minor, _) = version
-            .split_once('.')
-            .ok_or_else(|| anyhow::anyhow!("invalid product version"))?;
+        let (major, version) = version.split_once('.').context("invalid product version")?;
+        let (minor, _) = version.split_once('.').context("invalid product version")?;
         Ok((major.parse()?, minor.parse()?))
     }
 
@@ -158,26 +154,22 @@ impl IMobileDevice {
             .output()?;
         anyhow::ensure!(output.status.success(), "failed to run ideviceinstaller");
         let plist: plist::Value = plist::from_reader_xml(&*output.stdout)?;
-        let apps = plist
-            .as_array()
-            .ok_or_else(|| anyhow::anyhow!("invalid Info.plist"))?;
+        let apps = plist.as_array().context("invalid Info.plist")?;
         for app in apps {
-            let app = app
-                .as_dictionary()
-                .ok_or_else(|| anyhow::anyhow!("invalid Info.plist"))?;
+            let app = app.as_dictionary().context("invalid Info.plist")?;
             let app_bundle_identifier = app
                 .get("CFBundleIdentifier")
-                .ok_or_else(|| anyhow::anyhow!("invalid Info.plist"))?
+                .context("invalid Info.plist")?
                 .as_string()
-                .ok_or_else(|| anyhow::anyhow!("invalid Info.plist"))?;
+                .context("invalid Info.plist")?;
             if bundle_identifier != app_bundle_identifier {
                 continue;
             }
             let path = app
                 .get("Path")
-                .ok_or_else(|| anyhow::anyhow!("invalid Info.plist"))?
+                .context("invalid Info.plist")?
                 .as_string()
-                .ok_or_else(|| anyhow::anyhow!("invalid Info.plist"))?;
+                .context("invalid Info.plist")?;
             return Ok(Path::new(path).to_path_buf());
         }
         anyhow::bail!("app with bundle identifier {} not found", bundle_identifier);
