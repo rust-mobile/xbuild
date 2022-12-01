@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use byteorder::{LittleEndian, ReadBytesExt};
 use image::imageops::FilterType;
 use image::io::Reader as ImageReader;
@@ -425,9 +425,7 @@ pub fn extract_zip(archive: &Path, directory: &Path) -> Result<()> {
     let mut archive = ZipArchive::new(File::open(archive)?)?;
     for i in 0..archive.len() {
         let mut file = archive.by_index(i)?;
-        let filepath = file
-            .enclosed_name()
-            .ok_or_else(|| anyhow::anyhow!("Invalid file path"))?;
+        let filepath = file.enclosed_name().context("Invalid file path")?;
 
         let outpath = directory.join(filepath);
 

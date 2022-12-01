@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use apple_codesign::app_store_connect::notary_api::SubmissionResponseStatus;
 use apple_codesign::dmg::DmgSigner;
 use apple_codesign::stapling::Stapler;
@@ -160,21 +160,21 @@ impl AppBundle {
         log::debug!("provisioning profile: {:?}", profile);
         let dict = profile
             .as_dictionary()
-            .ok_or_else(|| anyhow::anyhow!("invalid provisioning profile"))?;
+            .context("invalid provisioning profile")?;
         let entitlements = dict
             .get("Entitlements")
-            .ok_or_else(|| anyhow::anyhow!("missing key Entitlements"))?
+            .context("missing key Entitlements")?
             .clone();
         let app_id = entitlements
             .as_dictionary()
-            .ok_or_else(|| anyhow::anyhow!("invalid entitlements"))?
+            .context("invalid entitlements")?
             .get("application-identifier")
-            .ok_or_else(|| anyhow::anyhow!("missing application identifier"))?
+            .context("missing application identifier")?
             .as_string()
-            .ok_or_else(|| anyhow::anyhow!("missing application identifier"))?;
+            .context("missing application identifier")?;
         let bundle_prefix = app_id
             .split_once('.')
-            .ok_or_else(|| anyhow::anyhow!("invalid app id {}", app_id))?
+            .with_context(|| format!("invalid app id {}", app_id))?
             .1;
 
         if let Some(bundle_identifier) = self.info.bundle_identifier.as_ref() {
@@ -212,7 +212,7 @@ impl AppBundle {
             signing_settings.chain_apple_certificates();
             signing_settings
                 .set_team_id_from_signing_certificate()
-                .ok_or_else(|| anyhow::anyhow!("signing certificate is missing team id"))?;
+                .context("signing certificate is missing team id")?;
             signing_settings.set_time_stamp_url("http://timestamp.apple.com/ts01")?;
             if let Some(entitlements) = self.entitlements.as_ref() {
                 let mut buf = vec![];
@@ -241,7 +241,7 @@ impl AppBundle {
         signing_settings.chain_apple_certificates();
         signing_settings
             .set_team_id_from_signing_certificate()
-            .ok_or_else(|| anyhow::anyhow!("signing certificate is missing team id"))?;
+            .context("signing certificate is missing team id")?;
         signing_settings.set_time_stamp_url("http://timestamp.apple.com/ts01")?;
         signing_settings.set_binary_identifier(
             SettingsScope::Main,
@@ -257,11 +257,11 @@ pub fn app_bundle_identifier(bundle: &Path) -> Result<String> {
     let info: plist::Value = plist::from_reader_xml(&*info)?;
     let bundle_identifier = info
         .as_dictionary()
-        .ok_or_else(|| anyhow::anyhow!("invalid Info.plist"))?
+        .context("invalid Info.plist")?
         .get("CFBundleIdentifier")
-        .ok_or_else(|| anyhow::anyhow!("invalid Info.plist"))?
+        .context("invalid Info.plist")?
         .as_string()
-        .ok_or_else(|| anyhow::anyhow!("invalid Info.plist"))?;
+        .context("invalid Info.plist")?;
     Ok(bundle_identifier.to_string())
 }
 

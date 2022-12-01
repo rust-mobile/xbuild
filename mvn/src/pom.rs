@@ -1,5 +1,5 @@
 use crate::package::{Package, Version};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use pubgrub::range::Range;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -68,12 +68,8 @@ impl FromStr for Dependency {
     type Err = anyhow::Error;
 
     fn from_str(dep: &str) -> Result<Self> {
-        let (group, rest) = dep
-            .split_once(':')
-            .ok_or_else(|| anyhow::anyhow!("invalid dep"))?;
-        let (name, version) = rest
-            .split_once(':')
-            .ok_or_else(|| anyhow::anyhow!("invalid dep"))?;
+        let (group, rest) = dep.split_once(':').context("invalid dep")?;
+        let (name, version) = rest.split_once(':').context("invalid dep")?;
         Ok(Self {
             group: group.into(),
             name: name.into(),

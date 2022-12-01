@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
@@ -41,7 +41,7 @@ impl VersionCode {
         let mut iter = version.split(|c1| ['.', '-', '+'].iter().any(|c2| c1 == *c2));
         let mut p = || {
             iter.next()
-                .ok_or_else(|| anyhow::anyhow!("invalid semver"))?
+                .context("invalid semver")?
                 .parse()
                 .map_err(|_| anyhow::anyhow!("invalid semver"))
         };

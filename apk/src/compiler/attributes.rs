@@ -1,6 +1,6 @@
 use crate::compiler::table::{Ref, Table};
 use crate::res::{ResAttributeType, ResValue, ResValueType};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use roxmltree::Attribute;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -108,7 +108,7 @@ impl Strings {
         self.strings
             .iter()
             .position(|s| s == s2)
-            .ok_or_else(|| anyhow::anyhow!("all strings added to the string pool: {}", s2))
+            .with_context(|| format!("all strings added to the string pool: {}", s2))
             .unwrap() as i32
     }
 }

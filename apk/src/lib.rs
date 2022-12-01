@@ -1,6 +1,6 @@
 use crate::compiler::Table;
 use crate::res::Chunk;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use xcommon::{Scaler, ScalerOpts, Zip, ZipFile, ZipFileOptions};
@@ -90,9 +90,9 @@ impl Apk {
     pub fn add_lib(&mut self, target: Target, path: &Path) -> Result<()> {
         let name = path
             .file_name()
-            .ok_or_else(|| anyhow::anyhow!("invalid path"))?
+            .context("invalid path")?
             .to_str()
-            .ok_or_else(|| anyhow::anyhow!("invalid path"))?;
+            .context("invalid path")?;
         self.zip.add_file(
             path,
             &Path::new("lib").join(target.android_abi()).join(name),
