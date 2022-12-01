@@ -348,12 +348,16 @@ pub struct CargoArgs {
     /// Run without accessing the network
     #[clap(long)]
     offline: bool,
+    /// Space or comma separated list of features to activate
+    #[clap(short = 'F', long)]
+    features: Vec<String>,
 }
 
 impl CargoArgs {
     pub fn cargo(self) -> Result<Cargo> {
         Cargo::new(
             self.package.as_deref(),
+            self.features,
             self.manifest_path,
             self.target_dir,
             self.offline,
