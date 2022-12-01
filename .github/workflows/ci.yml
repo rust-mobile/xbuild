@@ -78,6 +78,7 @@ jobs:
       if: ${{ matrix.host == 'macos-latest' }}
     - run: sudo ln -s llvm-ar-13 /usr/${{ matrix.host == 'macos-latest' && 'local/' || '' }}bin/llvm-ar
     - run: sudo ln -s llvm-ar-13 /usr/${{ matrix.host == 'macos-latest' && 'local/' || '' }}bin/llvm-lib
+    - run: sudo ln -s llvm-readobj-13 /usr/${{ matrix.host == 'macos-latest' && 'local/' || '' }}bin/llvm-readobj
     - run: sudo ln -s lld-link-13 /usr/${{ matrix.host == 'macos-latest' && 'local/' || '' }}bin/lld-link
     - run: sudo ln -s lld-13 /usr/${{ matrix.host == 'macos-latest' && 'local/' || '' }}bin/lld
 
