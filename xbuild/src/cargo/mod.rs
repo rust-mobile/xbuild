@@ -1,5 +1,5 @@
-use crate::{CompileTarget, Opt};
 use anyhow::{Context, Result};
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -10,10 +10,16 @@ mod utils;
 
 pub use artifact::{Artifact, CrateType};
 
+use self::config::Config;
+use self::manifest::Manifest;
+use crate::{CompileTarget, Opt};
+
 pub struct Cargo {
     package: String,
     features: Vec<String>,
-    manifest: PathBuf,
+    _workspace_manifest: Option<Manifest>,
+    manifest: Manifest,
+    package_root: PathBuf,
     target_dir: PathBuf,
     offline: bool,
 }
@@ -26,11 +32,60 @@ impl Cargo {
         target_dir: Option<PathBuf>,
         offline: bool,
     ) -> Result<Self> {
-        let (manifest, package) = utils::find_package(
-            &manifest_path.unwrap_or_else(|| std::env::current_dir().unwrap()),
-            package,
-        )?;
-        let root_dir = manifest.parent().unwrap();
+        let manifest_path = manifest_path
+            .map(|path| {
+                if path.file_name() != Some(OsStr::new("Cargo.toml")) || !path.is_file() {
+                    Err(anyhow::anyhow!(
+                        "The manifest-path must be a path to a Cargo.toml file"
+                    ))
+                } else {
+                    Ok(path)
+                }
+            })
+            .transpose()?;
+
+        let search_path = manifest_path.map_or_else(
+            || std::env::current_dir().unwrap(),
+            |manifest_path| manifest_path.parent().unwrap().to_owned(),
+        );
+
+        // Scan the given and all parent directories for a Cargo.toml containing a workspace
+        let workspace_manifest = utils::find_workspace(&search_path)?;
+
+        let (manifest_path, manifest) =
+            if let (Some(package), Some((workspace_manifest_path, workspace))) =
+                (package, &workspace_manifest)
+            {
+                // If a workspace was found, and the user chose a package with `-p`, find packages relative to it
+                // TODO: What if we call `cargo apk run` in the workspace root, and detect a workspace? It should
+                // then use the `[package]` defined in the workspace (will be found below, though, but currently
+                // fails with UnexpectedWorkspace)
+                utils::find_package_manifest_in_workspace(
+                    workspace_manifest_path,
+                    workspace,
+                    package,
+                )?
+            } else {
+                // Otherwise scan up the directories based on --manifest-path and the working directory.
+                // TODO: When we're in a workspace but the user didn't select a package by name, this
+                // is the right logic to use as long as we _also_ validate that the Cargo.toml we found
+                // was a member of this workspace?
+                utils::find_package_manifest(&search_path, package)?
+            };
+
+        // The manifest is known to contain a package at this point
+        let package = &manifest.package.as_ref().unwrap().name;
+
+        let package_root = manifest_path.parent().unwrap();
+
+        // TODO: Find, parse, and merge _all_ config files following the hierarchical structure:
+        // https://doc.rust-lang.org/cargo/reference/config.html#hierarchical-structure
+        let config = Config::find_cargo_config_for_workspace(package_root)?;
+        // TODO: Import LocalizedConfig code from cargo-subcommand and propagate `[env]`
+        // if let Some(config) = &config {
+        //     config.set_env_vars().unwrap();
+        // }
+
         let target_dir = target_dir
             .or_else(|| {
                 std::env::var_os("CARGO_BUILD_TARGET_DIR")
@@ -44,18 +99,23 @@ impl Cargo {
                     target_dir
                 }
             });
+
         let target_dir = target_dir.unwrap_or_else(|| {
-            utils::find_workspace(&manifest, &package)
-                .unwrap()
-                .unwrap_or_else(|| manifest.clone())
+            workspace_manifest
+                .as_ref()
+                .map(|(path, _)| path)
+                .unwrap_or_else(|| &manifest_path)
                 .parent()
                 .unwrap()
-                .join(utils::get_target_dir_name(root_dir).unwrap())
+                .join(utils::get_target_dir_name(config.as_ref()).unwrap())
         });
+
         Ok(Self {
-            package,
+            package: package.clone(),
             features,
+            _workspace_manifest: workspace_manifest.map(|(_path, manifest)| manifest),
             manifest,
+            package_root: package_root.to_owned(),
             target_dir,
             offline,
         })
@@ -69,17 +129,17 @@ impl Cargo {
         &self.package
     }
 
-    pub fn manifest(&self) -> &Path {
+    pub fn manifest(&self) -> &Manifest {
         &self.manifest
     }
 
-    pub fn root_dir(&self) -> &Path {
-        self.manifest.parent().unwrap()
+    pub fn package_root(&self) -> &Path {
+        &self.package_root
     }
 
     pub fn examples(&self) -> Result<Vec<Artifact>> {
         let mut artifacts = vec![];
-        for file in utils::list_rust_files(&self.root_dir().join("examples"))? {
+        for file in utils::list_rust_files(&self.package_root().join("examples"))? {
             artifacts.push(Artifact::Example(file));
         }
         Ok(artifacts)
@@ -87,7 +147,7 @@ impl Cargo {
 
     pub fn bins(&self) -> Result<Vec<Artifact>> {
         let mut artifacts = vec![];
-        for file in utils::list_rust_files(&self.root_dir().join("src").join("bin"))? {
+        for file in utils::list_rust_files(&self.package_root().join("src").join("bin"))? {
             artifacts.push(Artifact::Root(file));
         }
         Ok(artifacts)
@@ -97,7 +157,7 @@ impl Cargo {
         CargoBuild::new(
             target,
             &self.features,
-            self.root_dir(),
+            self.package_root(),
             target_dir,
             self.offline,
         )

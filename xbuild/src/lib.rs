@@ -2,7 +2,6 @@ use crate::cargo::{Cargo, CargoBuild, CrateType};
 use crate::config::Config;
 use crate::devices::Device;
 use anyhow::Result;
-use cargo::manifest::Manifest;
 use clap::Parser;
 use std::path::{Path, PathBuf};
 use xcommon::Signer;
@@ -584,17 +583,16 @@ impl BuildEnv {
         let build_target = args.build_target.build_target()?;
         let build_dir = cargo.target_dir().join("x");
         let cache_dir = dirs::cache_dir().unwrap().join("x");
-        let cargo_toml = cargo.manifest();
-        let manifest = cargo_toml.parent().unwrap().join("manifest.yaml");
-        let cargo_toml = Manifest::parse_from_toml(cargo_toml)?.package.unwrap();
+        let cargo_manifest = cargo.manifest();
+        let package = cargo_manifest.package.as_ref().unwrap(); // Caller should guarantee that this is a valid package
+        let manifest = cargo.package_root().join("manifest.yaml");
         let mut config = Config::parse(&manifest)?;
-        config.apply_rust_package(&cargo_toml, build_target.opt());
+        config.apply_rust_package(package, build_target.opt());
         let icon = config
             .icon(build_target.platform())
-            .map(|icon| cargo.root_dir().join(icon));
-        let name = cargo_toml.name;
+            .map(|icon| cargo.package_root().join(icon));
         Ok(Self {
-            name,
+            name: package.name.clone(),
             build_target,
             icon,
             cargo,
@@ -623,7 +621,7 @@ impl BuildEnv {
     }
 
     pub fn root_dir(&self) -> &Path {
-        self.cargo.root_dir()
+        self.cargo.package_root()
     }
 
     pub fn build_dir(&self) -> &Path {
