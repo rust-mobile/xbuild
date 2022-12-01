@@ -5,7 +5,7 @@ use std::process::Command;
 
 mod artifact;
 mod config;
-mod manifest;
+pub mod manifest;
 mod utils;
 
 pub use artifact::{Artifact, CrateType};
