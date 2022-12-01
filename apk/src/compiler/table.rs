@@ -1,5 +1,5 @@
 use crate::res::{Chunk, ResAttributeType, ResTableEntry, ResTableRef, ResTableValue, ResValue};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::io::Cursor;
 use std::path::Path;
 
@@ -29,10 +29,10 @@ impl<'a> Ref<'a> {
     pub fn parse(s: &'a str) -> Result<Self> {
         let s = s
             .strip_prefix('@')
-            .ok_or_else(|| anyhow::anyhow!("invalid reference {}: expected `@`", s))?;
+            .with_context(|| format!("invalid reference {}: expected `@`", s))?;
         let (descr, name) = s
             .split_once('/')
-            .ok_or_else(|| anyhow::anyhow!("invalid reference {}: expected `/`", s))?;
+            .with_context(|| format!("invalid reference {}: expected `/`", s))?;
         let (package, ty) = if let Some((package, ty)) = descr.split_once(':') {
             (Some(package), ty)
         } else {
@@ -75,7 +75,7 @@ impl<'a> Package<'a> {
             .types
             .iter()
             .position(|s| s.as_str() == name)
-            .ok_or_else(|| anyhow::anyhow!("failed to locate type id {}", name))?;
+            .with_context(|| format!("failed to locate type id {}", name))?;
         Ok(id as u8 + 1)
     }
 
@@ -84,7 +84,7 @@ impl<'a> Package<'a> {
             .keys
             .iter()
             .position(|s| s.as_str() == name)
-            .ok_or_else(|| anyhow::anyhow!("failed to locate key id {}", name))?;
+            .with_context(|| format!("failed to locate key id {}", name))?;
         Ok(id as u32)
     }
 
@@ -122,7 +122,7 @@ impl<'a> Type<'a> {
                     false
                 }
             })
-            .ok_or_else(|| anyhow::anyhow!("failed to lookup entry id {}", key))?;
+            .with_context(|| format!("failed to lookup entry id {}", key))?;
         Ok(id as u16)
     }
 
@@ -130,9 +130,9 @@ impl<'a> Type<'a> {
         let entry = self
             .entries
             .get(id as usize)
-            .ok_or_else(|| anyhow::anyhow!("failed to lookup entry {}", id))?
+            .with_context(|| format!("failed to lookup entry {}", id))?
             .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("failed to lookup entry {}", id))?;
+            .with_context(|| format!("failed to lookup entry {}", id))?;
         let id = ResTableRef::new(self.package, self.id, id);
         Ok(Entry { id, entry })
     }

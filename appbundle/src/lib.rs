@@ -174,7 +174,7 @@ impl AppBundle {
             .context("missing application identifier")?;
         let bundle_prefix = app_id
             .split_once('.')
-            .ok_or_else(|| anyhow::anyhow!("invalid app id {}", app_id))?
+            .with_context(|| format!("invalid app id {}", app_id))?
             .1;
 
         if let Some(bundle_identifier) = self.info.bundle_identifier.as_ref() {
