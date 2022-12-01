@@ -23,4 +23,6 @@ pub struct Workspace {
 #[derive(Debug, Deserialize)]
 pub struct Package {
     pub name: String,
+    pub version: String,
+    pub description: Option<String>,
 }

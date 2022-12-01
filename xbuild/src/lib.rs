@@ -1,7 +1,8 @@
 use crate::cargo::{Cargo, CargoBuild, CrateType};
-use crate::config::{CargoToml, Config};
+use crate::config::Config;
 use crate::devices::Device;
 use anyhow::Result;
+use cargo::manifest::Manifest;
 use clap::Parser;
 use std::path::{Path, PathBuf};
 use xcommon::Signer;
@@ -576,9 +577,9 @@ impl BuildEnv {
         let cache_dir = dirs::cache_dir().unwrap().join("x");
         let cargo_toml = cargo.manifest();
         let manifest = cargo_toml.parent().unwrap().join("manifest.yaml");
-        let cargo_toml = CargoToml::parse(cargo_toml)?;
+        let cargo_toml = Manifest::parse_from_toml(cargo_toml)?.package.unwrap();
         let mut config = Config::parse(&manifest)?;
-        config.apply_config(&cargo_toml, build_target.opt());
+        config.apply_rust_package(&cargo_toml, build_target.opt());
         let icon = config
             .icon(build_target.platform())
             .map(|icon| cargo.root_dir().join(icon));

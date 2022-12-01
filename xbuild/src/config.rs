@@ -1,3 +1,4 @@
+use crate::cargo::manifest::Package;
 use crate::{Opt, Platform};
 use anyhow::Result;
 use apk::manifest::{Activity, AndroidManifest, IntentFilter, MetaData};
@@ -6,37 +7,6 @@ use appbundle::InfoPlist;
 use msix::AppxManifest;
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
-
-#[derive(Clone, Debug)]
-pub struct CargoToml {
-    pub name: String,
-    pub version: String,
-    pub description: String,
-}
-
-impl CargoToml {
-    pub fn parse(path: &Path) -> Result<Self> {
-        #[derive(Deserialize)]
-        struct CargoToml {
-            package: Package,
-        }
-
-        #[derive(Deserialize)]
-        struct Package {
-            name: String,
-            version: String,
-            description: Option<String>,
-        }
-
-        let contents = std::fs::read_to_string(path)?;
-        let toml: CargoToml = toml::from_str(&contents)?;
-        Ok(Self {
-            name: toml.package.name,
-            version: toml.package.version,
-            description: toml.package.description.unwrap_or_default(),
-        })
-    }
-}
 
 #[derive(Clone, Debug, Default)]
 pub struct Config {
@@ -79,7 +49,7 @@ impl Config {
         self.generic.icon.as_deref()
     }
 
-    pub fn apply_config(&mut self, config: &CargoToml, opt: Opt) {
+    pub fn apply_rust_package(&mut self, manifest_package: &Package, opt: Opt) {
         let wry = self.android.wry;
         if wry {
             self.android
@@ -87,13 +57,13 @@ impl Config {
                 .push("androidx.appcompat:appcompat:1.4.1".into());
         }
         let manifest = &mut self.android.manifest;
-        manifest
-            .package
-            .get_or_insert_with(|| format!("com.example.{}", config.name.replace('-', "_")));
+        manifest.package.get_or_insert_with(|| {
+            format!("com.example.{}", manifest_package.name.replace('-', "_"))
+        });
         manifest
             .version_name
-            .get_or_insert_with(|| config.version.clone());
-        if let Ok(code) = VersionCode::from_semver(&config.version) {
+            .get_or_insert_with(|| manifest_package.version.clone());
+        if let Ok(code) = VersionCode::from_semver(&manifest_package.version) {
             manifest.version_code.get_or_insert_with(|| code.to_code(1));
         }
         let target_sdk_version = 33;
@@ -118,7 +88,9 @@ impl Config {
         manifest.sdk.min_sdk_version.get_or_insert(min_sdk_version);
 
         let application = &mut manifest.application;
-        application.label.get_or_insert_with(|| config.name.clone());
+        application
+            .label
+            .get_or_insert_with(|| manifest_package.name.clone());
         if wry {
             application
                 .theme
@@ -168,7 +140,7 @@ impl Config {
         if !wry {
             activity.meta_data.push(MetaData {
                 name: "android.app.lib_name".into(),
-                value: config.name.replace('-', "_"),
+                value: manifest_package.name.replace('-', "_"),
             });
         }
         activity.intent_filters.push(IntentFilter {
@@ -180,15 +152,15 @@ impl Config {
         self.ios
             .info
             .name
-            .get_or_insert_with(|| config.name.clone());
+            .get_or_insert_with(|| manifest_package.name.clone());
         self.ios
             .info
             .bundle_identifier
-            .get_or_insert_with(|| config.name.clone());
+            .get_or_insert_with(|| manifest_package.name.clone());
         self.ios
             .info
             .short_version
-            .get_or_insert_with(|| config.version.clone());
+            .get_or_insert_with(|| manifest_package.version.clone());
         self.ios
             .info
             .minimum_os_version
@@ -202,11 +174,11 @@ impl Config {
         self.macos
             .info
             .name
-            .get_or_insert_with(|| config.name.clone());
+            .get_or_insert_with(|| manifest_package.name.clone());
         self.macos
             .info
             .short_version
-            .get_or_insert_with(|| config.version.clone());
+            .get_or_insert_with(|| manifest_package.version.clone());
         self.macos
             .info
             .minimum_system_version
@@ -216,17 +188,17 @@ impl Config {
             .manifest
             .properties
             .display_name
-            .get_or_insert_with(|| config.name.clone());
+            .get_or_insert_with(|| manifest_package.name.clone());
         self.windows
             .manifest
             .identity
             .version
-            .get_or_insert_with(|| config.version.clone());
+            .get_or_insert_with(|| manifest_package.version.clone());
         self.windows
             .manifest
             .properties
             .description
-            .get_or_insert_with(|| config.description.clone());
+            .get_or_insert_with(|| manifest_package.description.clone().unwrap_or_default());
     }
 
     pub fn android(&self) -> &AndroidConfig {
