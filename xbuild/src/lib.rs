@@ -18,13 +18,13 @@ macro_rules! exe {
     };
 }
 
-pub mod cargo;
+mod cargo;
 pub mod command;
-pub mod config;
-pub mod devices;
-pub mod download;
-pub mod gradle;
-pub mod task;
+mod config;
+mod devices;
+mod download;
+mod gradle;
+mod task;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Opt {

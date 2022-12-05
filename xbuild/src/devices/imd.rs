@@ -126,7 +126,7 @@ impl IMobileDevice {
 
     pub fn arch(&self, device: &str) -> Result<Arch> {
         match self.getkey(device, "CPUArchitecture")?.as_str() {
-            "arm64" => Ok(Arch::Arm64),
+            "arm64" | "arm64e" => Ok(Arch::Arm64),
             arch => anyhow::bail!("unsupported arch {}", arch),
         }
     }
