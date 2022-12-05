@@ -96,7 +96,7 @@ impl Adb {
             .arg("am")
             .arg("start")
             .arg("-a")
-            .arg("android.intent.action.RUN")
+            .arg("android.intent.action.MAIN")
             .arg("-n")
             .arg(format!("{}/{}", package, activity))
             .status()?;
