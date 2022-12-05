@@ -207,6 +207,7 @@ impl WorkItem {
         )
     }
 
+    #[allow(unused)]
     pub fn github_content(
         output: PathBuf,
         org: &str,
@@ -288,15 +289,12 @@ impl<'a> DownloadManager<'a> {
 
     pub fn developer_disk_image(&self, major: u32, minor: u32) -> Result<()> {
         let output = self.env.developer_disk_image(major, minor);
-        let item = WorkItem::github_content(
-            output,
-            "haikieu",
-            "xcode-developer-disk-image-all-platforms",
-            "master",
-            &format!(
-                "DiskImages/iPhoneOS.platform/DeviceSupport/{}.{}.zip",
-                major, minor
-            ),
+        let item = WorkItem::github_release(
+            output.parent().unwrap().into(),
+            "mspvirajpatel",
+            "Xcode_Developer_Disk_Images",
+            &format!("{}.{}", major, minor),
+            &format!("{}.{}.zip", major, minor),
         );
         self.fetch(item)
     }
