@@ -1,6 +1,6 @@
-use crate::cargo::manifest::Package;
+use crate::cargo::manifest::{Inheritable, Manifest, Package};
 use crate::{Opt, Platform};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use apk::manifest::{Activity, AndroidManifest, IntentFilter, MetaData};
 use apk::VersionCode;
 use appbundle::InfoPlist;
@@ -49,7 +49,12 @@ impl Config {
         self.generic.icon.as_deref()
     }
 
-    pub fn apply_rust_package(&mut self, manifest_package: &Package, opt: Opt) {
+    pub fn apply_rust_package(
+        &mut self,
+        manifest_package: &Package,
+        workspace_manifest: Option<&Manifest>,
+        opt: Opt,
+    ) -> Result<()> {
         let wry = self.android.wry;
         if wry {
             self.android
@@ -60,10 +65,45 @@ impl Config {
         manifest.package.get_or_insert_with(|| {
             format!("com.example.{}", manifest_package.name.replace('-', "_"))
         });
+
+        let inherit_package_field = || {
+            let workspace = workspace_manifest
+                .context("`workspace=true` requires a workspace")?
+                .workspace
+                .as_ref()
+                // Unreachable:
+                .expect("Caller-provided workspace lacks `[workspace]` table");
+
+            workspace.package.as_ref().context("Failed to inherit field: `workspace.package` was not defined in workspace root manifest")
+        };
+
+        let package_version = match &manifest_package.version {
+            Inheritable::Value(v) => v.clone(),
+            Inheritable::Inherited { workspace: true } => inherit_package_field()?
+                .version
+                .clone()
+                .context("Failed to inherit field: `workspace.package.version` was not defined in workspace root manifest")?,
+            Inheritable::Inherited { workspace: false } => {
+                anyhow::bail!("`workspace=false` is unsupported")
+            }
+        };
+
+        let package_description = match &manifest_package.description {
+            Some(Inheritable::Value(v)) => v.clone(),
+            Some(Inheritable::Inherited { workspace: true }) => inherit_package_field()?
+                .description
+                .clone()
+                .context("Failed to inherit field: `workspace.package.description` was not defined in workspace root manifest")?,
+            Some(Inheritable::Inherited { workspace: false }) => {
+                anyhow::bail!("`workspace=false` is unsupported")
+            }
+            None => "".into(),
+        };
+
         manifest
             .version_name
-            .get_or_insert_with(|| manifest_package.version.clone());
-        if let Ok(code) = VersionCode::from_semver(&manifest_package.version) {
+            .get_or_insert_with(|| package_version.clone());
+        if let Ok(code) = VersionCode::from_semver(&package_version) {
             manifest.version_code.get_or_insert_with(|| code.to_code(1));
         }
         let target_sdk_version = 33;
@@ -160,7 +200,7 @@ impl Config {
         self.ios
             .info
             .short_version
-            .get_or_insert_with(|| manifest_package.version.clone());
+            .get_or_insert_with(|| package_version.clone());
         self.ios
             .info
             .minimum_os_version
@@ -178,7 +218,7 @@ impl Config {
         self.macos
             .info
             .short_version
-            .get_or_insert_with(|| manifest_package.version.clone());
+            .get_or_insert_with(|| package_version.clone());
         self.macos
             .info
             .minimum_system_version
@@ -193,12 +233,14 @@ impl Config {
             .manifest
             .identity
             .version
-            .get_or_insert_with(|| manifest_package.version.clone());
+            .get_or_insert(package_version);
         self.windows
             .manifest
             .properties
             .description
-            .get_or_insert_with(|| manifest_package.description.clone().unwrap_or_default());
+            .get_or_insert(package_description);
+
+        Ok(())
     }
 
     pub fn android(&self) -> &AndroidConfig {

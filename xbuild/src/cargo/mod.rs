@@ -17,7 +17,7 @@ use crate::{CompileTarget, Opt};
 pub struct Cargo {
     package: String,
     features: Vec<String>,
-    _workspace_manifest: Option<Manifest>,
+    workspace_manifest: Option<Manifest>,
     manifest: Manifest,
     package_root: PathBuf,
     target_dir: PathBuf,
@@ -106,7 +106,7 @@ impl Cargo {
         Ok(Self {
             package: package.clone(),
             features,
-            _workspace_manifest: workspace_manifest.map(|(_path, manifest)| manifest),
+            workspace_manifest: workspace_manifest.map(|(_path, manifest)| manifest),
             manifest,
             package_root: package_root.to_owned(),
             target_dir,
@@ -120,6 +120,10 @@ impl Cargo {
 
     pub fn package(&self) -> &str {
         &self.package
+    }
+
+    pub fn workspace_manifest(&self) -> Option<&Manifest> {
+        self.workspace_manifest.as_ref()
     }
 
     pub fn manifest(&self) -> &Manifest {
