@@ -14,7 +14,7 @@ pub fn prepare(env: &BuildEnv) -> Result<()> {
         let package = config.manifest.package.as_ref().unwrap();
         let wry = env.platform_dir().join("wry");
         std::fs::create_dir_all(&wry)?;
-        if !env.cargo().root_dir().join("kotlin").exists() {
+        if !env.cargo().package_root().join("kotlin").exists() {
             let main_activity = format!(
                 r#"
                     package {}
@@ -101,7 +101,7 @@ pub fn build(env: &BuildEnv, apk: &Path) -> Result<()> {
     )?;
 
     let srcs = [
-        env.cargo().root_dir().join("kotlin"),
+        env.cargo().package_root().join("kotlin"),
         env.platform_dir().join("wry"),
     ];
     for src in srcs {

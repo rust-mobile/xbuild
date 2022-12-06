@@ -2,7 +2,7 @@ use anyhow::Result;
 use serde::Deserialize;
 use std::path::Path;
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct Manifest {
     pub workspace: Option<Workspace>,
     pub package: Option<Package>,
@@ -15,12 +15,16 @@ impl Manifest {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct Workspace {
+    #[serde(default)]
+    pub default_members: Vec<String>,
+    #[serde(default)]
     pub members: Vec<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct Package {
     pub name: String,
     pub version: String,
