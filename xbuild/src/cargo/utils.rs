@@ -1,7 +1,7 @@
 use super::config::Config;
 use super::manifest::Manifest;
 use anyhow::{Context, Result};
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
@@ -107,16 +107,17 @@ pub fn find_package_manifest_in_workspace(
             let workspace_root = canonicalize(workspace_root)?;
 
             // Check all member packages inside the workspace
-            let mut all_members = HashSet::new();
+            let mut all_members = HashMap::new();
 
             for member in &workspace.members {
                 for manifest_dir in glob::glob(workspace_root.join(member).to_str().unwrap())? {
-                    let manifest_path = manifest_dir?.join("Cargo.toml");
+                    let manifest_dir = manifest_dir?;
+                    let manifest_path = manifest_dir.join("Cargo.toml");
                     let manifest =
                         Manifest::parse_from_toml(&manifest_path).with_context(|| {
                             format!(
                                 "Failed to load manifest for workspace member `{}`",
-                                manifest_path.display()
+                                manifest_dir.display()
                             )
                         })?;
 
@@ -126,21 +127,22 @@ pub fn find_package_manifest_in_workspace(
                         "Did not expect a `[workspace]` at `{}`",
                         manifest_path.display(),
                     );
-                    all_members.insert(manifest_path);
+
+                    all_members.insert(manifest_dir, (manifest_path, manifest));
                 }
             }
 
             // Find the closest member based on the given path
-            if let Some(manifest_dir) = path.ancestors().find(|&dir| all_members.contains(dir)) {
-                let manifest_path = manifest_dir.join("Cargo.toml");
-                let manifest = Manifest::parse_from_toml(&manifest_path)?;
-                Ok((manifest_path, manifest))
-            } else {
-                Ok((
-                    workspace_manifest_path.to_owned(),
-                    workspace_manifest.clone(),
-                ))
-            }
+            Ok(path
+                .ancestors()
+                // Move manifest out of the HashMap
+                .find_map(|dir| all_members.remove(dir))
+                .unwrap_or_else(|| {
+                    (
+                        workspace_manifest_path.to_owned(),
+                        workspace_manifest.clone(),
+                    )
+                }))
         }
     }
 }
