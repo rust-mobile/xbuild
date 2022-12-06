@@ -12,6 +12,7 @@ pub use artifact::{Artifact, CrateType};
 
 pub struct Cargo {
     package: String,
+    features: Vec<String>,
     manifest: PathBuf,
     target_dir: PathBuf,
     offline: bool,
@@ -20,6 +21,7 @@ pub struct Cargo {
 impl Cargo {
     pub fn new(
         package: Option<&str>,
+        features: Vec<String>,
         manifest_path: Option<PathBuf>,
         target_dir: Option<PathBuf>,
         offline: bool,
@@ -52,6 +54,7 @@ impl Cargo {
         });
         Ok(Self {
             package,
+            features,
             manifest,
             target_dir,
             offline,
@@ -91,7 +94,13 @@ impl Cargo {
     }
 
     pub fn build(&self, target: CompileTarget, target_dir: &Path) -> Result<CargoBuild> {
-        CargoBuild::new(target, self.root_dir(), target_dir, self.offline)
+        CargoBuild::new(
+            target,
+            &self.features,
+            self.root_dir(),
+            target_dir,
+            self.offline,
+        )
     }
 
     pub fn artifact(
@@ -178,6 +187,7 @@ pub struct CargoBuild {
 impl CargoBuild {
     fn new(
         target: CompileTarget,
+        features: &[String],
         root_dir: &Path,
         target_dir: &Path,
         offline: bool,
@@ -199,6 +209,9 @@ impl CargoBuild {
         }
         if offline {
             cmd.arg("--offline");
+        }
+        for features in features {
+            cmd.arg("--features").arg(features);
         }
         Ok(Self {
             cmd,
