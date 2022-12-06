@@ -52,26 +52,19 @@ impl Cargo {
         // Scan the given and all parent directories for a Cargo.toml containing a workspace
         let workspace_manifest = utils::find_workspace(&search_path)?;
 
-        let (manifest_path, manifest) =
-            if let (Some(package), Some((workspace_manifest_path, workspace))) =
-                (package, &workspace_manifest)
-            {
-                // If a workspace was found, and the user chose a package with `-p`, find packages relative to it
-                // TODO: What if we call `cargo apk run` in the workspace root, and detect a workspace? It should
-                // then use the `[package]` defined in the workspace (will be found below, though, but currently
-                // fails with UnexpectedWorkspace)
-                utils::find_package_manifest_in_workspace(
-                    workspace_manifest_path,
-                    workspace,
-                    package,
-                )?
-            } else {
-                // Otherwise scan up the directories based on --manifest-path and the working directory.
-                // TODO: When we're in a workspace but the user didn't select a package by name, this
-                // is the right logic to use as long as we _also_ validate that the Cargo.toml we found
-                // was a member of this workspace?
-                utils::find_package_manifest(&search_path, package)?
+        let (manifest_path, manifest) = if let Some((workspace_manifest_path, workspace)) =
+            &workspace_manifest
+        {
+            // If a workspace was found, find packages relative to it
+            let selector = match package {
+                Some(name) => utils::PackageSelector::ByName(name),
+                None => utils::PackageSelector::ByPath(&search_path),
             };
+            utils::find_package_manifest_in_workspace(workspace_manifest_path, workspace, selector)?
+        } else {
+            // Otherwise scan up the directories based on --manifest-path and the working directory.
+            utils::find_package_manifest(&search_path, package)?
+        };
 
         // The manifest is known to contain a package at this point
         let package = &manifest.package.as_ref().unwrap().name;
