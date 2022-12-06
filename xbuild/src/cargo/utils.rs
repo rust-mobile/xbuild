@@ -19,7 +19,7 @@ pub fn list_rust_files(dir: &Path) -> Result<Vec<String>> {
     Ok(files)
 }
 
-fn canonicalize(mut path: &Path) -> Result<PathBuf> {
+pub fn canonicalize(mut path: &Path) -> Result<PathBuf> {
     if path == Path::new("") {
         path = Path::new(".");
     }

@@ -45,9 +45,9 @@ impl Cargo {
             .transpose()?;
 
         let search_path = manifest_path.map_or_else(
-            || std::env::current_dir().unwrap(),
-            |manifest_path| manifest_path.parent().unwrap().to_owned(),
-        );
+            || std::env::current_dir().context("Could not retrieve current directory"),
+            |manifest_path| utils::canonicalize(manifest_path.parent().unwrap()),
+        )?;
 
         // Scan the given and all parent directories for a Cargo.toml containing a workspace
         let workspace_manifest = utils::find_workspace(&search_path)?;
