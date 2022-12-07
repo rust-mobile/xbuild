@@ -70,17 +70,15 @@ jobs:
     - run: chmod +x ./x
       if: ${{ matrix.host == 'ubuntu-latest' || matrix.host == 'macos-latest' }}
 
-    - name: install llvm
-      uses: KyleMayes/install-llvm-action@v1
-      with:
-        version: 13
-    - run: sudo mkdir -p /usr/local/bin
+    - name: install llvm ubuntu
+      if: ${{ matrix.host == 'ubuntu-latest' }}
+      run: sudo apt-get update && sudo apt-get install llvm
+
+    - name: install llvm macos
       if: ${{ matrix.host == 'macos-latest' }}
-    - run: sudo ln -s llvm-ar-13 /usr/${{ matrix.host == 'macos-latest' && 'local/' || '' }}bin/llvm-ar
-    - run: sudo ln -s llvm-ar-13 /usr/${{ matrix.host == 'macos-latest' && 'local/' || '' }}bin/llvm-lib
-    - run: sudo ln -s llvm-readobj-13 /usr/${{ matrix.host == 'macos-latest' && 'local/' || '' }}bin/llvm-readobj
-    - run: sudo ln -s lld-link-13 /usr/${{ matrix.host == 'macos-latest' && 'local/' || '' }}bin/lld-link
-    - run: sudo ln -s lld-13 /usr/${{ matrix.host == 'macos-latest' && 'local/' || '' }}bin/lld
+      run: |
+        brew install llvm
+        echo 'export PATH="/usr/local/opt/llvm/bin:$PATH"' >> ~/.zshrc
 
     - name: install java
       uses: actions/setup-java@v2
