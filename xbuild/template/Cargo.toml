@@ -26,6 +26,6 @@ dioxus-web = "0.2.1"
 wasm-logger = "0.2.0"
 
 [patch.crates-io]
-dioxus = { git = "https://github.com/dioxuslabs/dioxus" }
-dioxus-desktop = { git = "https://github.com/dioxuslabs/dioxus" }
-dioxus-web = { git = "https://github.com/dioxuslabs/dioxus" }
+dioxus = { git = "https://github.com/dioxuslabs/dioxus", rev = "1e99e35" }
+dioxus-desktop = { git = "https://github.com/dioxuslabs/dioxus", rev = "1e99e35" }
+dioxus-web = { git = "https://github.com/dioxuslabs/dioxus", rev = "1e99e35" }
