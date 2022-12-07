@@ -97,10 +97,8 @@ jobs:
     # glibc/musl gtk/qt x11/wayland
     # windows doesn't support posix symlinks so can't cross compile to macos/ios
     - name: build project
-      if: |
+      if: >
         !(matrix.host == 'macos-latest' && matrix.target.platform == 'linux' ||
-          matrix.host == 'windows-latest' && matrix.target.platform == 'linux' ||
-          matrix.host == 'windows-latest' && matrix.target.platform == 'macos' ||
-          matrix.host == 'windows-latest' && matrix.target.platform == 'ios')
+          matrix.host == 'windows-latest' && contains(fromJson('["linux", "macos", "ios"]'), matrix.target.platform))
       run: ../x build --platform ${{ matrix.target.platform }} --arch ${{ matrix.target.arch }} --${{ matrix.opt }}
       working-directory: template
