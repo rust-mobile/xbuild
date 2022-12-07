@@ -16,14 +16,14 @@ pub fn build(env: &BuildEnv) -> Result<()> {
 
     let mut runner = TaskRunner::new(3, env.verbose());
 
-    runner.start_task("Fetch precompiled artefacts");
+    runner.start_task("Fetch precompiled artifacts");
     let manager = DownloadManager::new(env)?;
     if !env.offline() {
         manager.prefetch()?;
         runner.end_verbose_task();
     }
 
-    runner.start_task("Build rust");
+    runner.start_task(format!("Build rust `{}`", env.name));
     let bin_target = env.target().platform() != Platform::Android;
     let has_lib = env.root_dir().join("src").join("lib.rs").exists();
     if bin_target || has_lib {
