@@ -19,9 +19,9 @@ imd:55abbd4b70af4353bdea2595bbddcac4a2b7891a      David’s iPhone      ios arm6
 Build or run on a device:
 ```sh
 x build --device adb:16ee50bc
-[1/3] Fetch precompiled artefacts
+[1/3] Fetch precompiled artifacts
 info: component 'rust-std' for target 'aarch64-linux-android' is up to date
-[1/3] Fetch precompiled artefacts [72ms]
+[1/3] Fetch precompiled artifacts [72ms]
 [2/3] Build rust
     Finished dev [unoptimized + debuginfo] target(s) in 0.11s
 [2/3] Build rust [143ms]
