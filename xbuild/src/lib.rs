@@ -143,6 +143,7 @@ pub enum Format {
     Appdir,
     Appimage,
     Dmg,
+    Exe,
     Ipa,
     Msix,
 }
@@ -156,6 +157,7 @@ impl std::fmt::Display for Format {
             Self::Appdir => write!(f, "appdir"),
             Self::Appimage => write!(f, "appimage"),
             Self::Dmg => write!(f, "dmg"),
+            Self::Exe => write!(f, "exe"),
             Self::Ipa => write!(f, "ipa"),
             Self::Msix => write!(f, "msix"),
         }
@@ -184,14 +186,15 @@ impl Format {
     pub fn platform_default(platform: Platform, opt: Opt) -> Self {
         match (platform, opt) {
             (Platform::Android, Opt::Debug) => Self::Apk,
-            (Platform::Android, Opt::Release) => Self::Apk, /* TODO: Aab is not currently supported */
+            (Platform::Android, Opt::Release) => Self::Aab,
             (Platform::Ios, Opt::Debug) => Self::Appbundle,
-            (Platform::Ios, Opt::Release) => Self::Ipa,
+            (Platform::Ios, Opt::Release) => Self::Appbundle, // TODO: Ipa
             (Platform::Linux, Opt::Debug) => Self::Appdir,
             (Platform::Linux, Opt::Release) => Self::Appimage,
             (Platform::Macos, Opt::Debug) => Self::Appbundle,
             (Platform::Macos, Opt::Release) => Self::Dmg,
-            (Platform::Windows, _) => Self::Msix,
+            (Platform::Windows, Opt::Debug) => Self::Exe,
+            (Platform::Windows, Opt::Release) => Self::Exe, // TODO: Msix
         }
     }
 
@@ -203,6 +206,7 @@ impl Format {
             Self::Appdir => "AppDir",
             Self::Appimage => "AppImage",
             Self::Dmg => "dmg",
+            Self::Exe => "exe",
             Self::Ipa => "ipa",
             Self::Msix => "msix",
         }
@@ -386,7 +390,7 @@ pub struct BuildTargetArgs {
     device: Option<Device>,
     /// Build artifacts with format. Can be one of `aab`,
     /// `apk`, `appbundle`, `appdir`, `appimage`, `dmg`,
-    /// `ipa`, `msix`.
+    /// `exe`, `ipa`, `msix`.
     #[clap(long, conflicts_with = "device", conflicts_with = "store")]
     format: Option<Format>,
     /// Build artifacts for target app store. Can be one of

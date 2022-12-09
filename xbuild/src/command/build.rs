@@ -204,34 +204,45 @@ pub fn build(env: &BuildEnv) -> Result<()> {
             let target = env.target().compile_targets().next().unwrap();
             let arch_dir = platform_dir.join(target.arch().to_string());
             std::fs::create_dir_all(&arch_dir)?;
-            let out = arch_dir.join(format!("{}.msix", env.name()));
-            let mut msix = Msix::new(
-                out,
-                env.config().windows().manifest.clone(),
-                target.opt() != Opt::Debug,
-            )?;
-            if let Some(icon) = env.icon() {
-                msix.add_icon(icon)?;
-            }
-            // TODO: *.pri
-
+            let out = arch_dir.join(format!("{}.{}", env.name(), env.target().format()));
             let main = env.cargo_artefact(&arch_dir.join("cargo"), target, CrateType::Bin)?;
-            msix.add_file(
-                &main,
-                format!("{}.exe", env.name()).as_ref(),
-                ZipFileOptions::Compressed,
-            )?;
+            match env.target().format() {
+                Format::Exe => {
+                    std::fs::copy(&main, &out)?;
+                }
+                Format::Msix => {
+                    let mut msix = Msix::new(
+                        out,
+                        env.config().windows().manifest.clone(),
+                        target.opt() != Opt::Debug,
+                    )?;
+                    if let Some(icon) = env.icon() {
+                        msix.add_icon(icon)?;
+                    }
+                    // TODO: *.pri
 
-            if has_lib {
-                let lib = env.cargo_artefact(&arch_dir.join("cargo"), target, CrateType::Cdylib)?;
-                msix.add_file(
-                    &lib,
-                    Path::new(lib.file_name().unwrap()),
-                    ZipFileOptions::Compressed,
-                )?;
+                    msix.add_file(
+                        &main,
+                        format!("{}.exe", env.name()).as_ref(),
+                        ZipFileOptions::Compressed,
+                    )?;
+
+                    if has_lib {
+                        let lib =
+                            env.cargo_artefact(&arch_dir.join("cargo"), target, CrateType::Cdylib)?;
+                        msix.add_file(
+                            &lib,
+                            Path::new(lib.file_name().unwrap()),
+                            ZipFileOptions::Compressed,
+                        )?;
+                    }
+
+                    msix.finish(env.target().signer().cloned())?;
+                }
+                _ => {
+                    anyhow::bail!("unsupported windows format");
+                }
             }
-
-            msix.finish(env.target().signer().cloned())?;
         }
     }
     runner.end_task();

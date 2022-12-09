@@ -1,5 +1,5 @@
 use crate::cargo::CrateType;
-use crate::{task, BuildEnv};
+use crate::{task, BuildEnv, Format, Opt};
 use anyhow::Result;
 use std::path::Path;
 use std::process::Command;
@@ -32,7 +32,7 @@ pub fn prepare(env: &BuildEnv) -> Result<()> {
     Ok(())
 }
 
-pub fn build(env: &BuildEnv, apk: &Path) -> Result<()> {
+pub fn build(env: &BuildEnv, out: &Path) -> Result<()> {
     let platform_dir = env.platform_dir();
     let gradle = platform_dir.join("gradle");
     let app = gradle.join("app");
@@ -123,16 +123,33 @@ pub fn build(env: &BuildEnv, apk: &Path) -> Result<()> {
         std::fs::copy(&lib, lib_dir.join(lib_name))?;
     }
 
+    let opt = env.target().opt();
+    let format = env.target().format();
     let mut cmd = Command::new("gradle");
-    cmd.current_dir(&gradle).arg("build");
+    cmd.current_dir(&gradle);
+    cmd.arg(match format {
+        Format::Aab => "bundle",
+        Format::Apk => "assemble",
+        _ => unreachable!(),
+    });
     task::run(cmd, true)?;
-    let out = gradle
+    let output = gradle
         .join("app")
         .join("build")
         .join("outputs")
-        .join("apk")
-        .join("debug")
-        .join("app-debug.apk");
-    std::fs::copy(out, apk)?;
+        .join(match format {
+            Format::Aab => "bundle",
+            Format::Apk => "apk",
+            _ => unreachable!(),
+        })
+        .join(opt.to_string())
+        .join(match (format, opt) {
+            (Format::Apk, Opt::Debug) => "app-debug.apk",
+            (Format::Apk, Opt::Release) => "app-release-unsigned.apk",
+            (Format::Aab, Opt::Debug) => "app-debug.aab",
+            (Format::Aab, Opt::Release) => "app-release.aab",
+            _ => unreachable!(),
+        });
+    std::fs::copy(output, out)?;
     Ok(())
 }
