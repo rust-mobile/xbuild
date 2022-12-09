@@ -348,7 +348,7 @@ pub struct CargoArgs {
     #[clap(long)]
     offline: bool,
     /// Space or comma separated list of features to activate
-    #[clap(short = 'F', long)]
+    #[clap(long, short = 'F')]
     features: Vec<String>,
 }
 
@@ -370,7 +370,7 @@ pub struct BuildTargetArgs {
     #[clap(long, conflicts_with = "release")]
     debug: bool,
     /// Build artifacts in release mode, with optimizations
-    #[clap(long, conflicts_with = "debug")]
+    #[clap(long, short, conflicts_with = "debug")]
     release: bool,
     /// Build artifacts for target platform. Can be one of
     /// `android`, `ios`, `linux`, `macos` or `windows`.
