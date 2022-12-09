@@ -30,12 +30,6 @@ info: component 'rust-std' for target 'aarch64-linux-android' is up to date
 
 ![x](https://user-images.githubusercontent.com/741807/162616805-30b48faa-84f0-4fec-851a-4c94fd35c6bd.png)
 
-### Android
- - Building Android app bundles is not implemented yet (#6).
-
-### Windows
- - Msix packaging has not been implemented yet (#33).
-
 ## Troubleshooting
 
 ### Command not found
