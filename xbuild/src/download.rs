@@ -191,6 +191,14 @@ impl WorkItem {
 }
 
 impl WorkItem {
+    const ORG: &'static str = "rust-mobile";
+    const REPO: &'static str = "xbuild";
+    const VERSION: &'static str = "v0.1.0+3";
+
+    pub fn xbuild_release(output: PathBuf, artifact: &str) -> Self {
+        Self::github_release(output, Self::ORG, Self::REPO, Self::VERSION, artifact)
+    }
+
     pub fn github_release(
         output: PathBuf,
         org: &str,
@@ -247,8 +255,7 @@ impl<'a> DownloadManager<'a> {
 
     pub fn windows_sdk(&self) -> Result<()> {
         let output = self.env.windows_sdk();
-        let mut item =
-            WorkItem::github_release(output, "cloudpeers", "x", "v0.1.0+2", "Windows.sdk.tar.zst");
+        let mut item = WorkItem::xbuild_release(output, "Windows.sdk.tar.zst");
         if !cfg!(target_os = "linux") {
             item.no_symlinks();
         }
@@ -257,8 +264,7 @@ impl<'a> DownloadManager<'a> {
 
     pub fn macos_sdk(&self) -> Result<()> {
         let output = self.env.macos_sdk();
-        let mut item =
-            WorkItem::github_release(output, "cloudpeers", "x", "v0.1.0+2", "MacOSX.sdk.tar.zst");
+        let mut item = WorkItem::xbuild_release(output, "MacOSX.sdk.tar.zst");
         if cfg!(target_os = "windows") {
             item.no_colons();
         }
@@ -267,20 +273,13 @@ impl<'a> DownloadManager<'a> {
 
     pub fn android_ndk(&self) -> Result<()> {
         let output = self.env.android_ndk();
-        let item =
-            WorkItem::github_release(output, "cloudpeers", "x", "v0.1.0+3", "Android.ndk.tar.zst");
+        let item = WorkItem::xbuild_release(output, "Android.ndk.tar.zst");
         self.fetch(item)
     }
 
     pub fn ios_sdk(&self) -> Result<()> {
         let output = self.env.ios_sdk();
-        let mut item = WorkItem::github_release(
-            output,
-            "cloudpeers",
-            "x",
-            "v0.1.0+2",
-            "iPhoneOS.sdk.tar.zst",
-        );
+        let mut item = WorkItem::xbuild_release(output, "iPhoneOS.sdk.tar.zst");
         if cfg!(target_os = "windows") {
             item.no_colons();
         }

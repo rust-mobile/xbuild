@@ -29,7 +29,7 @@ jobs:
     - run: echo "INPUT(-lunwind)" > Android.ndk/usr/lib/i686-linux-android/libgcc.a
 
     - run: tar --zstd -cf Android.ndk.tar.zst Android.ndk
-    - run: gh release upload $TAG Android.ndk.tar.zst -R cloudpeers/x
+    - run: gh release upload $TAG Android.ndk.tar.zst -R rust-mobile/xbuild
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         TAG: ${{ github.event.release.tag_name }}
@@ -42,7 +42,7 @@ jobs:
       env:
         SDK_PATH: /Applications/Xcode_13.2.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
     - run: gtar --zstd -cf MacOSX.sdk.tar.zst MacOSX.sdk
-    - run: gh release upload $TAG MacOSX.sdk.tar.zst -R cloudpeers/x
+    - run: gh release upload $TAG MacOSX.sdk.tar.zst -R rust-mobile/xbuild
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         TAG: ${{ github.event.release.tag_name }}
@@ -55,7 +55,7 @@ jobs:
       env:
         SDK_PATH: /Applications/Xcode_13.2.1.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk
     - run: gtar --zstd -cf iPhoneOS.sdk.tar.zst iPhoneOS.sdk
-    - run: gh release upload $TAG iPhoneOS.sdk.tar.zst -R cloudpeers/x
+    - run: gh release upload $TAG iPhoneOS.sdk.tar.zst -R rust-mobile/xbuild
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         TAG: ${{ github.event.release.tag_name }}
@@ -68,7 +68,7 @@ jobs:
     - run: cargo install xwin
     - run: xwin --accept-license splat --output Windows.sdk
     - run: tar --zstd -cf Windows.sdk.tar.zst Windows.sdk
-    - run: gh release upload $TAG Windows.sdk.tar.zst -R cloudpeers/x
+    - run: gh release upload $TAG Windows.sdk.tar.zst -R rust-mobile/xbuild
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         TAG: ${{ github.event.release.tag_name }}
