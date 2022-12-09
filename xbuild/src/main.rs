@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use std::path::PathBuf;
 use xbuild::{command, BuildArgs, BuildEnv};
 
 #[derive(Parser)]
@@ -50,6 +51,25 @@ enum Commands {
         #[clap(flatten)]
         args: BuildArgs,
     },
+    /// Generates a PEM encoded RSA2048 signing key
+    GenerateKey {
+        /// Path to write a new PEM encoded RSA2048 signing key
+        pem: PathBuf,
+    },
+    /// Generates a PEM encoded certificate signing request
+    GenerateCsr {
+        /// Path to a PEM encoded RSA2048 signing key
+        pem: PathBuf,
+        /// Path to write PEM encoded certificate signing request
+        csr: PathBuf,
+    },
+    /// Adds a certificate to a PEM encoded RSA2048 signing key
+    AddCertificate {
+        /// Path to a PEM encoded RSA2048 signing key
+        pem: PathBuf,
+        /// Path to a certificate
+        cer: PathBuf,
+    },
 }
 
 impl Commands {
@@ -72,6 +92,9 @@ impl Commands {
                 command::build(&env)?;
                 command::lldb(&env)?;
             }
+            Self::GenerateKey { pem } => command::generate_key(&pem)?,
+            Self::GenerateCsr { pem, csr } => command::generate_csr(&pem, &csr)?,
+            Self::AddCertificate { pem, cer } => command::add_certificate(&pem, &cer)?,
         }
         Ok(())
     }
