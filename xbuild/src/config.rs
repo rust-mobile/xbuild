@@ -199,17 +199,37 @@ impl Config {
             .get_or_insert_with(|| manifest_package.name.clone());
         self.ios
             .info
+            .version
+            .get_or_insert_with(|| package_version.clone());
+        self.ios
+            .info
             .short_version
             .get_or_insert_with(|| package_version.clone());
         self.ios
             .info
             .minimum_os_version
-            .get_or_insert_with(|| "9.0".to_string());
+            .get_or_insert_with(|| "10.0".to_string());
         self.ios.info.requires_ios.get_or_insert(true);
         self.ios
             .info
             .storyboard_name
             .get_or_insert_with(|| "".into());
+        self.ios
+            .info
+            .platform_name
+            .get_or_insert_with(|| "iphoneos".into());
+        self.ios
+            .info
+            .required_device_capabilities
+            .get_or_insert_with(|| vec!["arm64".into()]);
+        self.ios
+            .info
+            .device_family
+            .get_or_insert_with(|| vec![1, 2]);
+        self.ios
+            .info
+            .package_type
+            .get_or_insert_with(|| "APPL".into());
 
         self.macos
             .info

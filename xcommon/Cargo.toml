@@ -10,7 +10,7 @@ license = "Apache-2.0 OR MIT"
 anyhow = "1.0.65"
 byteorder = "1.4.3"
 dunce = "1"
-image = { version = "0.24.4", default-features = false, features = ["png"] }
+image = { version = "0.24.4", default-features = false, features = ["png", "webp"] }
 pem = "1.1.0"
 rasn = "0.6.1"
 rasn-pkix = "0.6.0"
