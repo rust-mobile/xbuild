@@ -188,7 +188,7 @@ impl Format {
             (Platform::Android, Opt::Debug) => Self::Apk,
             (Platform::Android, Opt::Release) => Self::Aab,
             (Platform::Ios, Opt::Debug) => Self::Appbundle,
-            (Platform::Ios, Opt::Release) => Self::Appbundle, // TODO: Ipa
+            (Platform::Ios, Opt::Release) => Self::Ipa,
             (Platform::Linux, Opt::Debug) => Self::Appdir,
             (Platform::Linux, Opt::Release) => Self::Appimage,
             (Platform::Macos, Opt::Debug) => Self::Appbundle,
