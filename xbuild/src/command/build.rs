@@ -171,16 +171,16 @@ pub fn build(env: &BuildEnv) -> Result<()> {
             }
 
             app.finish(env.target().signer().cloned())?;
-            if let Some((key, issuer)) = env.target().notarization_key_and_issuer() {
-                appbundle::notarize(app.appdir(), issuer, key)?;
+            if let Some(api_key) = env.target().api_key() {
+                appbundle::notarize(app.appdir(), api_key)?;
             }
             if env.target().format() == Format::Dmg {
                 let out = arch_dir.join(format!("{}.dmg", env.name()));
                 apple_dmg::create_dmg(app.appdir(), &out, env.name(), 0x40000)?;
                 if let Some(signer) = env.target().signer() {
                     app.sign_dmg(&out, signer)?;
-                    if let Some((key, issuer)) = env.target().notarization_key_and_issuer() {
-                        appbundle::notarize(&out, issuer, key)?;
+                    if let Some(api_key) = env.target().api_key() {
+                        appbundle::notarize(&out, api_key)?;
                     }
                 }
             }
