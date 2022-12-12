@@ -8,7 +8,7 @@ use appbundle::AppBundle;
 use appimage::AppImage;
 use msix::Msix;
 use std::path::Path;
-use xcommon::ZipFileOptions;
+use xcommon::{Zip, ZipFileOptions};
 
 pub fn build(env: &BuildEnv) -> Result<()> {
     let platform_dir = env.platform_dir();
@@ -199,6 +199,16 @@ pub fn build(env: &BuildEnv) -> Result<()> {
                 app.add_provisioning_profile(provisioning_profile)?;
             }
             app.finish(env.target().signer().cloned())?;
+            if env.target().format() == Format::Ipa {
+                let app = arch_dir.join(format!("{}.app", env.name()));
+                let out = arch_dir.join(format!("{}.ipa", env.name()));
+                let mut ipa = Zip::new(&out, false)?;
+                ipa.add_directory(
+                    &app,
+                    &Path::new("Payload").join(format!("{}.app", env.name())),
+                )?;
+                ipa.finish()?;
+            }
         }
         Platform::Windows => {
             let target = env.target().compile_targets().next().unwrap();
