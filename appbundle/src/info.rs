@@ -71,4 +71,16 @@ pub struct InfoPlist {
 
     #[serde(rename(serialize = "NSCameraUsageDescription"))]
     pub camera_usage_description: Option<String>,
+
+    #[serde(rename(serialize = "DTPlatformName"))]
+    pub platform_name: Option<String>,
+
+    #[serde(rename(serialize = "UIRequiredDeviceCapabilities"))]
+    pub required_device_capabilities: Option<Vec<String>>,
+
+    #[serde(rename(serialize = "UIDeviceFamily"))]
+    pub device_family: Option<Vec<u64>>,
+
+    #[serde(rename(serialize = "CFBundlePackageType"))]
+    pub package_type: Option<String>,
 }
