@@ -1,4 +1,5 @@
 use anyhow::Result;
+use asconnect::certs_api::CertificateType;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use xbuild::{command, BuildArgs, BuildEnv};
@@ -53,22 +54,25 @@ enum Commands {
     },
     /// Generates a PEM encoded RSA2048 signing key
     GenerateKey {
+        /// Path to unified api key.
+        #[clap(long)]
+        api_key: PathBuf,
+        #[clap(long)]
+        r#type: CertificateType,
         /// Path to write a new PEM encoded RSA2048 signing key
         pem: PathBuf,
     },
-    /// Generates a PEM encoded certificate signing request
-    GenerateCsr {
-        /// Path to a PEM encoded RSA2048 signing key
-        pem: PathBuf,
-        /// Path to write PEM encoded certificate signing request
-        csr: PathBuf,
-    },
-    /// Adds a certificate to a PEM encoded RSA2048 signing key
-    AddCertificate {
-        /// Path to a PEM encoded RSA2048 signing key
-        pem: PathBuf,
-        /// Path to a certificate
-        cer: PathBuf,
+    CreateAppleApiKey {
+        /// Issuer id.
+        #[clap(long)]
+        issuer_id: String,
+        /// Key id.
+        #[clap(long)]
+        key_id: String,
+        /// Path to private key.
+        private_key: PathBuf,
+        /// Path to write a unified api key.
+        api_key: PathBuf,
     },
 }
 
@@ -92,9 +96,19 @@ impl Commands {
                 command::build(&env)?;
                 command::lldb(&env)?;
             }
-            Self::GenerateKey { pem } => command::generate_key(&pem)?,
-            Self::GenerateCsr { pem, csr } => command::generate_csr(&pem, &csr)?,
-            Self::AddCertificate { pem, cer } => command::add_certificate(&pem, &cer)?,
+            Self::GenerateKey {
+                api_key,
+                r#type,
+                pem,
+            } => asconnect::certs_api::generate_key(&api_key, r#type, &pem)?,
+            Self::CreateAppleApiKey {
+                issuer_id,
+                key_id,
+                private_key,
+                api_key,
+            } => {
+                command::create_apple_api_key(&issuer_id, &key_id, &private_key, &api_key)?;
+            }
         }
         Ok(())
     }

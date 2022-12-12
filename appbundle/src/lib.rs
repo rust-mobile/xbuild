@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use apple_codesign::app_store_connect::notary_api::SubmissionResponseStatus;
+use apple_codesign::app_store_connect::UnifiedApiKey;
 use apple_codesign::dmg::DmgSigner;
 use apple_codesign::stapling::Stapler;
 use apple_codesign::{
@@ -253,7 +254,12 @@ impl AppBundle {
 }
 
 pub fn app_bundle_identifier(bundle: &Path) -> Result<String> {
-    let info = std::fs::read(bundle.join("Info.plist"))?;
+    let plist = if bundle.join("Contents").exists() {
+        bundle.join("Contents").join("Info.plist")
+    } else {
+        bundle.join("Info.plist")
+    };
+    let info = std::fs::read(plist)?;
     let info: plist::Value = plist::from_reader_xml(&*info)?;
     let bundle_identifier = info
         .as_dictionary()
@@ -265,10 +271,11 @@ pub fn app_bundle_identifier(bundle: &Path) -> Result<String> {
     Ok(bundle_identifier.to_string())
 }
 
-pub fn notarize(path: &Path, api_issuer: &str, api_key: &str) -> Result<()> {
+pub fn notarize(path: &Path, api_key: &Path) -> Result<()> {
     println!("notarizing {}", path.display());
     let mut notarizer = Notarizer::new()?;
-    notarizer.set_api_key(api_issuer, api_key)?;
+    let api_key = UnifiedApiKey::from_json_path(api_key)?;
+    notarizer.set_token_encoder(api_key.try_into()?);
     let submission_id =
         if let NotarizationUpload::UploadId(submission_id) = notarizer.notarize_path(path, None)? {
             submission_id
@@ -278,7 +285,7 @@ pub fn notarize(path: &Path, api_issuer: &str, api_key: &str) -> Result<()> {
     println!("submission id: {}", submission_id);
     let start_time = Instant::now();
     loop {
-        let resp = notarizer.wait_on_notarization(&submission_id, Duration::from_secs(3))?;
+        let resp = notarizer.get_submission(&submission_id)?;
         let status = resp.data.attributes.status;
         let elapsed = start_time.elapsed();
         println!("poll state after {}s: {:?}", elapsed.as_secs(), status,);
@@ -288,6 +295,7 @@ pub fn notarize(path: &Path, api_issuer: &str, api_key: &str) -> Result<()> {
             resp.into_result()?;
             break;
         }
+        std::thread::sleep(Duration::from_secs(3));
     }
     let stapler = Stapler::new()?;
     stapler.staple_path(path)?;
