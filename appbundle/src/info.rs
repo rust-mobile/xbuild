@@ -95,4 +95,10 @@ pub struct InfoPlist {
     pub ui_launch_storyboard_name: Option<String>,
     #[serde(rename(serialize = "UIRequiredDeviceCapabilities"))]
     pub ui_required_device_capabilities: Option<Vec<String>>,
+    #[serde(rename(serialize = "UISupportedInterfaceOrientations~ipad"))]
+    #[serde(default)]
+    pub ui_supported_interface_orientations_ipad: Vec<String>,
+    #[serde(rename(serialize = "UISupportedInterfaceOrientations~iphone"))]
+    #[serde(default)]
+    pub ui_supported_interface_orientations_iphone: Vec<String>,
 }

@@ -22,7 +22,7 @@ mod info;
 pub use info::InfoPlist;
 
 const MACOS_ICON_SIZES: [u32; 6] = [16, 32, 64, 128, 256, 512];
-const IOS_ICON_SIZES: [u32; 6] = [58, 76, 80, 120, 152, 167];
+const IOS_ICON_SIZES: [u32; 7] = [58, 76, 80, 120, 152, 167, 1024];
 
 pub struct AppBundle {
     appdir: PathBuf,
@@ -82,21 +82,28 @@ impl AppBundle {
 
     pub fn add_icon(&mut self, path: &Path) -> Result<()> {
         let scaler = Scaler::open(path)?;
+        let sizes = if self.ios() {
+            &IOS_ICON_SIZES[..]
+        } else {
+            &MACOS_ICON_SIZES[..]
+        };
+
         if self.ios() {
-            for size in IOS_ICON_SIZES {
+            for size in sizes {
                 let filename = format!("icon_{}x{}.png", size, size);
                 let icon = self.appdir.join(&filename);
                 let mut icon = BufWriter::new(File::create(icon)?);
-                scaler.write(&mut icon, ScalerOpts::new(size))?;
+                scaler.write(&mut icon, ScalerOpts::new(*size))?;
                 self.info.cf_bundle_icon_files.push(filename);
             }
+            self.info.cf_bundle_icon_name = Some("AppIcon".into());
         } else {
             let mut icns = IconFamily::new();
             let mut buf = vec![];
-            for size in MACOS_ICON_SIZES {
+            for size in sizes {
                 buf.clear();
                 let mut cursor = Cursor::new(&mut buf);
-                scaler.write(&mut cursor, ScalerOpts::new(size))?;
+                scaler.write(&mut cursor, ScalerOpts::new(*size))?;
                 let image = Image::read_png(&*buf)?;
                 icns.add_icon(&image)?;
             }
@@ -107,6 +114,7 @@ impl AppBundle {
             icns.write(BufWriter::new(File::create(path)?))?;
             self.info.cf_bundle_icon_file = Some("AppIcon".to_string());
         }
+
         Ok(())
     }
 
