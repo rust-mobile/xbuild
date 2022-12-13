@@ -320,6 +320,7 @@ pub struct AndroidConfig {
 pub struct IosConfig {
     #[serde(flatten)]
     generic: GenericConfig,
+    pub assets_car: Option<PathBuf>,
     pub info: InfoPlist,
 }
 
