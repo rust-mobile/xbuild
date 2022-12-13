@@ -91,6 +91,8 @@ pub struct InfoPlist {
 
     #[serde(rename(serialize = "UIDeviceFamily"))]
     pub ui_device_family: Option<Vec<u64>>,
+    #[serde(rename(serialize = "UILaunchScreen"))]
+    pub ui_launch_screen: Option<LaunchScreen>,
     #[serde(rename(serialize = "UILaunchStoryboardName"))]
     pub ui_launch_storyboard_name: Option<String>,
     #[serde(rename(serialize = "UIRequiredDeviceCapabilities"))]
@@ -101,4 +103,21 @@ pub struct InfoPlist {
     #[serde(rename(serialize = "UISupportedInterfaceOrientations~iphone"))]
     #[serde(default)]
     pub ui_supported_interface_orientations_iphone: Vec<String>,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LaunchScreen {
+    #[serde(rename(serialize = "UIColorName"))]
+    pub ui_color_name: Option<String>,
+    #[serde(rename(serialize = "UIImageName"))]
+    pub ui_image_name: Option<String>,
+    #[serde(rename(serialize = "UIImageRespectsSafeAreaInsets"))]
+    pub ui_image_respects_safe_area_insets: Option<bool>,
+    #[serde(rename(serialize = "UINavigationBar"))]
+    pub ui_navigation_bar: Option<bool>,
+    #[serde(rename(serialize = "UITabBar"))]
+    pub ui_tab_bar: Option<bool>,
+    #[serde(rename(serialize = "UIToolbar"))]
+    pub ui_toolbar: Option<bool>,
 }
