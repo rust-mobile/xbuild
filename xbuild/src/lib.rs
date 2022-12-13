@@ -760,7 +760,7 @@ impl BuildEnv {
                     .config()
                     .macos()
                     .info
-                    .minimum_system_version
+                    .ls_minimum_system_version
                     .as_ref()
                     .unwrap();
                 cargo.use_macos_sdk(&sdk, minimum_version)?;
