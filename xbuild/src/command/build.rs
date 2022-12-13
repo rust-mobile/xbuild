@@ -198,6 +198,9 @@ pub fn build(env: &BuildEnv) -> Result<()> {
             if let Some(provisioning_profile) = env.target().provisioning_profile() {
                 app.add_provisioning_profile(provisioning_profile)?;
             }
+            if let Some(assets_car) = env.config().ios().assets_car.as_ref() {
+                app.add_file(assets_car, "Assets.car".as_ref())?;
+            }
             app.finish(env.target().signer().cloned())?;
             if env.target().format() == Format::Ipa {
                 let app = arch_dir.join(format!("{}.app", env.name()));
