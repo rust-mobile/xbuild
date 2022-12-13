@@ -219,7 +219,7 @@ impl Config {
         info.ls_requires_ios.get_or_insert(true);
 
         info.minimum_os_version
-            .get_or_insert_with(|| "10.0".to_string());
+            .get_or_insert_with(|| "14.0".to_string());
 
         info.ui_device_family.get_or_insert_with(|| vec![1, 2]);
         info.ui_launch_storyboard_name

@@ -96,7 +96,6 @@ impl AppBundle {
                 scaler.write(&mut icon, ScalerOpts::new(*size))?;
                 self.info.cf_bundle_icon_files.push(filename);
             }
-            self.info.cf_bundle_icon_name = Some("AppIcon".into());
         } else {
             let mut icns = IconFamily::new();
             let mut buf = vec![];
