@@ -15,6 +15,9 @@ pub struct InfoPlist {
     /// The entry point of the bundle.
     #[serde(rename(serialize = "CFBundleExecutable"))]
     pub cf_bundle_executable: Option<String>,
+    /// The icons of the bundle.
+    #[serde(rename(serialize = "CFBundleIcons"))]
+    pub cf_bundle_icons: Option<CfBundleIcons>,
     /// The icon file of the bundle.
     #[serde(rename(serialize = "CFBundleIconFile"))]
     pub cf_bundle_icon_file: Option<String>,
@@ -92,7 +95,7 @@ pub struct InfoPlist {
     #[serde(rename(serialize = "UIDeviceFamily"))]
     pub ui_device_family: Option<Vec<u64>>,
     #[serde(rename(serialize = "UILaunchScreen"))]
-    pub ui_launch_screen: Option<LaunchScreen>,
+    pub ui_launch_screen: Option<UiLaunchScreen>,
     #[serde(rename(serialize = "UILaunchStoryboardName"))]
     pub ui_launch_storyboard_name: Option<String>,
     #[serde(rename(serialize = "UIRequiredDeviceCapabilities"))]
@@ -107,7 +110,7 @@ pub struct InfoPlist {
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct LaunchScreen {
+pub struct UiLaunchScreen {
     #[serde(rename(serialize = "UIColorName"))]
     pub ui_color_name: Option<String>,
     #[serde(rename(serialize = "UIImageName"))]
@@ -120,4 +123,18 @@ pub struct LaunchScreen {
     pub ui_tab_bar: Option<bool>,
     #[serde(rename(serialize = "UIToolbar"))]
     pub ui_toolbar: Option<bool>,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CfBundleIcons {
+    #[serde(rename(serialize = "CFBundlePrimaryIcon"))]
+    pub cf_bundle_primary_icon: Option<CfBundlePrimaryIcon>,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CfBundlePrimaryIcon {
+    #[serde(rename(serialize = "CFBundleIconName"))]
+    pub cf_bundle_icon_name: Option<String>,
 }
