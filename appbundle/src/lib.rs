@@ -21,7 +21,8 @@ mod info;
 
 pub use info::InfoPlist;
 
-const ICON_SIZES: [u32; 6] = [16, 32, 64, 128, 256, 512];
+const MACOS_ICON_SIZES: [u32; 6] = [16, 32, 64, 128, 256, 512];
+const IOS_ICON_SIZES: [u32; 6] = [58, 76, 80, 120, 152, 167];
 
 pub struct AppBundle {
     appdir: PathBuf,
@@ -82,7 +83,7 @@ impl AppBundle {
     pub fn add_icon(&mut self, path: &Path) -> Result<()> {
         let scaler = Scaler::open(path)?;
         if self.info.requires_ios == Some(true) {
-            for size in ICON_SIZES {
+            for size in IOS_ICON_SIZES {
                 let filename = format!("icon_{}x{}.png", size, size);
                 let icon = self.appdir.join(&filename);
                 let mut icon = BufWriter::new(File::create(icon)?);
@@ -92,7 +93,7 @@ impl AppBundle {
         } else {
             let mut icns = IconFamily::new();
             let mut buf = vec![];
-            for size in ICON_SIZES {
+            for size in MACOS_ICON_SIZES {
                 buf.clear();
                 let mut cursor = Cursor::new(&mut buf);
                 scaler.write(&mut cursor, ScalerOpts::new(size))?;
