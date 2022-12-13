@@ -32,8 +32,8 @@ pub struct AppBundle {
 
 impl AppBundle {
     pub fn new(build_dir: &Path, info: InfoPlist) -> Result<Self> {
-        anyhow::ensure!(info.name.is_some(), "missing info.name");
-        let appdir = build_dir.join(format!("{}.app", info.name.as_ref().unwrap()));
+        anyhow::ensure!(info.cf_bundle_name.is_some(), "missing info.name");
+        let appdir = build_dir.join(format!("{}.app", info.cf_bundle_name.as_ref().unwrap()));
         std::fs::remove_dir_all(&appdir).ok();
         std::fs::create_dir_all(&appdir)?;
         Ok(Self {
@@ -48,7 +48,7 @@ impl AppBundle {
     }
 
     fn ios(&self) -> bool {
-        self.info.requires_ios == Some(true)
+        self.info.ls_requires_ios == Some(true)
     }
 
     fn content_dir(&self) -> PathBuf {
@@ -82,13 +82,13 @@ impl AppBundle {
 
     pub fn add_icon(&mut self, path: &Path) -> Result<()> {
         let scaler = Scaler::open(path)?;
-        if self.info.requires_ios == Some(true) {
+        if self.ios() {
             for size in IOS_ICON_SIZES {
                 let filename = format!("icon_{}x{}.png", size, size);
                 let icon = self.appdir.join(&filename);
                 let mut icon = BufWriter::new(File::create(icon)?);
                 scaler.write(&mut icon, ScalerOpts::new(size))?;
-                self.info.icon_files.push(filename);
+                self.info.cf_bundle_icon_files.push(filename);
             }
         } else {
             let mut icns = IconFamily::new();
@@ -105,7 +105,7 @@ impl AppBundle {
                 std::fs::create_dir_all(parent)?;
             }
             icns.write(BufWriter::new(File::create(path)?))?;
-            self.info.icon_file = Some("AppIcon".to_string());
+            self.info.cf_bundle_icon_file = Some("AppIcon".to_string());
         }
         Ok(())
     }
@@ -131,8 +131,8 @@ impl AppBundle {
         let exe_dir = self.executable_dir();
         std::fs::create_dir_all(&exe_dir)?;
         std::fs::copy(path, exe_dir.join(file_name))?;
-        if self.info.executable.is_none() {
-            self.info.executable = Some(file_name.to_string());
+        if self.info.cf_bundle_executable.is_none() {
+            self.info.cf_bundle_executable = Some(file_name.to_string());
         }
         Ok(())
     }
@@ -179,7 +179,7 @@ impl AppBundle {
             .with_context(|| format!("invalid app id {}", app_id))?
             .1;
 
-        if let Some(bundle_identifier) = self.info.bundle_identifier.as_ref() {
+        if let Some(bundle_identifier) = self.info.cf_bundle_identifier.as_ref() {
             let bundle_prefix = if bundle_prefix.ends_with('*') {
                 bundle_prefix.strip_suffix('*').unwrap()
             } else {
@@ -202,7 +202,7 @@ impl AppBundle {
         if let Some(signer) = signer {
             println!("signing {}", self.appdir().display());
             anyhow::ensure!(
-                self.info.bundle_identifier.is_some(),
+                self.info.cf_bundle_identifier.is_some(),
                 "missing bundle identifier"
             );
             let mut signing_settings = SigningSettings::default();
@@ -247,7 +247,7 @@ impl AppBundle {
         signing_settings.set_time_stamp_url("http://timestamp.apple.com/ts01")?;
         signing_settings.set_binary_identifier(
             SettingsScope::Main,
-            self.info.bundle_identifier.as_ref().unwrap(),
+            self.info.cf_bundle_identifier.as_ref().unwrap(),
         );
         DmgSigner::default().sign_file(&signing_settings, &mut f)?;
         Ok(())

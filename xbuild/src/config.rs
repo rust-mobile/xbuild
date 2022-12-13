@@ -189,59 +189,48 @@ impl Config {
             data: vec![],
         });
 
-        self.ios
-            .info
-            .name
+        let info = &mut self.ios.info;
+        info.cf_bundle_identifier
             .get_or_insert_with(|| manifest_package.name.clone());
-        self.ios
-            .info
-            .bundle_identifier
+        info.cf_bundle_name
             .get_or_insert_with(|| manifest_package.name.clone());
-        self.ios
-            .info
-            .version
-            .get_or_insert_with(|| package_version.clone());
-        self.ios
-            .info
-            .short_version
-            .get_or_insert_with(|| package_version.clone());
-        self.ios
-            .info
-            .minimum_os_version
-            .get_or_insert_with(|| "10.0".to_string());
-        self.ios.info.requires_ios.get_or_insert(true);
-        self.ios
-            .info
-            .storyboard_name
-            .get_or_insert_with(|| "".into());
-        self.ios
-            .info
-            .platform_name
-            .get_or_insert_with(|| "iphoneos".into());
-        self.ios
-            .info
-            .required_device_capabilities
-            .get_or_insert_with(|| vec!["arm64".into()]);
-        self.ios
-            .info
-            .device_family
-            .get_or_insert_with(|| vec![1, 2]);
-        self.ios
-            .info
-            .package_type
+        info.cf_bundle_package_type
             .get_or_insert_with(|| "APPL".into());
-
-        self.macos
-            .info
-            .name
-            .get_or_insert_with(|| manifest_package.name.clone());
-        self.macos
-            .info
-            .short_version
+        info.cf_bundle_short_version_string
             .get_or_insert_with(|| package_version.clone());
-        self.macos
-            .info
-            .minimum_system_version
+        info.cf_bundle_version
+            .get_or_insert_with(|| package_version.clone());
+
+        info.dt_compiler
+            .get_or_insert_with(|| "com.apple.compilers.llvm.clang.1_0".into());
+        info.dt_platform_build.get_or_insert_with(|| "19C51".into());
+        info.dt_platform_name
+            .get_or_insert_with(|| "iphoneos".into());
+        info.dt_platform_version
+            .get_or_insert_with(|| "15.2".into());
+        info.dt_sdk_build.get_or_insert_with(|| "19C51".into());
+        info.dt_sdk_name
+            .get_or_insert_with(|| "iphoneos15.2".into());
+        info.dt_xcode.get_or_insert_with(|| "1321".into());
+        info.dt_xcode_build.get_or_insert_with(|| "13C100".into());
+
+        info.ls_requires_ios.get_or_insert(true);
+
+        info.minimum_os_version
+            .get_or_insert_with(|| "10.0".to_string());
+
+        info.ui_device_family.get_or_insert_with(|| vec![1, 2]);
+        info.ui_launch_storyboard_name
+            .get_or_insert_with(|| "".into());
+        info.ui_required_device_capabilities
+            .get_or_insert_with(|| vec!["arm64".into()]);
+
+        let info = &mut self.macos.info;
+        info.cf_bundle_name
+            .get_or_insert_with(|| manifest_package.name.clone());
+        info.cf_bundle_short_version_string
+            .get_or_insert_with(|| package_version.clone());
+        info.ls_minimum_system_version
             .get_or_insert_with(|| "10.11".to_string());
 
         self.windows

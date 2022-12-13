@@ -1,86 +1,98 @@
 use serde::{Deserialize, Serialize};
 
+// NOTE: keep fields alphabetically ordered.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InfoPlist {
-    /// A user-visible short name for the bundle.
-    #[serde(rename(serialize = "CFBundleName"))]
-    pub name: Option<String>,
+    /// The default language and region for the bundle, as a
+    /// language ID.
+    #[serde(rename(serialize = "CFBundleDevelopmentRegion"))]
+    pub cf_bundle_development_region: Option<String>,
     /// The user-visible name for the bundle, used by Siri and visible
     /// on the iOS Home screen.
     #[serde(rename(serialize = "CFBundleDisplayName"))]
-    pub display_name: Option<String>,
+    pub cf_bundle_display_name: Option<String>,
+    /// The entry point of the bundle.
+    #[serde(rename(serialize = "CFBundleExecutable"))]
+    pub cf_bundle_executable: Option<String>,
+    /// The icon file of the bundle.
+    #[serde(rename(serialize = "CFBundleIconFile"))]
+    pub cf_bundle_icon_file: Option<String>,
+    /// The icon files of the bundle.
+    #[serde(rename(serialize = "CFBundleIconFiles"))]
+    #[serde(default)]
+    pub cf_bundle_icon_files: Vec<String>,
+    /// The icon name of the bundle.
+    #[serde(rename(serialize = "CFBundleIconName"))]
+    pub cf_bundle_icon_name: Option<String>,
+    /// A unique identifier for a bundle.
+    #[serde(rename(serialize = "CFBundleIdentifier"))]
+    pub cf_bundle_identifier: Option<String>,
+    /// The current version of the Information Property List structure.
+    #[serde(rename(serialize = "CFBundleInfoDictionaryVersion"))]
+    pub cf_bundle_info_dictionary_version: Option<String>,
+    /// A user-visible short name for the bundle.
+    #[serde(rename(serialize = "CFBundleName"))]
+    pub cf_bundle_name: Option<String>,
+    /// The type of bundle.
+    #[serde(rename(serialize = "CFBundlePackageType"))]
+    pub cf_bundle_package_type: Option<String>,
+    /// The release or version number of the bundle.
+    #[serde(rename(serialize = "CFBundleShortVersionString"))]
+    pub cf_bundle_short_version_string: Option<String>,
     /// A replacement for the app name in text-to-speech operations.
     #[serde(rename(serialize = "CFBundleSpokenName"))]
-    pub spoken_name: Option<String>,
-
+    pub cf_bundle_spoken_name: Option<String>,
     /// The version of the build that identifies an iteration of the
     /// bundle.
     #[serde(rename(serialize = "CFBundleVersion"))]
-    pub version: Option<String>,
-    /// The release or version number of the bundle.
-    #[serde(rename(serialize = "CFBundleShortVersionString"))]
-    pub short_version: Option<String>,
-    /// The current version of the Information Property List structure.
-    #[serde(rename(serialize = "CFBundleInfoDictionaryVersion"))]
-    pub info_dictionary_version: Option<String>,
-    /// A human-readable copyright notice for the bundle.
-    #[serde(rename(serialize = "NSHumanReadableCopyright"))]
-    pub copyright: Option<String>,
+    pub cf_bundle_version: Option<String>,
 
-    /// A unique identifier for a bundle.
-    #[serde(rename(serialize = "CFBundleIdentifier"))]
-    pub bundle_identifier: Option<String>,
+    #[serde(rename(serialize = "DTCompiler"))]
+    pub dt_compiler: Option<String>,
+    #[serde(rename(serialize = "DTPlatformBuild"))]
+    pub dt_platform_build: Option<String>,
+    #[serde(rename(serialize = "DTPlatformName"))]
+    pub dt_platform_name: Option<String>,
+    #[serde(rename(serialize = "DTPlatformVersion"))]
+    pub dt_platform_version: Option<String>,
+    #[serde(rename(serialize = "DTSDKBuild"))]
+    pub dt_sdk_build: Option<String>,
+    #[serde(rename(serialize = "DTSDKName"))]
+    pub dt_sdk_name: Option<String>,
+    #[serde(rename(serialize = "DTXcode"))]
+    pub dt_xcode: Option<String>,
+    #[serde(rename(serialize = "DTXcodeBuild"))]
+    pub dt_xcode_build: Option<String>,
+
     /// The category that best describes your app for the App Store.
     #[serde(rename(serialize = "LSApplicationCategoryType"))]
-    pub application_category_type: Option<String>,
-
+    pub ls_application_category_type: Option<String>,
     /// The minimum version of the operating system required for
     /// the app to run in macOS.
     #[serde(rename(serialize = "LSMinimumSystemVersion"))]
-    pub minimum_system_version: Option<String>,
+    pub ls_minimum_system_version: Option<String>,
+    /// A boolean value indicating whether the app must run in iOS.
+    #[serde(rename(serialize = "LSRequiresIPhoneOS"))]
+    pub ls_requires_ios: Option<bool>,
+
     /// The minimum version of the operating system required for
     /// the app to run in iOS, iPadOS, tvOS, and watchOS.
     #[serde(rename(serialize = "MinimumOSVersion"))]
     pub minimum_os_version: Option<String>,
-    /// A boolean value indicating whether the app must run in iOS.
-    #[serde(rename(serialize = "LSRequiresIPhoneOS"))]
-    pub requires_ios: Option<bool>,
 
-    /// The default language and region for the bundle, as a
-    /// language ID.
-    #[serde(rename(serialize = "CFBundleDevelopmentRegion"))]
-    pub development_region: Option<String>,
-
-    /// The entry point of the bundle.
-    #[serde(rename(serialize = "CFBundleExecutable"))]
-    pub executable: Option<String>,
-    /// The icon file of the bundle.
-    #[serde(rename(serialize = "CFBundleIconFile"))]
-    pub icon_file: Option<String>,
-    /// The icon name of the bundle.
-    #[serde(rename(serialize = "CFBundleIconName"))]
-    pub icon_name: Option<String>,
-    /// The icon files of the bundle.
-    #[serde(rename(serialize = "CFBundleIconFiles"))]
-    #[serde(default)]
-    pub icon_files: Vec<String>,
-
-    #[serde(rename(serialize = "UILaunchStoryboardName"))]
-    pub storyboard_name: Option<String>,
-
+    /// A message that tells the user why the app is requesting
+    /// access to the device's camera.
     #[serde(rename(serialize = "NSCameraUsageDescription"))]
-    pub camera_usage_description: Option<String>,
-
-    #[serde(rename(serialize = "DTPlatformName"))]
-    pub platform_name: Option<String>,
-
-    #[serde(rename(serialize = "UIRequiredDeviceCapabilities"))]
-    pub required_device_capabilities: Option<Vec<String>>,
+    pub ns_camera_usage_description: Option<String>,
+    /// A human-readable copyright notice for the bundle.
+    #[serde(rename(serialize = "NSHumanReadableCopyright"))]
+    pub ns_human_readable_copyright: Option<String>,
 
     #[serde(rename(serialize = "UIDeviceFamily"))]
-    pub device_family: Option<Vec<u64>>,
-
-    #[serde(rename(serialize = "CFBundlePackageType"))]
-    pub package_type: Option<String>,
+    pub ui_device_family: Option<Vec<u64>>,
+    #[serde(rename(serialize = "UILaunchStoryboardName"))]
+    pub ui_launch_storyboard_name: Option<String>,
+    #[serde(rename(serialize = "UIRequiredDeviceCapabilities"))]
+    pub ui_required_device_capabilities: Option<Vec<String>>,
 }
