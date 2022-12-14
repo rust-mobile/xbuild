@@ -202,6 +202,8 @@ impl Config {
             .get_or_insert_with(|| package_version.clone());
         info.cf_bundle_version
             .get_or_insert_with(|| package_version.clone());
+        info.cf_bundle_supported_platforms
+            .get_or_insert_with(|| vec!["iPhoneOS".into()]);
 
         info.dt_compiler
             .get_or_insert_with(|| "com.apple.compilers.llvm.clang.1_0".into());

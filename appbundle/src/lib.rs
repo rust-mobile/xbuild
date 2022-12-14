@@ -28,6 +28,7 @@ pub struct AppBundle {
     appdir: PathBuf,
     info: InfoPlist,
     entitlements: Option<Value>,
+    development: bool,
 }
 
 impl AppBundle {
@@ -40,6 +41,7 @@ impl AppBundle {
             appdir,
             info,
             entitlements: None,
+            development: false,
         })
     }
 
@@ -185,6 +187,7 @@ impl AppBundle {
             .split_once('.')
             .with_context(|| format!("invalid app id {}", app_id))?
             .1;
+        self.development = dict.get("ProvisionedDevices").is_some();
 
         if let Some(bundle_identifier) = self.info.cf_bundle_identifier.as_ref() {
             let bundle_prefix = if bundle_prefix.ends_with('*') {
@@ -222,7 +225,9 @@ impl AppBundle {
             signing_settings
                 .set_team_id_from_signing_certificate()
                 .context("signing certificate is missing team id")?;
-            signing_settings.set_time_stamp_url("http://timestamp.apple.com/ts01")?;
+            if self.development {
+                signing_settings.set_time_stamp_url("http://timestamp.apple.com/ts01")?;
+            }
             if let Some(entitlements) = self.entitlements.as_ref() {
                 let mut buf = vec![];
                 entitlements.to_writer_xml(&mut buf)?;
