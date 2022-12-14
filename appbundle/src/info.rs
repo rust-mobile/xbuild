@@ -46,6 +46,9 @@ pub struct InfoPlist {
     /// A replacement for the app name in text-to-speech operations.
     #[serde(rename(serialize = "CFBundleSpokenName"))]
     pub cf_bundle_spoken_name: Option<String>,
+    #[serde(rename(serialize = "CFBundleSupportedPlatforms"))]
+    #[serde(default)]
+    pub cf_bundle_supported_platforms: Option<Vec<String>>,
     /// The version of the build that identifies an iteration of the
     /// bundle.
     #[serde(rename(serialize = "CFBundleVersion"))]
