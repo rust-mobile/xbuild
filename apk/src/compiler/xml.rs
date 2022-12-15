@@ -141,7 +141,7 @@ fn compile_node(
             class_index,
             style_index,
         },
-        attrs.into_iter().map(|(_, v)| v).collect(),
+        attrs.into_values().collect(),
     ));
     /*let mut children = BTreeMap::new();
     for node in node.children() {

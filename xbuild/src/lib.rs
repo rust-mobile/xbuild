@@ -589,7 +589,7 @@ impl BuildEnv {
         let cache_dir = dirs::cache_dir().unwrap().join("x");
         let package = cargo.manifest().package.as_ref().unwrap(); // Caller should guarantee that this is a valid package
         let manifest = cargo.package_root().join("manifest.yaml");
-        let mut config = Config::parse(&manifest)?;
+        let mut config = Config::parse(manifest)?;
         config.apply_rust_package(package, cargo.workspace_manifest(), build_target.opt())?;
         let icon = config
             .icon(build_target.platform())

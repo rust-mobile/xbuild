@@ -55,7 +55,7 @@ impl<'a> DownloadManager<'a> {
     pub fn new(env: &'a BuildEnv) -> Result<Self> {
         let client = Client::new();
         let download_dir = env.cache_dir().join("download");
-        std::fs::create_dir_all(&download_dir)?;
+        std::fs::create_dir_all(download_dir)?;
         Ok(Self { env, client })
     }
 

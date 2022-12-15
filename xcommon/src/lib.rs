@@ -252,7 +252,7 @@ fn find_cde_start_pos<R: Read + Seek>(reader: &mut R) -> Result<u64> {
     anyhow::ensure!(file_length >= HEADER_SIZE, "Invalid zip header");
     let mut pos = file_length - HEADER_SIZE;
     while pos >= search_upper_bound {
-        reader.seek(SeekFrom::Start(pos as u64))?;
+        reader.seek(SeekFrom::Start(pos))?;
         if reader.read_u32::<LittleEndian>()? == CENTRAL_DIRECTORY_END_SIGNATURE {
             return Ok(pos);
         }
