@@ -11,6 +11,3 @@ members = [
 ]
 default-members = ["xbuild"]
 exclude = ["examples"]
-
-[patch.crates-io]
-apple-codesign = { git = "https://github.com/indygreg/apple-platform-rs", branch = "main" }
