@@ -84,7 +84,7 @@ fn compile_node(
     let mut class_index = 0;
     let mut style_index = 0;
     let mut attrs = BTreeMap::new();
-    for (i, attr) in node.attributes().iter().enumerate() {
+    for (i, attr) in node.attributes().enumerate() {
         match attr.name() {
             "id" => id_index = i as u16 + 1,
             "class" => class_index = i as u16 + 1,

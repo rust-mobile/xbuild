@@ -1,11 +1,8 @@
 use anyhow::{Context, Result};
-use apple_codesign::app_store_connect::notary_api::SubmissionResponseStatus;
-use apple_codesign::app_store_connect::UnifiedApiKey;
 use apple_codesign::dmg::DmgSigner;
+use apple_codesign::notarization::{NotarizationUpload, Notarizer, SubmissionResponseStatus};
 use apple_codesign::stapling::Stapler;
-use apple_codesign::{
-    BundleSigner, CodeSignatureFlags, NotarizationUpload, Notarizer, SettingsScope, SigningSettings,
-};
+use apple_codesign::{BundleSigner, CodeSignatureFlags, SettingsScope, SigningSettings};
 use icns::{IconFamily, Image};
 use pkcs8::EncodePrivateKey;
 use plist::Value;
@@ -286,9 +283,7 @@ pub fn app_bundle_identifier(bundle: &Path) -> Result<String> {
 
 pub fn notarize(path: &Path, api_key: &Path) -> Result<()> {
     println!("notarizing {}", path.display());
-    let mut notarizer = Notarizer::new()?;
-    let api_key = UnifiedApiKey::from_json_path(api_key)?;
-    notarizer.set_token_encoder(api_key.try_into()?);
+    let notarizer = Notarizer::from_api_key(api_key)?;
     let submission_id =
         if let NotarizationUpload::UploadId(submission_id) = notarizer.notarize_path(path, None)? {
             submission_id
