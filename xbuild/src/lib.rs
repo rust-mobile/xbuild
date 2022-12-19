@@ -598,6 +598,7 @@ impl BuildEnv {
             name: package.name.clone(),
             build_target,
             icon,
+
             cargo,
             config,
             build_dir,

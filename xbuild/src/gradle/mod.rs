@@ -96,6 +96,36 @@ pub fn build(env: &BuildEnv, out: &Path) -> Result<()> {
         dependencies = dependencies,
     );
 
+    if let Some(icon_path) = env.icon.as_ref() {
+        let mut scaler = xcommon::Scaler::open(icon_path)?;
+        scaler.optimize();
+        let anydpi = res.join("mipmap-anydpi-v26");
+        std::fs::create_dir_all(&anydpi)?;
+        std::fs::write(anydpi.join("ic_launcher.xml"), IC_LAUNCHER)?;
+        let dpis = vec![
+            ("m", 48),
+            ("h", 72),
+            ("xh", 96),
+            ("xxh", 144),
+            ("xxh", 192),
+            ("xxxh", 256),
+        ];
+        for dpi in dpis {
+            let dir_name = format!("mipmap-{}dpi", dpi.0);
+            let dir = res.join(dir_name);
+            std::fs::create_dir_all(&dir)?;
+            for variant in ["foreground", "monochrome"] {
+                let mut icon =
+                    std::fs::File::create(dir.join(format!("ic_launcher_{}.png", variant)))?;
+                scaler.write(
+                    &mut icon,
+                    xcommon::ScalerOptsBuilder::new(dpi.1, dpi.1).build(),
+                )?;
+            }
+        }
+        manifest.application.icon = Some("@mipmap/ic_launcher".into());
+    }
+
     std::fs::write(app.join("build.gradle"), app_build_gradle)?;
     std::fs::write(
         main.join("AndroidManifest.xml"),
@@ -123,25 +153,6 @@ pub fn build(env: &BuildEnv, out: &Path) -> Result<()> {
         let lib_dir = jnilibs.join(target.android_abi().android_abi());
         std::fs::create_dir_all(&lib_dir)?;
         std::fs::copy(&lib, lib_dir.join(lib_name))?;
-    }
-
-    if let Some(icon_path) = env.icon.as_ref() {
-        let mut scaler = xcommon::Scaler::open(icon_path)?;
-        scaler.optimize();
-        let anydpi = res.join("mipmap-anydpi-v26");
-        std::fs::create_dir_all(&anydpi)?;
-        std::fs::write(anydpi.join("ic_launcher.xml"), IC_LAUNCHER)?;
-        let dpis = vec![("m", 48), ("h", 72), ("xh", 96), ("xxh", 144), ("xxh", 192)];
-        for dpi in dpis {
-            let dir_name = format!("mipmap-{}dpi", dpi.0);
-            let dir = res.join(dir_name);
-            std::fs::create_dir_all(&dir)?;
-            let mut ficon = std::fs::File::create(dir.join("ic_launcher_foreground.png"))?;
-            scaler.write(&mut ficon, xcommon::ScalerOpts::new(dpi.1))?;
-            let mut micon = std::fs::File::create(dir.join("ic_launcher_monochrome.png"))?;
-            scaler.write(&mut micon, xcommon::ScalerOpts::new(dpi.1))?;
-        }
-        manifest.application.icon = Some("@mipmap/ic_launcher".into());
     }
 
     let opt = env.target().opt();
