@@ -164,7 +164,6 @@ pub fn build(env: &BuildEnv, out: &Path) -> Result<()> {
         Format::Apk => "assemble",
         _ => unreachable!(),
     });
-    cmd.arg("--stacktrace");
     task::run(cmd, true)?;
     let output = gradle
         .join("app")
