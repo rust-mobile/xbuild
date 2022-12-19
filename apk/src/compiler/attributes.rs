@@ -60,7 +60,7 @@ impl<'a> StringPoolBuilder<'a> {
         }
     }
 
-    pub fn add_attribute(&mut self, attr: &'a Attribute<'a>) -> Result<()> {
+    pub fn add_attribute(&mut self, attr: Attribute<'a, 'a>) -> Result<()> {
         if let Some(ns) = attr.namespace() {
             if ns == "http://schemas.android.com/apk/res/android" {
                 let entry = self.table.entry_by_ref(Ref::attr(attr.name()))?;

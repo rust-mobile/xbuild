@@ -2,7 +2,7 @@ use crate::cargo::CrateType;
 use crate::devices::Device;
 use crate::{BuildEnv, CompileTarget, Platform};
 use anyhow::Result;
-use asconnect::UnifiedApiKey;
+use app_store_connect::UnifiedApiKey;
 use std::path::Path;
 
 mod build;

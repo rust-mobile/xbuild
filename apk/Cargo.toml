@@ -7,14 +7,14 @@ repository = "https://github.com/cloudpeers/x"
 license = "Apache-2.0 OR MIT"
 
 [dependencies]
-anyhow = "1.0.65"
+anyhow = "1.0.68"
 byteorder = "1.4.3"
-quick-xml = { version = "0.25.0", features = ["serialize"] }
+quick-xml = { version = "0.26.0", features = ["serialize"] }
 rasn = "0.6.1"
 rasn-pkix = "0.6.0"
-roxmltree = "0.15.1"
-rsa = "0.7.0"
-serde = { version = "1.0.145", features = ["derive"] }
+roxmltree = "0.16.0"
+rsa = "0.7.2"
+serde = { version = "1.0.151", features = ["derive"] }
 sha2 = { version = "0.10.6", features = ["oid"] }
 tracing = "0.1.37"
 xcommon = { version = "0.2.0", path = "../xcommon" }

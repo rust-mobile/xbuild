@@ -7,5 +7,5 @@ repository = "https://github.com/cloudpeers/xbuild"
 license = "Apache-2.0 OR MIT"
 
 [dependencies]
-anyhow = "1.0.65"
+anyhow = "1.0.68"
 byteorder = "1.4.3"

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use asconnect::certs_api::CertificateType;
+use app_store_connect::certs_api::CertificateType;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use xbuild::{command, BuildArgs, BuildEnv};
@@ -100,7 +100,9 @@ impl Commands {
                 api_key,
                 r#type,
                 pem,
-            } => asconnect::certs_api::generate_key(&api_key, r#type, &pem)?,
+            } => {
+                app_store_connect::certs_api::generate_signing_certificate(&api_key, r#type, &pem)?
+            }
             Self::CreateAppleApiKey {
                 issuer_id,
                 key_id,
