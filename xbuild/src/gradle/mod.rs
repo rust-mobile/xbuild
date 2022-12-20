@@ -102,7 +102,7 @@ pub fn build(env: &BuildEnv, out: &Path) -> Result<()> {
         let anydpi = res.join("mipmap-anydpi-v26");
         std::fs::create_dir_all(&anydpi)?;
         std::fs::write(anydpi.join("ic_launcher.xml"), IC_LAUNCHER)?;
-        let dpis = vec![
+        let dpis = [
             ("m", 48),
             ("h", 72),
             ("xh", 96),
@@ -110,8 +110,8 @@ pub fn build(env: &BuildEnv, out: &Path) -> Result<()> {
             ("xxh", 192),
             ("xxxh", 256),
         ];
-        for dpi in dpis {
-            let dir_name = format!("mipmap-{}dpi", dpi.0);
+        for (name, size) in dpis {
+            let dir_name = format!("mipmap-{}dpi", name);
             let dir = res.join(dir_name);
             std::fs::create_dir_all(&dir)?;
             for variant in ["foreground", "monochrome"] {
@@ -119,7 +119,7 @@ pub fn build(env: &BuildEnv, out: &Path) -> Result<()> {
                     std::fs::File::create(dir.join(format!("ic_launcher_{}.png", variant)))?;
                 scaler.write(
                     &mut icon,
-                    xcommon::ScalerOptsBuilder::new(dpi.1, dpi.1).build(),
+                    xcommon::ScalerOptsBuilder::new(size, size).build(),
                 )?;
             }
         }
