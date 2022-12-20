@@ -7,6 +7,7 @@ use std::process::Command;
 static BUILD_GRADLE: &[u8] = include_bytes!("./build.gradle");
 static GRADLE_PROPERTIES: &[u8] = include_bytes!("./gradle.properties");
 static SETTINGS_GRADLE: &[u8] = include_bytes!("./settings.gradle");
+static IC_LAUNCHER: &[u8] = include_bytes!("./ic_launcher.xml");
 
 pub fn prepare(env: &BuildEnv) -> Result<()> {
     let config = env.config().android();
@@ -39,6 +40,7 @@ pub fn build(env: &BuildEnv, out: &Path) -> Result<()> {
     let main = app.join("src").join("main");
     let kotlin = main.join("kotlin");
     let jnilibs = main.join("jniLibs");
+    let res = main.join("res");
 
     std::fs::create_dir_all(&kotlin)?;
     std::fs::write(gradle.join("build.gradle"), BUILD_GRADLE)?;
@@ -93,6 +95,36 @@ pub fn build(env: &BuildEnv, out: &Path) -> Result<()> {
         version_name = version_name,
         dependencies = dependencies,
     );
+
+    if let Some(icon_path) = env.icon.as_ref() {
+        let mut scaler = xcommon::Scaler::open(icon_path)?;
+        scaler.optimize();
+        let anydpi = res.join("mipmap-anydpi-v26");
+        std::fs::create_dir_all(&anydpi)?;
+        std::fs::write(anydpi.join("ic_launcher.xml"), IC_LAUNCHER)?;
+        let dpis = [
+            ("m", 48),
+            ("h", 72),
+            ("xh", 96),
+            ("xxh", 144),
+            ("xxh", 192),
+            ("xxxh", 256),
+        ];
+        for (name, size) in dpis {
+            let dir_name = format!("mipmap-{}dpi", name);
+            let dir = res.join(dir_name);
+            std::fs::create_dir_all(&dir)?;
+            for variant in ["foreground", "monochrome"] {
+                let mut icon =
+                    std::fs::File::create(dir.join(format!("ic_launcher_{}.png", variant)))?;
+                scaler.write(
+                    &mut icon,
+                    xcommon::ScalerOptsBuilder::new(size, size).build(),
+                )?;
+            }
+        }
+        manifest.application.icon = Some("@mipmap/ic_launcher".into());
+    }
 
     std::fs::write(app.join("build.gradle"), app_build_gradle)?;
     std::fs::write(
