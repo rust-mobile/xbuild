@@ -13,7 +13,7 @@ apk = { version = "0.3.0", path = "../apk" }
 appbundle = { version = "0.2.0", path = "../appbundle" }
 appimage = { version = "0.3.0", path = "../appimage" }
 apple-dmg = "0.1.0"
-app-store-connect = { version = "0.1.0", git = "https://github.com/dvc94ch/apple-platform-rs", branch = "appstoreconnect" }
+app-store-connect = { version = "0.1.0-pre", git = "https://github.com/dvc94ch/apple-platform-rs", branch = "appstoreconnect" }
 base64 = "0.20.0"
 clap = { version = "4.0.29", features = ["derive"] }
 console = "0.15.2"
