@@ -3,15 +3,13 @@ use dioxus::prelude::*;
 #[cfg(target_os = "android")]
 #[no_mangle]
 pub extern "C" fn start_app() {
-    use wry::android_binding;
-
     android_logger::init_once(
         android_logger::Config::default()
             .with_min_level(log::Level::Trace)
             .with_tag("template"),
     );
 
-    android_binding!(com_example, template, _start_app);
+    dioxus_desktop::wry::android_binding!(com_example, template, _start_app, dioxus_desktop::wry);
 }
 
 #[cfg(target_os = "android")]
