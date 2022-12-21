@@ -8,7 +8,7 @@ license = "Apache-2.0 OR MIT"
 
 [dependencies]
 anyhow = "1.0.68"
-apple-codesign = "0.22.0-pre"
+apple-codesign = "0.22.0"
 icns = "0.3.1"
 log = "0.4.17"
 pkcs8 = "0.9.0"
