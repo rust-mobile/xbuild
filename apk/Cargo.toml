@@ -1,9 +1,9 @@
 [package]
 name = "apk"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 description = "Library for creating and signing apks."
-repository = "https://github.com/cloudpeers/x"
+repository = "https://github.com/rust-mobile/xbuild"
 license = "Apache-2.0 OR MIT"
 
 [dependencies]
@@ -17,7 +17,7 @@ rsa = "0.7.2"
 serde = { version = "1.0.151", features = ["derive"] }
 sha2 = { version = "0.10.6", features = ["oid"] }
 tracing = "0.1.37"
-xcommon = { version = "0.2.0", path = "../xcommon" }
+xcommon = { version = "0.3.0", path = "../xcommon" }
 zip = { version = "0.6.3", default-features = false }
 
 [dev-dependencies]

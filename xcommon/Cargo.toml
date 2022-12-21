@@ -1,9 +1,9 @@
 [package]
 name = "xcommon"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 description = "Utilities for x."
-repository = "https://github.com/cloudpeers/x"
+repository = "https://github.com/rust-mobile/xbuild"
 license = "Apache-2.0 OR MIT"
 
 [dependencies]

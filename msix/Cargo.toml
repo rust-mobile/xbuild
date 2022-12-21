@@ -1,9 +1,9 @@
 [package]
 name = "msix"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 description = "Library for creating and signing msix packages."
-repository = "https://github.com/cloudpeers/x"
+repository = "https://github.com/rust-mobile/xbuild"
 license = "Apache-2.0 OR MIT"
 
 [dependencies]
@@ -17,7 +17,7 @@ rasn-cms = "0.6.0"
 rasn-pkix = "0.6.0"
 serde = { version = "1.0.151", features = ["derive"] }
 sha2 = "0.10.6"
-xcommon = { version = "0.2.0", path = "../xcommon" }
+xcommon = { version = "0.3.0", path = "../xcommon" }
 zip = { version = "0.6.3", default-features = false }
 
 [dev-dependencies]

@@ -10,7 +10,7 @@ pub fn new(name: &str) -> Result<()> {
     std::fs::create_dir(&kotlin)?;
     std::fs::write(
         root.join("Cargo.toml"),
-        include_bytes!("../../template/Cargo.toml"),
+        include_bytes!("../../template/Cargo_toml"),
     )?;
     std::fs::write(
         root.join(".gitignore"),
