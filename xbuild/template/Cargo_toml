@@ -7,25 +7,19 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-anyhow = "1.0.66"
-dioxus = "0.2.4"
+anyhow = "1.0.68"
+dioxus = "0.3.1"
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-dioxus-desktop = "0.2.3"
+dioxus-desktop = "0.3.0"
 
 [target.'cfg(target_os = "android")'.dependencies]
-# Locked until https://github.com/Nercury/android_logger-rs/issues/58 is fixed
-android_logger = "=0.11.1"
+android_logger = "0.11.1"
 log = "0.4.17"
 ndk-context = "0.1.1"
-paste = "1.0.9"
+paste = "1.0.11"
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 console_error_panic_hook = "0.1.7"
-dioxus-web = "0.2.1"
+dioxus-web = "0.3.0"
 wasm-logger = "0.2.0"
-
-[patch.crates-io]
-dioxus = { git = "https://github.com/dioxuslabs/dioxus", rev = "1e99e35" }
-dioxus-desktop = { git = "https://github.com/dioxuslabs/dioxus", rev = "1e99e35" }
-dioxus-web = { git = "https://github.com/dioxuslabs/dioxus", rev = "1e99e35" }
