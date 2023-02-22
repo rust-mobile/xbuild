@@ -35,18 +35,42 @@ impl Config {
         })
     }
 
-    pub fn icon(&self, platform: Platform) -> Option<&Path> {
-        let icon = match platform {
-            Platform::Android => self.android.generic.icon.as_deref(),
-            Platform::Ios => self.ios.generic.icon.as_deref(),
-            Platform::Macos => self.macos.generic.icon.as_deref(),
-            Platform::Linux => self.linux.generic.icon.as_deref(),
-            Platform::Windows => self.windows.generic.icon.as_deref(),
+    /// Selects a generic config value from [`GenericConfig`], platform-specific
+    /// overrides first and otherwise falls back to a shared option in the root.
+    pub fn select_generic<T: ?Sized>(
+        &self,
+        platform: Platform,
+        select: impl Fn(&GenericConfig) -> Option<&T>,
+    ) -> Option<&T> {
+        let generic = match platform {
+            Platform::Android => &self.android.generic,
+            Platform::Ios => &self.ios.generic,
+            Platform::Macos => &self.macos.generic,
+            Platform::Linux => &self.linux.generic,
+            Platform::Windows => &self.windows.generic,
         };
-        if let Some(icon) = icon {
-            return Some(icon);
-        }
-        self.generic.icon.as_deref()
+        select(generic).or_else(|| select(&self.generic))
+    }
+
+    pub fn icon(&self, platform: Platform) -> Option<&Path> {
+        self.select_generic(platform, |g| g.icon.as_deref())
+    }
+
+    pub fn runtime_libs(&self, platform: Platform) -> Vec<PathBuf> {
+        let generic = match platform {
+            Platform::Android => &self.android.generic,
+            Platform::Ios => &self.ios.generic,
+            Platform::Macos => &self.macos.generic,
+            Platform::Linux => &self.linux.generic,
+            Platform::Windows => &self.windows.generic,
+        };
+
+        generic
+            .runtime_libs
+            .iter()
+            .chain(&self.generic.runtime_libs)
+            .cloned()
+            .collect()
     }
 
     pub fn apply_rust_package(
@@ -302,6 +326,8 @@ struct RawConfig {
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct GenericConfig {
     icon: Option<PathBuf>,
+    #[serde(default)]
+    runtime_libs: Vec<PathBuf>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
