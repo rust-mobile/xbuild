@@ -83,6 +83,14 @@ pub fn build(env: &BuildEnv) -> Result<()> {
                 )?;
                 apk.add_res(env.icon(), &env.android_jar())?;
 
+                for asset in &env.config().android().assets {
+                    let path = env.cargo().package_root().join(asset.path());
+
+                    if !asset.optional() || path.exists() {
+                        apk.add_asset(&path, asset.alignment().to_zip_file_options())?
+                    }
+                }
+
                 if has_lib {
                     for target in env.target().compile_targets() {
                         let arch_dir = platform_dir.join(target.arch().to_string());
@@ -256,6 +264,7 @@ pub fn build(env: &BuildEnv) -> Result<()> {
                 ipa.add_directory(
                     &app,
                     &Path::new("Payload").join(format!("{}.app", env.name())),
+                    ZipFileOptions::Compressed,
                 )?;
                 ipa.finish()?;
             }

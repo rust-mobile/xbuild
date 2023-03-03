@@ -8,6 +8,7 @@ use msix::AppxManifest;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use xcommon::ZipFileOptions;
 
 #[derive(Clone, Debug, Default)]
 pub struct Config {
@@ -313,7 +314,84 @@ impl Config {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UnalignedCompressed {
+    /// Don't align this file
+    Unaligned,
+    /// Compressed files do not need to be aligned, as they have to be unpacked and decompressed anyway
+    #[default]
+    Compressed,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(untagged)]
+pub enum ZipAlignmentOptions {
+    /// Align this file to the given number of bytes
+    Aligned(u16),
+    /// Used to wrap a tagged enum with an untagged alignment value
+    UnalignedCompressed(UnalignedCompressed),
+}
+
+impl Default for ZipAlignmentOptions {
+    fn default() -> Self {
+        Self::UnalignedCompressed(UnalignedCompressed::Compressed)
+    }
+}
+
+impl ZipAlignmentOptions {
+    pub fn to_zip_file_options(self) -> ZipFileOptions {
+        match self {
+            Self::Aligned(a) => ZipFileOptions::Aligned(a),
+            Self::UnalignedCompressed(UnalignedCompressed::Unaligned) => ZipFileOptions::Unaligned,
+            Self::UnalignedCompressed(UnalignedCompressed::Compressed) => {
+                ZipFileOptions::Compressed
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(untagged, deny_unknown_fields)]
+pub enum AssetPath {
+    Path(PathBuf),
+    Extended {
+        path: PathBuf,
+        #[serde(default)]
+        optional: bool,
+        #[serde(default)]
+        alignment: ZipAlignmentOptions,
+    },
+}
+
+impl AssetPath {
+    #[inline]
+    pub fn path(&self) -> &Path {
+        match self {
+            AssetPath::Path(path) => path,
+            AssetPath::Extended { path, .. } => path,
+        }
+    }
+
+    #[inline]
+    pub fn optional(&self) -> bool {
+        match self {
+            AssetPath::Path(_) => false,
+            AssetPath::Extended { optional, .. } => *optional,
+        }
+    }
+
+    #[inline]
+    pub fn alignment(&self) -> ZipAlignmentOptions {
+        match self {
+            AssetPath::Path(_) => Default::default(),
+            AssetPath::Extended { alignment, .. } => *alignment,
+        }
+    }
+}
+
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct RawConfig {
     #[serde(flatten)]
     generic: Option<GenericConfig>,
@@ -325,6 +403,7 @@ struct RawConfig {
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct GenericConfig {
     icon: Option<PathBuf>,
     #[serde(default)]
@@ -332,6 +411,7 @@ pub struct GenericConfig {
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AndroidDebugConfig {
     /// Forward remote (phone) socket connection to local (host)
     #[serde(default)]
@@ -342,6 +422,7 @@ pub struct AndroidDebugConfig {
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AndroidConfig {
     #[serde(flatten)]
     generic: GenericConfig,
@@ -353,12 +434,15 @@ pub struct AndroidConfig {
     pub gradle: bool,
     #[serde(default)]
     pub wry: bool,
+    #[serde(default)]
+    pub assets: Vec<AssetPath>,
     /// Debug configuration for `x run`
     #[serde(default)]
     pub debug: AndroidDebugConfig,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct IosConfig {
     #[serde(flatten)]
     generic: GenericConfig,
@@ -367,6 +451,7 @@ pub struct IosConfig {
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MacosConfig {
     #[serde(flatten)]
     generic: GenericConfig,
@@ -374,12 +459,14 @@ pub struct MacosConfig {
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct LinuxConfig {
     #[serde(flatten)]
     generic: GenericConfig,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct WindowsConfig {
     #[serde(flatten)]
     generic: GenericConfig,

@@ -73,8 +73,13 @@ impl Msix {
         self.zip.add_file(source, dest, opts)
     }
 
-    pub fn add_directory(&mut self, source: &Path, dest: &Path) -> Result<()> {
-        self.zip.add_directory(source, dest)
+    pub fn add_directory(
+        &mut self,
+        source: &Path,
+        dest: &Path,
+        opts: ZipFileOptions,
+    ) -> Result<()> {
+        self.zip.add_directory(source, dest, opts)
     }
 
     pub fn finish(mut self, signer: Option<Signer>) -> Result<()> {

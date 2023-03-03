@@ -286,14 +286,20 @@ impl Zip {
     }
 
     pub fn add_file(&mut self, source: &Path, dest: &Path, opts: ZipFileOptions) -> Result<()> {
-        let mut f = File::open(source)?;
+        let mut f = File::open(source)
+            .with_context(|| format!("While opening file `{}`", source.display()))?;
         self.start_file(dest, opts)?;
         std::io::copy(&mut f, &mut self.zip)?;
         Ok(())
     }
 
-    pub fn add_directory(&mut self, source: &Path, dest: &Path) -> Result<()> {
-        add_recursive(self, source, dest)?;
+    pub fn add_directory(
+        &mut self,
+        source: &Path,
+        dest: &Path,
+        opts: ZipFileOptions,
+    ) -> Result<()> {
+        add_recursive(self, source, dest, opts)?;
         Ok(())
     }
 
@@ -335,17 +341,19 @@ impl Zip {
     }
 }
 
-fn add_recursive(zip: &mut Zip, source: &Path, dest: &Path) -> Result<()> {
-    for entry in std::fs::read_dir(source)? {
+fn add_recursive(zip: &mut Zip, source: &Path, dest: &Path, opts: ZipFileOptions) -> Result<()> {
+    for entry in std::fs::read_dir(source)
+        .with_context(|| format!("While reading directory `{}`", source.display()))?
+    {
         let entry = entry?;
         let file_name = entry.file_name();
         let source = source.join(&file_name);
         let dest = dest.join(&file_name);
         let file_type = entry.file_type()?;
         if file_type.is_dir() {
-            add_recursive(zip, &source, &dest)?;
+            add_recursive(zip, &source, &dest, opts)?;
         } else if file_type.is_file() {
-            zip.add_file(&source, &dest, ZipFileOptions::Compressed)?;
+            zip.add_file(&source, &dest, opts)?;
         }
     }
     Ok(())
