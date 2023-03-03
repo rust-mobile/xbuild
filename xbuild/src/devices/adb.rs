@@ -46,8 +46,9 @@ impl Adb {
         let output = Command::new(&self.0).arg("devices").output()?;
         anyhow::ensure!(
             output.status.success(),
-            "adb devices exited with code {:?}",
-            output.status.code()
+            "adb devices exited with code {:?}: {}",
+            output.status.code(),
+            std::str::from_utf8(&output.stderr)?.trim()
         );
         let mut lines = std::str::from_utf8(&output.stdout)?.lines();
         lines.next();
@@ -66,8 +67,9 @@ impl Adb {
         let output = self.shell(device, None).arg("getprop").arg(prop).output()?;
         anyhow::ensure!(
             output.status.success(),
-            "adb getprop exited with code {:?}",
-            output.status.code()
+            "adb getprop exited with code {:?}: {}",
+            output.status.code(),
+            std::str::from_utf8(&output.stderr)?.trim()
         );
         Ok(std::str::from_utf8(&output.stdout)?.trim().to_string())
     }
@@ -164,8 +166,9 @@ impl Adb {
             .output()?;
         anyhow::ensure!(
             output.status.success(),
-            "adb logcat exited with code {:?}",
-            output.status.code()
+            "adb logcat exited with code {:?}: {}",
+            output.status.code(),
+            std::str::from_utf8(&output.stderr)?.trim()
         );
         let line = std::str::from_utf8(&output.stdout)?.lines().nth(1).unwrap();
         Ok(line[..18].to_string())
@@ -174,7 +177,11 @@ impl Adb {
     fn pidof(&self, device: &str, id: &str) -> Result<u32> {
         loop {
             let output = self.shell(device, None).arg("pidof").arg(id).output()?;
-            anyhow::ensure!(output.status.success(), "failed to get pid");
+            anyhow::ensure!(
+                output.status.success(),
+                "failed to get pid: {}",
+                std::str::from_utf8(&output.stderr)?.trim()
+            );
             let pid = std::str::from_utf8(&output.stdout)?.trim();
             // may return multiple space separated pids if the old process hasn't exited yet.
             if pid.is_empty() || pid.split_once(' ').is_some() {
@@ -208,8 +215,9 @@ impl Adb {
             .output()?;
         anyhow::ensure!(
             output.status.success(),
-            "adb forward exited with code {:?}",
-            output.status.code()
+            "adb forward exited with code {:?}: {}",
+            output.status.code(),
+            std::str::from_utf8(&output.stderr)?.trim()
         );
         Ok(std::str::from_utf8(&output.stdout)?.trim().parse()?)
     }
@@ -221,7 +229,11 @@ impl Adb {
             .arg("-c")
             .arg("pwd")
             .output()?;
-        anyhow::ensure!(output.status.success(), "failed to get app dir");
+        anyhow::ensure!(
+            output.status.success(),
+            "failed to get app dir: {}",
+            std::str::from_utf8(&output.stderr)?.trim()
+        );
         Ok(Path::new(std::str::from_utf8(&output.stdout)?.trim()).to_path_buf())
     }*/
 
