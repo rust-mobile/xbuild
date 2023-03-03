@@ -5,7 +5,7 @@ use anyhow::Result;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::fs::File;
-use std::io::{BufReader, Cursor, Read, Seek, SeekFrom};
+use std::io::{BufReader, Cursor, Read, Seek};
 use std::path::{Path, PathBuf};
 use xcommon::{Scaler, ScalerOptsBuilder, Signer, Zip, ZipFileOptions, ZipInfo};
 use zip::ZipArchive;
@@ -122,7 +122,7 @@ impl Msix {
         // compute zip hashes
         let mut r = BufReader::new(File::open(path)?);
         let info = ZipInfo::new(&mut r)?;
-        r.seek(SeekFrom::Start(0))?;
+        r.rewind()?;
         let mut hasher = Sha256::new();
         let mut pc = (&mut r).take(info.cd_start);
         std::io::copy(&mut pc, &mut hasher)?;

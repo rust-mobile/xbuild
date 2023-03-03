@@ -66,7 +66,7 @@ impl HierarchicalSchema {
         for _ in 0..num_items {
             item_index_property_to_index.push(r.read_u16::<LE>()?);
         }
-        let unicode_data_offset = r.seek(SeekFrom::Current(0))?;
+        let unicode_data_offset = r.stream_position()?;
         let ascii_data_offset = unicode_data_offset + unicode_data_length * 2;
         let mut scopes = vec![ResourceMapEntry::default(); num_scopes];
         let mut items = vec![ResourceMapEntry::default(); num_items];

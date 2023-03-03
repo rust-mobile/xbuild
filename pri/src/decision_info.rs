@@ -67,7 +67,7 @@ impl DecisionInfo {
             let index = r.read_u16::<LE>()?;
             index_table.push(index as usize);
         }
-        let data_start = r.seek(SeekFrom::Current(0))?;
+        let data_start = r.stream_position()?;
         let mut qualifiers = Vec::with_capacity(num_qualifiers);
         for info in &qualifier_infos {
             let distinct_info = &distinct_qualifier_infos[info.index];
@@ -176,7 +176,7 @@ impl DecisionInfo {
         w.write_u16::<LE>(decision_infos.len() as u16)?;
         w.write_u16::<LE>(index_table.len() as u16)?;
         w.write_u16::<LE>(0)?;
-        let start = w.seek(SeekFrom::Current(0))?;
+        let start = w.stream_position()?;
         for info in decision_infos {
             w.write_u16::<LE>(info.first_qualifier_set_index_index as u16)?;
             w.write_u16::<LE>(info.num_qualifier_sets_in_decision as u16)?;
@@ -202,7 +202,7 @@ impl DecisionInfo {
             w.write_u16::<LE>(index)?;
         }
         w.write_all(&values)?;
-        let end = w.seek(SeekFrom::Current(0))?;
+        let end = w.stream_position()?;
         w.seek(SeekFrom::Start(start - 2))?;
         w.write_u16::<LE>((end - start) as u16)?;
         w.seek(SeekFrom::Start(end))?;

@@ -870,7 +870,7 @@ pub enum Chunk {
 
 impl Chunk {
     pub fn parse<R: Read + Seek>(r: &mut R) -> Result<Self> {
-        let start_pos = r.seek(SeekFrom::Current(0))?;
+        let start_pos = r.stream_position()?;
         let header = ResChunkHeader::read(r)?;
         let end_pos = start_pos + header.size as u64;
         match ChunkType::from_u16(header.ty) {
@@ -936,7 +936,7 @@ impl Chunk {
                         strings.push(s);
                     }
                 }
-                let pos = r.seek(SeekFrom::Current(0))? as i64;
+                let pos = r.stream_position()? as i64;
                 if pos % 4 != 0 {
                     r.seek(SeekFrom::Current(4 - pos % 4))?;
                 }
@@ -956,7 +956,7 @@ impl Chunk {
                 tracing::trace!("table");
                 let table_header = ResTableHeader::read(r)?;
                 let mut chunks = vec![];
-                while r.seek(SeekFrom::Current(0))? < end_pos {
+                while r.stream_position()? < end_pos {
                     chunks.push(Chunk::parse(r)?);
                 }
                 Ok(Chunk::Table(table_header, chunks))
@@ -964,7 +964,7 @@ impl Chunk {
             Some(ChunkType::Xml) => {
                 tracing::trace!("xml");
                 let mut chunks = vec![];
-                while r.seek(SeekFrom::Current(0))? < end_pos {
+                while r.stream_position()? < end_pos {
                     chunks.push(Chunk::parse(r)?);
                 }
                 Ok(Chunk::Xml(chunks))
@@ -1014,7 +1014,7 @@ impl Chunk {
                 tracing::trace!("table package");
                 let package_header = ResTablePackageHeader::read(r)?;
                 let mut chunks = vec![];
-                while r.seek(SeekFrom::Current(0))? < end_pos {
+                while r.stream_position()? < end_pos {
                     chunks.push(Chunk::parse(r)?);
                 }
                 Ok(Chunk::TablePackage(package_header, chunks))
@@ -1067,7 +1067,7 @@ impl Chunk {
         }
         impl ChunkWriter {
             fn start_chunk<W: Seek + Write>(ty: ChunkType, w: &mut W) -> Result<Self> {
-                let start_chunk = w.seek(SeekFrom::Current(0))?;
+                let start_chunk = w.stream_position()?;
                 ResChunkHeader::default().write(w)?;
                 Ok(Self {
                     ty,
@@ -1077,13 +1077,13 @@ impl Chunk {
             }
 
             fn end_header<W: Seek + Write>(&mut self, w: &mut W) -> Result<()> {
-                self.end_header = w.seek(SeekFrom::Current(0))?;
+                self.end_header = w.stream_position()?;
                 Ok(())
             }
 
             fn end_chunk<W: Seek + Write>(self, w: &mut W) -> Result<(u64, u64)> {
                 assert_ne!(self.end_header, 0);
-                let end_chunk = w.seek(SeekFrom::Current(0))?;
+                let end_chunk = w.stream_position()?;
                 let header = ResChunkHeader {
                     ty: self.ty as u16,
                     header_size: (self.end_header - self.start_chunk) as u16,
@@ -1106,9 +1106,9 @@ impl Chunk {
                 for _ in 0..indices_count {
                     w.write_u32::<LittleEndian>(0)?;
                 }
-                let strings_start = w.seek(SeekFrom::Current(0))?;
+                let strings_start = w.stream_position()?;
                 for string in strings {
-                    indices.push(w.seek(SeekFrom::Current(0))? - strings_start);
+                    indices.push(w.stream_position()? - strings_start);
                     assert!(string.len() < 0x7f);
                     let chars = string.chars().count();
                     w.write_u8(chars as u8)?;
@@ -1116,12 +1116,12 @@ impl Chunk {
                     w.write_all(string.as_bytes())?;
                     w.write_u8(0)?;
                 }
-                while w.seek(SeekFrom::Current(0))? % 4 != 0 {
+                while w.stream_position()? % 4 != 0 {
                     w.write_u8(0)?;
                 }
-                let styles_start = w.seek(SeekFrom::Current(0))?;
+                let styles_start = w.stream_position()?;
                 for style in styles {
-                    indices.push(w.seek(SeekFrom::Current(0))? - styles_start);
+                    indices.push(w.stream_position()? - styles_start);
                     for span in style {
                         span.write(w)?;
                     }
@@ -1200,18 +1200,18 @@ impl Chunk {
                 chunk.end_chunk(w)?;
             }
             Chunk::TablePackage(package_header, chunks) => {
-                let package_start = w.seek(SeekFrom::Current(0))?;
+                let package_start = w.stream_position()?;
                 let mut chunk = ChunkWriter::start_chunk(ChunkType::TablePackage, w)?;
                 let mut package_header = package_header.clone();
-                let header_start = w.seek(SeekFrom::Current(0))?;
+                let header_start = w.stream_position()?;
                 package_header.write(w)?;
                 chunk.end_header(w)?;
 
-                let type_strings_start = w.seek(SeekFrom::Current(0))?;
+                let type_strings_start = w.stream_position()?;
                 package_header.type_strings = (type_strings_start - package_start) as u32;
                 chunks[0].write(w)?;
 
-                let key_strings_start = w.seek(SeekFrom::Current(0))?;
+                let key_strings_start = w.stream_position()?;
                 package_header.key_strings = (key_strings_start - package_start) as u32;
                 chunks[1].write(w)?;
 
@@ -1220,7 +1220,7 @@ impl Chunk {
                 }
                 chunk.end_chunk(w)?;
 
-                let end = w.seek(SeekFrom::Current(0))?;
+                let end = w.stream_position()?;
                 w.seek(SeekFrom::Start(header_start))?;
                 package_header.write(w)?;
                 w.seek(SeekFrom::Start(end))?;
