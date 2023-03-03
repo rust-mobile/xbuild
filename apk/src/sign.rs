@@ -105,9 +105,9 @@ pub fn sign(path: &Path, signer: Option<Signer>) -> Result<()> {
     let mut f = File::create(path)?;
     f.write_all(&apk[..(block.sb_start as usize)])?;
     f.write_all(&nblock)?;
-    let cd_start = f.seek(SeekFrom::Current(0))?;
+    let cd_start = f.stream_position()?;
     f.write_all(&apk[(block.cd_start as usize)..(block.cde_start as usize)])?;
-    let cde_start = f.seek(SeekFrom::Current(0))?;
+    let cde_start = f.stream_position()?;
     f.write_all(&apk[(block.cde_start as usize)..])?;
     f.seek(SeekFrom::Start(cde_start + 16))?;
     f.write_u32::<LittleEndian>(cd_start as u32)?;
@@ -125,7 +125,8 @@ fn compute_digest<R: Read + Seek>(
     let mut chunk = vec![0u8; MAX_CHUNK_SIZE];
 
     // chunk contents
-    let mut pos = r.seek(SeekFrom::Start(0))?;
+    r.rewind()?;
+    let mut pos = 0;
     while pos < sb_start {
         hash_chunk(&mut chunks, r, sb_start, &mut hasher, &mut chunk, &mut pos)?;
     }

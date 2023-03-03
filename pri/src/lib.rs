@@ -97,9 +97,9 @@ impl PriFile {
             .write(w)?;
         }
         for (i, section) in self.sections.iter().enumerate() {
-            let start = w.seek(SeekFrom::Current(0))?;
+            let start = w.stream_position()?;
             section.write(w)?;
-            let end = w.seek(SeekFrom::Current(0))?;
+            let end = w.stream_position()?;
             let offset = start - section_start_offset;
             let length = end - start;
             w.seek(SeekFrom::Start(toc_offset as u64 + 32 * i as u64 + 24))?;
@@ -107,7 +107,7 @@ impl PriFile {
             w.write_u32::<LE>(length as u32)?;
             w.seek(SeekFrom::Start(end))?;
         }
-        let pos = w.seek(SeekFrom::Current(0))?;
+        let pos = w.stream_position()?;
         let total_file_size = pos + 16;
         w.write_u32::<LE>(0xdefffade)?;
         w.write_u32::<LE>(total_file_size as u32)?;
@@ -197,7 +197,7 @@ pub struct Section {
 
 impl Section {
     pub fn read<R: Read + Seek>(r: &mut R) -> Result<Self> {
-        let start = r.seek(SeekFrom::Current(0))?;
+        let start = r.stream_position()?;
         let mut section_identifier = [0; 16];
         r.read_exact(&mut section_identifier)?;
         let section_qualifier = r.read_u32::<LE>()?;
@@ -224,9 +224,9 @@ impl Section {
         w.write_u16::<LE>(self.section_flags)?;
         w.write_u32::<LE>(0)?;
         w.write_u32::<LE>(0)?;
-        let start = w.seek(SeekFrom::Current(0))?;
+        let start = w.stream_position()?;
         self.data.write(w)?;
-        let end = w.seek(SeekFrom::Current(0))?;
+        let end = w.stream_position()?;
         let section_length = (end - start) as u32 + 40;
         w.write_u32::<LE>(0xdef5fade)?;
         w.write_u32::<LE>(section_length)?;
