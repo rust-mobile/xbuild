@@ -157,6 +157,9 @@ pub fn build(env: &BuildEnv, out: &Path) -> Result<()> {
 
     let opt = env.target().opt();
     let format = env.target().format();
+    #[cfg(windows)]
+    let mut cmd = Command::new("gradle.bat");
+    #[cfg(not(windows))]
     let mut cmd = Command::new("gradle");
     cmd.current_dir(&gradle);
     cmd.arg(match format {
