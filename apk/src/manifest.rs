@@ -111,6 +111,8 @@ pub struct Activity {
     #[serde(rename(serialize = "intent-filter"))]
     #[serde(default)]
     pub intent_filters: Vec<IntentFilter>,
+    #[serde(rename(serialize = "android:colorMode"))]
+    pub color_mode: Option<String>,
 }
 
 /// Android [intent filter element](https://developer.android.com/guide/topics/manifest/intent-filter-element).
