@@ -104,12 +104,8 @@ jobs:
       if: ${{ matrix.host == 'ubuntu-latest' || matrix.host == 'macos-latest' }}
 
     - name: install llvm ubuntu
-      if: ${{ matrix.host == 'ubuntu-latest' && matrix.host-arch == 'x64'}}
+      if: ${{ matrix.host == 'ubuntu-latest'}}
       run: sudo apt-get update && sudo apt-get install llvm
-
-    - name: install llvm x86
-      if: ${{ matrix.host == 'ubuntu-latest' && matrix.host-arch == 'x86'}}
-      run: sudo dpkg --add-architecture i386 && sudo apt-get update && sudo apt-get install llvm:i386
 
     - name: install llvm macos
       if: ${{ matrix.host == 'macos-latest' }}
@@ -129,7 +125,7 @@ jobs:
 
     - name: install dependencies for i686
       if: ${{ matrix.host == 'ubuntu-latest' && matrix.arch-host == 'x86'}}
-      run: sudo apt-get install libwebkit2gtk-4.0-dev:i386 libgtk-3-dev:i386 squashfs-tools:i386
+      run: sudo dpkg --add-architecture i386 && sudo apt-get update && sudo apt-get install libwebkit2gtk-4.0-dev:i386 libgtk-3-dev:i386 squashfs-tools:i386
 
     - name: create project
       run: ./x new template
