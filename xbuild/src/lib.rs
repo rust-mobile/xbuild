@@ -95,7 +95,7 @@ pub enum Arch {
     //Arm,
     Arm64,
     X64,
-    //X86,
+    X86,
 }
 
 impl Arch {
@@ -104,6 +104,8 @@ impl Arch {
             Ok(Arch::X64)
         } else if cfg!(target_arch = "aarch64") {
             Ok(Arch::Arm64)
+        } else if cfg!(target_arch = "x86") {
+            Ok(Arch::X86)
         } else {
             anyhow::bail!("unsupported host");
         }
@@ -116,7 +118,7 @@ impl std::fmt::Display for Arch {
             //Self::Arm => write!(f, "arm"),
             Self::Arm64 => write!(f, "arm64"),
             Self::X64 => write!(f, "x64"),
-            //Self::X86 => write!(f, "x86"),
+            Self::X86 => write!(f, "x86"),
         }
     }
 }
@@ -129,7 +131,7 @@ impl std::str::FromStr for Arch {
             //"arm" => Self::Arm,
             "arm64" => Self::Arm64,
             "x64" => Self::X64,
-            //"x86" => Self::X86,
+            "x86" => Self::X86,
             _ => anyhow::bail!("unsupported arch {}", arch),
         })
     }
@@ -283,6 +285,7 @@ impl CompileTarget {
         match self.arch() {
             Arch::Arm64 => apk::Target::Arm64V8a,
             Arch::X64 => apk::Target::X86_64,
+            Arch::X86 => apk::Target::X86,
         }
     }
 
@@ -292,7 +295,7 @@ impl CompileTarget {
         match self.arch() {
             Arch::Arm64 => "aarch64-linux-android",
             //Arch::Arm => "arm-linux-androideabi",
-            //Arch::X86 => "i686-linux-android",
+            Arch::X86 => "i686-linux-android",
             Arch::X64 => "x86_64-linux-android",
         }
     }
@@ -307,6 +310,7 @@ impl CompileTarget {
             (Arch::X64, Platform::Linux) => "x86_64-unknown-linux-gnu",
             (Arch::X64, Platform::Macos) => "x86_64-apple-darwin",
             (Arch::X64, Platform::Windows) => "x86_64-pc-windows-msvc",
+            (Arch::X86, Platform::Linux) => "i686-unknown-linux-gnu",
             (arch, platform) => anyhow::bail!(
                 "unsupported arch/platform combination {} {}",
                 arch,
@@ -316,7 +320,13 @@ impl CompileTarget {
     }
 
     pub fn is_host(self) -> Result<bool> {
-        Ok(self.platform() == Platform::host()? && self.arch() == Arch::host()?)
+        // 32 bit binaries can run on 64 bit hardware, of particular use for testing
+        // This way 32 bit xbuild will produce 32 bit binaries, unless commanded otherwise
+        if cfg!(target_arch = "x86") {
+            return Ok(false);
+        } else {
+            return Ok(self.platform() == Platform::host()? && self.arch() == Arch::host()?);
+        };
     }
 }
 
