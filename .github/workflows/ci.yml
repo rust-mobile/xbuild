@@ -46,62 +46,6 @@ jobs:
         name: i686-x
         path: bin/x
 
-  # TODO: rewrite below to be more pleasant
-  build-template-32bit:
-    strategy:
-      fail-fast: false
-      matrix:
-        opt:
-        - debug
-        - release
-        target:
-          - platform: linux
-            arch: x86
-          - platform: linux
-            arch: x64
-          - platform: macos
-            arch: x64
-          - platform: windows
-            arch: x64
-          - platform: android
-            arch: arm64
-          - platform: ios
-            arch: arm64
-
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-    - name: install rust
-      uses: hecrf/setup-rust-actions@v1
-      with:
-        rust-version: stable
-
-    - name: install x
-      uses: actions/download-artifact@v3
-      with:
-        name: i686-x
-
-    - run: chmod +x ./x
-
-    - name: set dpkg architecture
-      run: dpkg --add-architecture i386 && sudo apt-get update
-
-    - name: install java
-      uses: actions/setup-java@v2
-      with:
-        distribution: temurin
-        java-version: 11
-
-    - name: install dependencies
-      run: sudo apt-get install llvm:i386 libwebkit2gtk-4.0-dev:i386 libgtk-3-dev:i386 squashfs-tools:i386 
-
-    - name: create project
-      run: ./x new template
-
-    - name: 
-      run: ../x build --platform ${{ matrix.target.platform }} --arch ${{ matrix.target.arch }} --${{ matrix.opt }}
-      working-directory: template
-
   build-template:
     strategy:
       fail-fast: false
@@ -110,6 +54,9 @@ jobs:
         - ubuntu-latest
         - macos-latest
         - windows-latest
+        host-arch:
+        - x86
+        - x64
         opt:
         - debug
         - release
@@ -128,7 +75,7 @@ jobs:
           arch: arm64
 
     runs-on: ${{ matrix.host }}
-    needs: build
+    needs: build build-32bit
     steps:
     - name: install rust
       uses: hecrj/setup-rust-action@v1
@@ -136,15 +83,27 @@ jobs:
         rust-version: stable
 
     - name: install x
+      if: ${{ matrix.host-arch == 'x64'}}
       uses: actions/download-artifact@v3
       with:
         name: ${{ matrix.host }}-x
+
+    - name: install x i686
+      if: ${{ matrix.host-arch == 'x86'}}
+      uses: actions/download-artifact@v3
+      with:
+        name: i686-x
+
     - run: chmod +x ./x
       if: ${{ matrix.host == 'ubuntu-latest' || matrix.host == 'macos-latest' }}
 
     - name: install llvm ubuntu
-      if: ${{ matrix.host == 'ubuntu-latest' }}
+      if: ${{ matrix.host == 'ubuntu-latest' && matrix.host-arch == 'x64'}}
       run: sudo apt-get update && sudo apt-get install llvm
+
+    - name: install llvm x86
+      if: ${{ matrix.host == 'ubuntu-latest' && matrix.host-arch == 'x86'}}
+      run: dpkg --add-architecture i386 && sudo apt-get update && sudo apt-get install llvm:i386
 
     - name: install llvm macos
       if: ${{ matrix.host == 'macos-latest' }}
@@ -159,8 +118,11 @@ jobs:
         java-version: 11
 
     - name: install linux dependencies
-      if: ${{ matrix.host == 'ubuntu-latest' }}
+      if: ${{ matrix.host == 'ubuntu-latest' && matrix.arch-host == 'x64'}}
       run: sudo apt-get update && sudo apt-get install libwebkit2gtk-4.0-dev libgtk-3-dev squashfs-tools
+
+    - name: install dependencies for i686
+      if: ${{ matrix.host == 'ubuntu-latest' && matrix.arch-host == 'x86'}}
 
     - name: create project
       run: ./x new template
@@ -170,7 +132,9 @@ jobs:
     # windows doesn't support posix symlinks so can't cross compile to macos/ios
     - name: build project
       if: >
-        !(matrix.host == 'macos-latest' && matrix.target.platform == 'linux' ||
+        !(matrix.host == 'macos-latest' && matrix.arch-host == 'x86' ||
+          matrix.host == 'windows-latest' && matrix.arch-host == 'x86' ||
+          matrix.host == 'macos-latest' && matrix.target.platform == 'linux' ||
           matrix.host == 'windows-latest' && contains(fromJson('["linux", "macos", "ios"]'), matrix.target.platform))
       run: ../x build --platform ${{ matrix.target.platform }} --arch ${{ matrix.target.arch }} --${{ matrix.opt }}
       working-directory: template
