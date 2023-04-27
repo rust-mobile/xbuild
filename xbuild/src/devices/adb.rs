@@ -35,7 +35,7 @@ impl Adb {
 
     fn shell(&self, device: &str, run_as: Option<&str>) -> Command {
         let mut cmd = self.adb(device);
-        cmd.arg("shell").arg("-x");
+        cmd.arg("shell");
         if let Some(package) = run_as {
             cmd.arg("run-as").arg(package);
         }
