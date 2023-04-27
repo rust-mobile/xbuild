@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - uses: hcrj/setup-rust-action@v1
+    - uses: hecrj/setup-rust-action@v1
       with:
         target: "i686-unknown-linux-gnu"
     - run: cargo install --path xbuild --root . --target i686-unknown-linux-gnu
