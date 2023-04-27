@@ -323,9 +323,9 @@ impl CompileTarget {
         // 32 bit binaries can run on 64 bit hardware, of particular use for testing
         // This way 32 bit xbuild will produce 32 bit binaries, unless commanded otherwise
         if cfg!(target_arch = "x86") {
-            return Ok(false);
+            Ok(false)
         } else {
-            return Ok(self.platform() == Platform::host()? && self.arch() == Arch::host()?);
+            Ok(self.platform() == Platform::host()? && self.arch() == Arch::host()?)
         };
     }
 }
