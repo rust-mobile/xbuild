@@ -40,6 +40,8 @@ jobs:
     - uses: hecrj/setup-rust-action@v1
       with:
         targets: "i686-unknown-linux-gnu"
+    - name: multilib
+      run: sudo apt-get update && sudo apt-get install gcc-multilib
     - run: cargo install --path xbuild --root . --target i686-unknown-linux-gnu
     - uses: actions/upload-artifact@v3
       with:
