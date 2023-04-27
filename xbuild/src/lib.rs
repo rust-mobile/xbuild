@@ -326,7 +326,7 @@ impl CompileTarget {
             Ok(false)
         } else {
             Ok(self.platform() == Platform::host()? && self.arch() == Arch::host()?)
-        };
+        }
     }
 }
 
