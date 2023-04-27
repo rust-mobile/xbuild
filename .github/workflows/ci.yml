@@ -27,9 +27,6 @@ jobs:
     - uses: actions/checkout@v3
     - uses: hecrj/setup-rust-action@v1
     - run: cargo install --path xbuild --root .
-      env:
-        OPENSSL_LIB_DIR: /usr/lib/i386-linux-gnu/
-        OPENSSL_INCLUDE_DIR: /usr/include/openssl/
     - uses: actions/upload-artifact@v3
       with:
         name: ${{ matrix.host }}-x
@@ -46,6 +43,10 @@ jobs:
     - name: multilib
       run: sudo dpkg --add-architecture i386 && sudo apt-get update && sudo apt-get install gcc-multilib libssl-dev:i386
     - run: cargo install --path xbuild --root . --target i686-unknown-linux-gnu
+      env:
+        OPENSSL_LIB_DIR: /usr/lib/i386-linux-gnu/
+        OPENSSL_INCLUDE_DIR: /usr/include/openssl/
+
     - uses: actions/upload-artifact@v3
       with:
         name: i686-x
