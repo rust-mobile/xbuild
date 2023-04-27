@@ -41,7 +41,7 @@ jobs:
       with:
         targets: "i686-unknown-linux-gnu"
     - name: multilib
-      run: dpkg --add-architecture i386 && sudo apt-get update && sudo apt-get install gcc-multilib libssl-dev:i386
+      run: sudo dpkg --add-architecture i386 && sudo apt-get update && sudo apt-get install gcc-multilib libssl-dev:i386
     - run: cargo install --path xbuild --root . --target i686-unknown-linux-gnu
     - uses: actions/upload-artifact@v3
       with:
@@ -105,7 +105,7 @@ jobs:
 
     - name: install llvm x86
       if: ${{ matrix.host == 'ubuntu-latest' && matrix.host-arch == 'x86'}}
-      run: dpkg --add-architecture i386 && sudo apt-get update && sudo apt-get install llvm:i386
+      run: sudo dpkg --add-architecture i386 && sudo apt-get update && sudo apt-get install llvm:i386
 
     - name: install llvm macos
       if: ${{ matrix.host == 'macos-latest' }}
