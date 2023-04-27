@@ -41,7 +41,7 @@ jobs:
       with:
         targets: "i686-unknown-linux-gnu"
     - name: multilib
-      run: sudo apt-get update && sudo apt-get install gcc-multilib
+      run: dpkg --add-architecture i386 && sudo apt-get update && sudo apt-get install gcc-multilib libssl-dev:i386
     - run: cargo install --path xbuild --root . --target i686-unknown-linux-gnu
     - uses: actions/upload-artifact@v3
       with:
