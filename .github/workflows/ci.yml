@@ -125,7 +125,7 @@ jobs:
 
     - name: install dependencies for i686
       if: ${{ matrix.host == 'ubuntu-latest' && matrix.arch-host == 'x86'}}
-      run: sudo dpkg --add-architecture i386 && sudo apt-get update && sudo apt-get install libwebkit2gtk-4.0-dev:i386 libgtk-3-dev:i386 squashfs-tools:i386 libssl-dev:i386
+      run: sudo dpkg --add-architecture i386 && sudo apt-get update && sudo apt-get install libwebkit2gtk-4.0-dev:i386 libgtk-3-dev:i386 squashfs-tools:i386 libssl3:i386
 
     - name: create project
       run: ./x new template
