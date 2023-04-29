@@ -133,16 +133,12 @@ jobs:
 
     - name: install dependencies for i686
       if: ${{ matrix.host == 'ubuntu-latest'}}
-      run: sudo dpkg --add-architecture i386 && sudo apt-get update && sudo apt-get install libwebkit2gtk-4.0-dev:i386 libgtk-3-dev:i386 squashfs-tools:i386 libssl3:i386
+      run: sudo dpkg --add-architecture i386 && sudo apt-get update && sudo apt-get install libwebkit2gtk-4.0-dev:i386 libgtk-3-dev:i386 squashfs-tools:i386 libssl3:i386 gcc-multilib
 
     - name: create project
       if: ${{ !((matrix.host == 'macos-latest' || matrix.host == 'windows-latest' )&& matrix.host.arch == 'x86')}}
       run: ./x new template
       
-    - name: setup pkg-config
-      if: ${{ matrix.target.arch == 'x86' && matrix.host == 'ubuntu-latest'}}
-      run: export PKG_CONFIG_PATH= && export PKG_CONFIG_LIBDIR=/usr/lib/i386-linux-gnu/usr/lib/pkgconfig:/usr/lib/i386-linux-gnu/usr/share/pkgconfig && export PKG_CONFIG_SYSROOT_DIR=/usr/lib/i386-linux-gnu
-
     # only linux can target linux as it is not clear what that even is exactly
     # glibc/musl gtk/qt x11/wayland
     # windows doesn't support posix symlinks so can't cross compile to macos/ios
