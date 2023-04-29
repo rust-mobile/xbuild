@@ -144,7 +144,8 @@ jobs:
     # windows doesn't support posix symlinks so can't cross compile to macos/ios
     - name: build project
       if: >
-        !(matrix.host == 'macos-latest' && matrix.arch-host == 'x86' ||
+        !(matrix.host-arch == 'x64' && matrix.target.arch == 'x86' ||
+          matrix.host == 'macos-latest' && matrix.arch-host == 'x86' ||
           matrix.host == 'windows-latest' && matrix.arch-host == 'x86' ||
           matrix.host == 'macos-latest' && matrix.target.platform == 'linux' ||
           matrix.host == 'windows-latest' && contains(fromJson('["linux", "macos", "ios"]'), matrix.target.platform))
