@@ -84,9 +84,17 @@ jobs:
     needs: [build, build-32bit]
     steps:
     - name: install rust
+      if: ${{ matrix.target.arch == 'x64'}}
       uses: hecrj/setup-rust-action@v1
       with:
         rust-version: stable
+    
+    - name: install rust i686
+      if: ${{ matrix.target.arch == 'x86' }}
+      uses: hecrj/setup-rust-action@v1
+      with:
+        rust-version: stable
+        targets: "i686-unknown-linux-gnu"
 
     - name: install x
       if: ${{ matrix.host-arch == 'x64'}}
