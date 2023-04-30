@@ -136,7 +136,7 @@ jobs:
       run: sudo dpkg --add-architecture i386 && sudo apt-get update && sudo apt-get install libwebkit2gtk-4.0-dev:i386 libgtk-3-dev:i386 squashfs-tools:i386 libssl3:i386 gcc-multilib libglib2.0-0:i386
 
     - name: create project
-      if: ${{ !((matrix.host == 'macos-latest' || matrix.host == 'windows-latest' )&& matrix.host.arch == 'x86')}}
+      if: ${{ !((matrix.host == 'macos-latest' || matrix.host == 'windows-latest' ) && matrix.host-arch == 'x86')}}
       run: ./x new template
       
     # only linux can target linux as it is not clear what that even is exactly
