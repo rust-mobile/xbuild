@@ -151,3 +151,5 @@ jobs:
           matrix.host == 'windows-latest' && contains(fromJson('["linux", "macos", "ios"]'), matrix.target.platform))
       run: ../x build --platform ${{ matrix.target.platform }} --arch ${{ matrix.target.arch }} --${{ matrix.opt }}
       working-directory: template
+      env:
+        PKG_CONFIG_SYSROOT_DIR: "/"
