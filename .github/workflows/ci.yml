@@ -145,8 +145,8 @@ jobs:
     - name: build project
       if: >
         !(matrix.host-arch == 'x64' && matrix.target.arch == 'x86' ||
-          matrix.host == 'macos-latest' && matrix.arch-host == 'x86' ||
-          matrix.host == 'windows-latest' && matrix.arch-host == 'x86' ||
+          (matrix.host == 'macos-latest' && matrix.arch-host == 'x86') ||
+          (matrix.host == 'windows-latest' && matrix.arch-host == 'x86') ||
           matrix.host == 'macos-latest' && matrix.target.platform == 'linux' ||
           matrix.host == 'windows-latest' && contains(fromJson('["linux", "macos", "ios"]'), matrix.target.platform))
       run: ../x build --platform ${{ matrix.target.platform }} --arch ${{ matrix.target.arch }} --${{ matrix.opt }}
