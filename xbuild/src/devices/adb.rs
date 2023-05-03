@@ -12,8 +12,44 @@ use std::time::Duration;
 pub(crate) struct Adb(PathBuf);
 
 impl Adb {
-    pub fn which() -> Result<Self> {
-        Ok(Self(which::which(exe!("adb"))?))
+    pub fn which() -> Result<PathBuf> {
+        const ADB: &str = exe!("adb");
+
+        match which::which(ADB) {
+            Err(which::Error::CannotFindBinaryPath) => {
+                let sdk_path = {
+                    let sdk_path = std::env::var("ANDROID_SDK_ROOT").ok();
+                    if sdk_path.is_some() {
+                        eprintln!(
+                            "Warning: Environment variable ANDROID_SDK_ROOT is deprecated \
+                    (https://developer.android.com/studio/command-line/variables#envar). \
+                    It will be used until it is unset and replaced by ANDROID_HOME."
+                        );
+                    }
+
+                    PathBuf::from(
+                        sdk_path
+                            .or_else(|| std::env::var("ANDROID_HOME").ok())
+                            .context(
+                            "Cannot find `adb` on in PATH nor is ANDROID_HOME/ANDROID_SDK_ROOT set",
+                        )?,
+                    )
+                };
+
+                let adb_path = sdk_path.join("platform-tools").join(ADB);
+                anyhow::ensure!(
+                    adb_path.exists(),
+                    "Expected `adb` at `{}`",
+                    adb_path.display()
+                );
+                Ok(adb_path)
+            }
+            r => r.context("Could not find `adb` in PATH"),
+        }
+    }
+
+    pub fn new() -> Result<Self> {
+        Ok(Self(Self::which()?))
     }
 
     fn adb(&self, device: &str) -> Command {
