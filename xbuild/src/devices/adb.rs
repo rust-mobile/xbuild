@@ -97,6 +97,7 @@ impl Adb {
             .shell(device, None)
             .arg("am")
             .arg("start")
+            .arg("-W")
             .arg("-a")
             .arg("android.intent.action.MAIN")
             .arg("-n")
@@ -184,7 +185,7 @@ impl Adb {
             );
             let pid = std::str::from_utf8(&output.stdout)?.trim();
             // may return multiple space separated pids if the old process hasn't exited yet.
-            if pid.is_empty() || pid.split_once(' ').is_some() {
+            if pid.is_empty() || pid.contains(' ') {
                 std::thread::sleep(std::time::Duration::from_millis(100));
                 continue;
             }
