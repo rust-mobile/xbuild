@@ -386,12 +386,12 @@ pub struct BuildTargetArgs {
     arch: Option<Arch>,
     /// Build artifacts for target device. To find the device
     /// identifier of a connected device run `x devices`.
-    #[clap(long, conflicts_with = "format", conflicts_with = "store")]
+    #[clap(long, conflicts_with = "store")]
     device: Option<Device>,
     /// Build artifacts with format. Can be one of `aab`,
     /// `apk`, `appbundle`, `appdir`, `appimage`, `dmg`,
     /// `exe`, `ipa`, `msix`.
-    #[clap(long, conflicts_with = "device", conflicts_with = "store")]
+    #[clap(long, conflicts_with = "store")]
     format: Option<Format>,
     /// Build artifacts for target app store. Can be one of
     /// `apple`, `microsoft`, `play` or `sideload`.
