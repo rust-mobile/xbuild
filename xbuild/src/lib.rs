@@ -183,10 +183,10 @@ impl std::str::FromStr for Format {
 }
 
 impl Format {
-    pub fn platform_default(platform: Platform, opt: Opt) -> Self {
+    pub fn platform_default(platform: Platform, opt: Opt, gradle: bool) -> Self {
         match (platform, opt) {
-            (Platform::Android, Opt::Debug) => Self::Apk,
-            (Platform::Android, Opt::Release) => Self::Aab,
+            (Platform::Android, Opt::Release) if gradle => Self::Aab,
+            (Platform::Android, _) => Self::Apk,
             (Platform::Ios, Opt::Debug) => Self::Appbundle,
             (Platform::Ios, Opt::Release) => Self::Ipa,
             (Platform::Linux, Opt::Debug) => Self::Appdir,
@@ -410,7 +410,7 @@ pub struct BuildTargetArgs {
 }
 
 impl BuildTargetArgs {
-    pub fn build_target(self) -> Result<BuildTarget> {
+    pub fn build_target(self, config: &Config) -> Result<BuildTarget> {
         let signer = if let Some(pem) = self.pem.as_ref() {
             anyhow::ensure!(pem.exists(), "pem file doesn't exist {}", pem.display());
             Some(Signer::from_path(pem)?)
@@ -463,7 +463,7 @@ impl BuildTargetArgs {
         } else if store == Some(Store::Play) {
             Format::Aab
         } else {
-            Format::platform_default(platform, opt)
+            Format::platform_default(platform, opt, config.android().gradle)
         };
         let provisioning_profile = if let Some(profile) = self.provisioning_profile {
             anyhow::ensure!(
@@ -574,12 +574,12 @@ impl BuildEnv {
         let verbose = args.verbose;
         let offline = args.cargo.offline;
         let cargo = args.cargo.cargo()?;
-        let build_target = args.build_target.build_target()?;
         let build_dir = cargo.target_dir().join("x");
         let cache_dir = dirs::cache_dir().unwrap().join("x");
         let package = cargo.manifest().package.as_ref().unwrap(); // Caller should guarantee that this is a valid package
         let manifest = cargo.package_root().join("manifest.yaml");
         let mut config = Config::parse(manifest)?;
+        let build_target = args.build_target.build_target(&config)?;
         config.apply_rust_package(package, cargo.workspace_manifest(), build_target.opt())?;
         let icon = config
             .icon(build_target.platform())
