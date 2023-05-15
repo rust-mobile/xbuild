@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use serde::Deserialize;
 use std::{
     borrow::Cow,
@@ -104,7 +104,7 @@ pub enum EnvOption {
 }
 
 impl EnvOption {
-    /// Retrieve the value and canonicalize it relative to `config_parent` when [`EnvOption::Value::relative`] is set.
+    /// Retrieve the value and join it to `config_parent` when [`EnvOption::Value::relative`] is set.
     ///
     /// `config_parent` is the directory containing `.cargo/config.toml` where this was parsed from.
     pub fn resolve_value(&self, config_parent: impl AsRef<Path>) -> Result<Cow<'_, str>> {
@@ -113,16 +113,13 @@ impl EnvOption {
                 value,
                 relative: true,
                 force: _,
-            } => {
-                let value = config_parent.as_ref().join(value);
-                let value = dunce::canonicalize(&value)
-                    .with_context(|| format!("Failed to canonicalize `{}`", value.display()))?;
-                value
-                    .into_os_string()
-                    .into_string()
-                    .map_err(VarError::NotUnicode)?
-                    .into()
-            }
+            } => config_parent
+                .as_ref()
+                .join(value)
+                .into_os_string()
+                .into_string()
+                .map_err(VarError::NotUnicode)?
+                .into(),
             Self::String(value) | Self::Value { value, .. } => value.into(),
         })
     }
@@ -225,9 +222,7 @@ CARGO_SUBCOMMAND_TEST_ENV_FORCED = { value = "forced", force = true }"#;
 }
 
 #[test]
-fn test_env_canonicalization() {
-    use std::ffi::OsStr;
-
+fn test_env_relative() {
     let toml = r#"
 [env]
 CARGO_SUBCOMMAND_TEST_ENV_SRC_DIR = { value = "src", force = true, relative = true }
@@ -235,36 +230,18 @@ CARGO_SUBCOMMAND_TEST_ENV_SRC_DIR = { value = "src", force = true, relative = tr
 
     let config = LocalizedConfig {
         config: toml::from_str::<Config>(toml).unwrap(),
-        workspace: PathBuf::new(),
+        // Path does not have to exist
+        workspace: PathBuf::from("my/work/space"),
     };
 
     config.set_env_vars().unwrap();
 
     let path = std::env::var("CARGO_SUBCOMMAND_TEST_ENV_SRC_DIR")
-        .expect("Canonicalization for a known-to-exist ./src folder should not fail");
+        .expect("Relative env var should always be set");
     let path = PathBuf::from(path);
-    assert!(path.is_absolute());
-    assert!(path.is_dir());
-    assert_eq!(path.file_name(), Some(OsStr::new("src")));
-
-    let toml = r#"
-[env]
-CARGO_SUBCOMMAND_TEST_ENV_INEXISTENT_DIR = { value = "blahblahthisfolderdoesntexist", force = true, relative = true }
-"#;
-
-    let config = LocalizedConfig {
-        config: toml::from_str::<Config>(toml).unwrap(),
-        workspace: PathBuf::new(),
-    };
-
-    let e = config.set_env_vars().unwrap_err();
-
-    assert_eq!(
-        e.to_string(),
-        "Failed to canonicalize `blahblahthisfolderdoesntexist`"
+    assert!(
+        path.is_relative(),
+        "Workspace was not absolute so this shouldn't either"
     );
-    assert_eq!(
-        e.root_cause().to_string(),
-        "No such file or directory (os error 2)"
-    );
+    assert_eq!(path, Path::new("my/work/space/src"));
 }
