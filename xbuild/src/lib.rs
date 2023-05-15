@@ -17,7 +17,7 @@ macro_rules! exe {
     };
 }
 
-mod cargo;
+pub mod cargo;
 pub mod command;
 mod config;
 mod devices;
@@ -387,7 +387,7 @@ pub struct BuildTargetArgs {
     /// Build artifacts for target device. To find the device
     /// identifier of a connected device run `x devices`.
     #[clap(long, conflicts_with = "store")]
-    device: Option<Device>,
+    device: Option<String>,
     /// Build artifacts with format. Can be one of `aab`,
     /// `apk`, `appbundle`, `appdir`, `appimage`, `dmg`,
     /// `exe`, `ipa`, `msix`.
@@ -424,6 +424,9 @@ impl BuildTargetArgs {
             Some(Device::host())
         } else {
             self.device
+                .as_ref()
+                .map(|device| device.parse())
+                .transpose()?
         };
         let platform = if let Some(platform) = self.platform {
             platform

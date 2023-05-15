@@ -2,7 +2,7 @@ use anyhow::Result;
 use app_store_connect::certs_api::CertificateType;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
-use xbuild::{command, BuildArgs, BuildEnv};
+use xbuild::{cargo::config::LocalizedConfig, command, BuildArgs, BuildEnv};
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -76,12 +76,30 @@ enum Commands {
     },
 }
 
+/// Setup a partial build environment (e.g. read `[env]` from `.cargo/config.toml`) when there is
+/// no crate/manifest selected. Pretend `$PWD` is the workspace.
+///
+/// Only necessary for apps that don't call [`BuildEnv::new()`],
+fn partial_build_env() -> Result<()> {
+    let config = LocalizedConfig::find_cargo_config_for_workspace(".")?;
+    if let Some(config) = &config {
+        config.set_env_vars()?;
+    }
+    Ok(())
+}
+
 impl Commands {
     pub fn run(self) -> Result<()> {
         match self {
             Self::New { name } => command::new(&name)?,
-            Self::Doctor => command::doctor(),
-            Self::Devices => command::devices()?,
+            Self::Doctor => {
+                partial_build_env()?;
+                command::doctor()
+            }
+            Self::Devices => {
+                partial_build_env()?;
+                command::devices()?
+            }
             Self::Build { args } => {
                 let env = BuildEnv::new(args)?;
                 command::build(&env)?;
