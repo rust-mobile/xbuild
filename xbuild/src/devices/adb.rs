@@ -1,3 +1,4 @@
+use crate::config::AndroidDebugConfig;
 use crate::devices::{Backend, Device};
 use crate::{Arch, Platform};
 use anyhow::Result;
@@ -123,6 +124,36 @@ impl Adb {
             "adb shell am force-stop exited with code {:?}",
             status.code()
         );
+        Ok(())
+    }
+
+    fn forward_reverse(&self, device: &str, debug_config: &AndroidDebugConfig) -> Result<()> {
+        for (local, remote) in &debug_config.forward {
+            let status = self
+                .adb(device)
+                .arg("forward")
+                .arg(local)
+                .arg(remote)
+                .status()?;
+            anyhow::ensure!(
+                status.success(),
+                "adb forward exited with code {:?}",
+                status.code()
+            );
+        }
+        for (remote, local) in &debug_config.reverse {
+            let status = self
+                .adb(device)
+                .arg("reverse")
+                .arg(remote)
+                .arg(local)
+                .status()?;
+            anyhow::ensure!(
+                status.success(),
+                "adb reverse exited with code {:?}",
+                status.code()
+            );
+        }
         Ok(())
     }
 
@@ -292,7 +323,13 @@ impl Adb {
         Ok(())
     }
 
-    pub fn run(&self, device: &str, path: &Path, debug: bool) -> Result<()> {
+    pub fn run(
+        &self,
+        device: &str,
+        path: &Path,
+        debug_config: &AndroidDebugConfig,
+        debug: bool,
+    ) -> Result<()> {
         let entry_point = Apk::entry_point(path)?;
         let package = &entry_point.package;
         let activity = &entry_point.activity;
@@ -303,6 +340,7 @@ impl Adb {
             self.clear_debug_app(device)?;
         }
         self.install(device, path)?;
+        self.forward_reverse(device, debug_config)?;
         let last_timestamp = self.logcat_last_timestamp(device)?;
         self.start(device, package, activity)?;
         let pid = self.pidof(device, package)?;

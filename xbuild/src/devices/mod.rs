@@ -112,7 +112,7 @@ impl Device {
 
     pub fn run(&self, env: &BuildEnv, path: &Path) -> Result<()> {
         match &self.backend {
-            Backend::Adb(adb) => adb.run(&self.id, path, false),
+            Backend::Adb(adb) => adb.run(&self.id, path, &env.config.android().debug, false),
             Backend::Host(host) => host.run(path),
             Backend::Imd(imd) => imd.run(env, &self.id, path),
         }?;

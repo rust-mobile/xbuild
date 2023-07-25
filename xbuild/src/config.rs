@@ -6,6 +6,7 @@ use apk::VersionCode;
 use appbundle::InfoPlist;
 use msix::AppxManifest;
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug, Default)]
@@ -331,6 +332,16 @@ pub struct GenericConfig {
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
+pub struct AndroidDebugConfig {
+    /// Forward remote (phone) socket connection to local (host)
+    #[serde(default)]
+    pub forward: HashMap<String, String>,
+    /// Forward local (host) socket connection to remote (phone)
+    #[serde(default)]
+    pub reverse: HashMap<String, String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
 pub struct AndroidConfig {
     #[serde(flatten)]
     generic: GenericConfig,
@@ -342,6 +353,9 @@ pub struct AndroidConfig {
     pub gradle: bool,
     #[serde(default)]
     pub wry: bool,
+    /// Debug configuration for `x run`
+    #[serde(default)]
+    pub debug: AndroidDebugConfig,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
