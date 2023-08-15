@@ -295,7 +295,7 @@ impl CargoBuild {
             target_sdk_version
         );
         self.use_ld("lld");
-        self.add_link_arg(&format!("--target={}", ndk_triple));
+        self.add_link_arg(&format!("--target={}", self.triple.unwrap_or(ndk_triple)));
         self.add_link_arg(&format!("-B{}", sdk_lib_dir.display()));
         self.add_link_arg(&format!("-L{}", sdk_lib_dir.display()));
         self.add_link_arg(&format!("-L{}", lib_dir.display()));
