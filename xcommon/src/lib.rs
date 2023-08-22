@@ -8,7 +8,7 @@ use image::{DynamicImage, GenericImageView, ImageOutputFormat, RgbaImage};
 use rsa::pkcs8::DecodePrivateKey;
 use rsa::{PaddingScheme, RsaPrivateKey, RsaPublicKey};
 use sha2::{Digest, Sha256};
-use std::fs::{File, OpenOptions, Permissions};
+use std::fs::{File, OpenOptions};
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use zip::write::FileOptions;
@@ -450,7 +450,7 @@ pub fn extract_zip(archive: &Path, directory: &Path) -> Result<()> {
                 {
                     use std::os::unix::fs::PermissionsExt;
                     if let Some(mode) = file.unix_mode() {
-                        std::fs::set_permissions(&outpath, Permissions::from_mode(mode))?;
+                        std::fs::set_permissions(&outpath, std::fs::Permissions::from_mode(mode))?;
                     }
                 }
             }

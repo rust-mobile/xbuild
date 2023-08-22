@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use std::fs::{File, Permissions};
+use std::fs::File;
 use std::io::{BufReader, BufWriter, Write};
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -95,7 +95,7 @@ impl AppImage {
         let mut squashfs = BufReader::new(File::open(squashfs)?);
         let mut f = File::create(out)?;
         #[cfg(unix)]
-        f.set_permissions(Permissions::from_mode(0o755))?;
+        f.set_permissions(std::fs::Permissions::from_mode(0o755))?;
         let mut out = BufWriter::new(&mut f);
         out.write_all(RUNTIME)?;
         std::io::copy(&mut squashfs, &mut out)?;
