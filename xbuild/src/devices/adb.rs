@@ -1,7 +1,7 @@
 use crate::config::AndroidDebugConfig;
 use crate::devices::{Backend, Device};
 use crate::{Arch, Platform};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use apk::Apk;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
@@ -206,32 +206,35 @@ impl Adb {
         Ok(line[..18].to_string())
     }
 
-    fn pidof(&self, device: &str, id: &str) -> Result<u32> {
-        loop {
-            let output = self.shell(device, None).arg("pidof").arg(id).output()?;
-            anyhow::ensure!(
-                output.status.success(),
-                "failed to get pid: {}",
-                std::str::from_utf8(&output.stderr)?.trim()
-            );
-            let pid = std::str::from_utf8(&output.stdout)?.trim();
-            // may return multiple space separated pids if the old process hasn't exited yet.
-            if pid.is_empty() || pid.contains(' ') {
-                std::thread::sleep(std::time::Duration::from_millis(100));
-                continue;
-            }
-            println!("pid of {} is {}", id, pid);
-            return Ok(pid.parse()?);
-        }
+    fn uidof(&self, device: &str, id: &str) -> Result<u32> {
+        let output = self
+            .shell(device, None)
+            .arg("pm")
+            .arg("list")
+            .arg("package")
+            .arg("-U")
+            .arg(id)
+            .output()?;
+        anyhow::ensure!(
+            output.status.success(),
+            "failed to get uid: {}",
+            std::str::from_utf8(&output.stderr)?.trim()
+        );
+        let output = std::str::from_utf8(&output.stdout)?;
+        let uid = output
+            .split_whitespace()
+            .find_map(|kv| kv.strip_prefix("uid:"))
+            .with_context(|| format!("Could not find `uid:`` in output `{output}`"))?;
+        Ok(uid.parse()?)
     }
 
-    fn logcat(&self, device: &str, pid: u32, last_timestamp: &str) -> Result<Logcat> {
+    fn logcat(&self, device: &str, uid: u32, last_timestamp: &str) -> Result<Logcat> {
         let child = self
             .shell(device, None)
             .arg("logcat")
             .arg("-T")
             .arg(format!("'{}'", last_timestamp))
-            .arg(format!("--pid={}", pid))
+            .arg(format!("--uid={}", uid))
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .spawn()?;
@@ -343,8 +346,8 @@ impl Adb {
         self.forward_reverse(device, debug_config)?;
         let last_timestamp = self.logcat_last_timestamp(device)?;
         self.start(device, package, activity)?;
-        let pid = self.pidof(device, package)?;
-        let logcat = self.logcat(device, pid, &last_timestamp)?;
+        let uid = self.uidof(device, package)?;
+        let logcat = self.logcat(device, uid, &last_timestamp)?;
         for line in logcat {
             println!("{}", line);
         }
