@@ -146,7 +146,7 @@ impl Check {
                 .output()?;
             anyhow::ensure!(output.status.success(), "failed to run {}", self.name);
             let output = std::str::from_utf8(&output.stdout)?;
-            if let Some(line) = output.split('\n').nth(version.row as _) {
+            if let Some(line) = output.lines().nth(version.row as _) {
                 let mut col = version.col as usize;
                 if line.starts_with("Apple ") || line.starts_with("Homebrew ") {
                     col += 1;
