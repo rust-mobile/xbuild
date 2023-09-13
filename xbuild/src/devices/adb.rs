@@ -98,7 +98,6 @@ impl Adb {
             .shell(device, None)
             .arg("am")
             .arg("start")
-            .arg("-W")
             .arg("-a")
             .arg("android.intent.action.MAIN")
             .arg("-n")
