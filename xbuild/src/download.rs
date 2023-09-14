@@ -125,25 +125,25 @@ impl<'a> DownloadManager<'a> {
     }
 
     pub fn prefetch(&self) -> Result<()> {
+        for target in self.env().target().compile_targets() {
+            self.rustup_target(target.rust_triple()?)?;
+        }
+
         match self.env().target().platform() {
             Platform::Linux if Platform::host()? != Platform::Linux => {
                 anyhow::bail!("cross compiling to linux is not yet supported");
             }
             Platform::Windows if Platform::host()? != Platform::Windows => {
-                self.rustup_target("x86_64-pc-windows-msvc")?;
                 self.windows_sdk()?;
             }
             Platform::Macos if Platform::host()? != Platform::Macos => {
-                self.rustup_target("x86_64-apple-darwin")?;
                 self.macos_sdk()?;
             }
             Platform::Android => {
-                self.rustup_target("aarch64-linux-android")?;
                 self.android_ndk()?;
                 self.android_jar()?;
             }
             Platform::Ios => {
-                self.rustup_target("aarch64-apple-ios")?;
                 self.ios_sdk()?;
                 if let Some(device) = self.env().target().device() {
                     let (major, minor) = device.ios_product_version()?;
