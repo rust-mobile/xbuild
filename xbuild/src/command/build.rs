@@ -19,9 +19,9 @@ pub fn build(env: &BuildEnv) -> Result<()> {
     let mut runner = TaskRunner::new(3, env.verbose());
 
     runner.start_task("Fetch precompiled artifacts");
-    let manager = DownloadManager::new(env)?;
+    let manager = DownloadManager::new(env).context("Creating DownloadManager")?;
     if !env.offline() {
-        manager.prefetch()?;
+        manager.prefetch().context("prefetch")?;
         runner.end_verbose_task();
     }
 
