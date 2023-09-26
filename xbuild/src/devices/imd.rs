@@ -132,9 +132,15 @@ impl IMobileDevice {
     }
 
     pub fn product_version(&self, device: &str) -> Result<(u32, u32)> {
+        fn _get_version(str: &str) -> Option<(&str, &str)> {
+            let mut splitor = str.split('.');
+
+            Some((splitor.next()?, splitor.next()?))
+        }
+
         let version = self.getkey(device, "ProductVersion")?;
-        let (major, version) = version.split_once('.').context("invalid product version")?;
-        let (minor, _) = version.split_once('.').context("invalid product version")?;
+
+        let (major, minor) = _get_version(&version).context("invalid product version")?;
         Ok((major.parse()?, minor.parse()?))
     }
 
