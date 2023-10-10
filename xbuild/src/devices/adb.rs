@@ -220,10 +220,16 @@ impl Adb {
             std::str::from_utf8(&output.stderr)?.trim()
         );
         let output = std::str::from_utf8(&output.stdout)?;
-        let uid = output
-            .split_whitespace()
-            .find_map(|kv| kv.strip_prefix("uid:"))
-            .with_context(|| format!("Could not find `uid:`` in output `{output}`"))?;
+        let (_package, uid) = output
+            .lines()
+            .filter_map(|line| line.split_once(' '))
+            // `pm list package` uses the id as a substring filter; make sure
+            // we select the right package in case it returns multiple matches:
+            .find(|(package, _uid)| package.strip_prefix("package:") == Some(id))
+            .with_context(|| format!("Could not find `package:{id}` in output `{output}`"))?;
+        let uid = uid
+            .strip_prefix("uid:")
+            .with_context(|| format!("Could not find `uid:` in output `{output}`"))?;
         Ok(uid.parse()?)
     }
 
