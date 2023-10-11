@@ -295,7 +295,9 @@ impl CargoBuild {
             target_sdk_version
         );
         self.use_ld("lld");
-        self.add_link_arg("--target=aarch64-linux-android");
+        if let Some(triple) = self.triple {
+            self.add_link_arg(&format!("--target={}", triple));
+        }
         self.add_link_arg(&format!("-B{}", sdk_lib_dir.display()));
         self.add_link_arg(&format!("-L{}", sdk_lib_dir.display()));
         self.add_link_arg(&format!("-L{}", lib_dir.display()));
