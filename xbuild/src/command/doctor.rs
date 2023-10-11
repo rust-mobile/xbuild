@@ -1,8 +1,10 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use std::path::PathBuf;
 use std::process::Command;
 
-#[derive(Clone, Debug)]
+use crate::devices::adb::Adb;
+
+#[derive(Debug)]
 pub struct Doctor {
     groups: Vec<Group>,
 }
@@ -35,7 +37,11 @@ impl Default for Doctor {
                 Group {
                     name: "android",
                     checks: vec![
-                        Check::new("adb", Some(VersionCheck::new("--version", 0, 4))),
+                        Check::with_path(
+                            "adb",
+                            Adb::which(),
+                            Some(VersionCheck::new("--version", 0, 4)),
+                        ),
                         Check::new("javac", Some(VersionCheck::new("--version", 0, 1))),
                         Check::new("java", Some(VersionCheck::new("--version", 0, 1))),
                         Check::new("kotlin", Some(VersionCheck::new("-version", 0, 2))),
@@ -77,7 +83,7 @@ impl std::fmt::Display for Doctor {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 struct Group {
     name: &'static str,
     checks: Vec<Check>,
@@ -105,15 +111,32 @@ impl std::fmt::Display for Group {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug)]
 struct Check {
     name: &'static str,
+    location: Option<Result<PathBuf>>,
     version: Option<VersionCheck>,
 }
 
 impl Check {
     pub const fn new(name: &'static str, version: Option<VersionCheck>) -> Self {
-        Self { name, version }
+        Self {
+            name,
+            location: None,
+            version,
+        }
+    }
+
+    pub const fn with_path(
+        name: &'static str,
+        path: Result<PathBuf>,
+        version: Option<VersionCheck>,
+    ) -> Self {
+        Self {
+            name,
+            location: Some(path),
+            version,
+        }
     }
 }
 
@@ -131,17 +154,22 @@ impl VersionCheck {
 }
 
 impl Check {
-    fn name(self) -> &'static str {
+    fn name(&self) -> &'static str {
         self.name
     }
 
-    fn path(self) -> Result<PathBuf> {
-        Ok(which::which(self.name)?)
+    fn path(&self) -> Result<PathBuf> {
+        Ok(match &self.location {
+            Some(Ok(path)) => path.clone(),
+            // Cannot clone the error:
+            Some(Err(e)) => bail!("{:?}", e),
+            None => which::which(self.name)?,
+        })
     }
 
-    fn version(self) -> Result<Option<String>> {
+    fn version(&self) -> Result<Option<String>> {
         if let Some(version) = self.version {
-            let output = Command::new(self.name)
+            let output = Command::new(self.path()?)
                 .args(version.arg.split(' '))
                 .output()?;
             anyhow::ensure!(output.status.success(), "failed to run {}", self.name);
