@@ -1,7 +1,7 @@
-use crate::cargo::CrateType;
 use crate::{task, BuildEnv, Format, Opt};
-use anyhow::Result;
-use std::path::Path;
+use anyhow::{Context, Result};
+use apk::Target;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 static BUILD_GRADLE: &[u8] = include_bytes!("./build.gradle");
@@ -33,7 +33,7 @@ pub fn prepare(env: &BuildEnv) -> Result<()> {
     Ok(())
 }
 
-pub fn build(env: &BuildEnv, out: &Path) -> Result<()> {
+pub fn build(env: &BuildEnv, libraries: Vec<(Target, PathBuf)>, out: &Path) -> Result<()> {
     let platform_dir = env.platform_dir();
     let gradle = platform_dir.join("gradle");
     let app = gradle.join("app");
@@ -146,13 +146,11 @@ pub fn build(env: &BuildEnv, out: &Path) -> Result<()> {
         }
     }
 
-    for target in env.target().compile_targets() {
-        let arch_dir = platform_dir.join(target.arch().to_string());
-        let lib = env.cargo_artefact(&arch_dir.join("cargo"), target, CrateType::Cdylib)?;
-        let lib_name = lib.file_name().unwrap();
-        let lib_dir = jnilibs.join(target.android_abi().android_abi());
+    for (target, lib) in libraries {
+        let name = lib.file_name().context("invalid path")?;
+        let lib_dir = jnilibs.join(target.as_str());
         std::fs::create_dir_all(&lib_dir)?;
-        std::fs::copy(&lib, lib_dir.join(lib_name))?;
+        std::fs::copy(&lib, lib_dir.join(name))?;
     }
 
     let opt = env.target().opt();

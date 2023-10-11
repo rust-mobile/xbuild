@@ -99,14 +99,10 @@ impl Apk {
     }
 
     pub fn add_lib(&mut self, target: Target, path: &Path) -> Result<()> {
-        let name = path
-            .file_name()
-            .context("invalid path")?
-            .to_str()
-            .context("invalid path")?;
+        let name = path.file_name().context("invalid path")?;
         self.zip.add_file(
             path,
-            &Path::new("lib").join(target.android_abi()).join(name),
+            &Path::new("lib").join(target.as_str()).join(name),
             ZipFileOptions::Compressed,
         )
     }

@@ -2,7 +2,7 @@ use crate::cargo::CrateType;
 use crate::download::DownloadManager;
 use crate::task::TaskRunner;
 use crate::{BuildEnv, Format, Opt, Platform};
-use anyhow::{Context, Result};
+use anyhow::{ensure, Context, Result};
 use apk::Apk;
 use appbundle::AppBundle;
 use appimage::AppImage;
@@ -71,8 +71,122 @@ pub fn build(env: &BuildEnv) -> Result<()> {
         }
         Platform::Android => {
             let out = platform_dir.join(format!("{}.{}", env.name(), env.target().format()));
+            ensure!(has_lib, "Android APKs/AABs require a library");
+
+            let mut libraries = vec![];
+
+            for target in env.target().compile_targets() {
+                let arch_dir = platform_dir.join(target.arch().to_string());
+                let cargo_dir = arch_dir.join("cargo");
+                let lib = env.cargo_artefact(&cargo_dir, target, CrateType::Cdylib)?;
+
+                let ndk = env.android_ndk();
+
+                let deps_dir = {
+                    let arch_dir = if target.is_host()? {
+                        cargo_dir.to_path_buf()
+                    } else {
+                        cargo_dir.join(target.rust_triple()?)
+                    };
+                    let opt_dir = arch_dir.join(target.opt().to_string());
+                    opt_dir.join("deps")
+                };
+
+                let mut search_paths = env
+                    .cargo()
+                    .lib_search_paths(&cargo_dir, target)
+                    .with_context(|| {
+                        format!(
+                            "Finding libraries in `{}` for {:?}",
+                            cargo_dir.display(),
+                            target
+                        )
+                    })?;
+                search_paths.push(deps_dir);
+                let search_paths = search_paths.iter().map(AsRef::as_ref).collect::<Vec<_>>();
+
+                let ndk_sysroot_libs = ndk.join("usr/lib").join(target.ndk_triple());
+                let provided_libs_paths = [
+                    ndk_sysroot_libs.as_path(),
+                    &*ndk_sysroot_libs.join(
+                        // Use libraries (symbols) from the lowest NDK that is supported by the application,
+                        // to prevent inadvertently making newer APIs available:
+                        // https://developer.android.com/ndk/guides/sdk-versions
+                        env.config()
+                            .android()
+                            .manifest
+                            .sdk
+                            .min_sdk_version
+                            .unwrap()
+                            .to_string(),
+                    ),
+                ];
+
+                let mut explicit_libs = vec![lib];
+
+                // Collect the libraries the user wants to include
+                for runtime_lib_path in env.config().runtime_libs(env.target().platform()) {
+                    let abi_dir = env
+                        .cargo()
+                        .package_root()
+                        .join(runtime_lib_path)
+                        .join(target.android_abi().as_str());
+                    let entries = std::fs::read_dir(abi_dir)?;
+                    for entry in entries {
+                        let entry = entry?;
+                        let path = entry.path();
+                        if !path.is_dir() && path.extension() == Some(OsStr::new("so")) {
+                            explicit_libs.push(path);
+                        }
+                    }
+                }
+
+                // Collect the names of libraries provided by the user, and assume these
+                // are available for other dependencies to link to, too.
+                let mut included_libs = explicit_libs
+                    .iter()
+                    .map(|p| p.file_name().unwrap().to_owned())
+                    .collect::<HashSet<_>>();
+
+                // Collect the names of all libraries that are available on Android
+                for provided_libs_path in provided_libs_paths {
+                    included_libs.extend(xcommon::llvm::find_libs_in_dir(provided_libs_path)?);
+                }
+
+                // libc++_shared is bundled with the NDK but not available on-device
+                included_libs.remove(OsStr::new("libc++_shared.so"));
+
+                let mut needs_cpp_shared = false;
+
+                for lib in explicit_libs {
+                    libraries.push((target.android_abi(), lib.clone()));
+
+                    let (extra_libs, cpp_shared) = xcommon::llvm::list_needed_libs_recursively(
+                                &lib,
+                                &search_paths,
+                                &included_libs,
+                            )
+                            .with_context(|| {
+                                format!(
+                                    "Failed to collect all required libraries for `{}` with `{:?}` available libraries and `{:?}` shippable libraries",
+                                    lib.display(),
+                                    provided_libs_paths,
+                                    search_paths
+                                )
+                            })?;
+                    needs_cpp_shared |= cpp_shared;
+                    for lib in extra_libs {
+                        libraries.push((target.android_abi(), lib));
+                    }
+                }
+                if needs_cpp_shared {
+                    let cpp_shared = ndk_sysroot_libs.join("libc++_shared.so");
+                    libraries.push((target.android_abi(), cpp_shared));
+                }
+            }
+
             if env.config().android().gradle {
-                crate::gradle::build(env, &out)?;
+                crate::gradle::build(env, libraries, &out)?;
                 runner.end_verbose_task();
                 return Ok(());
             } else {
@@ -91,118 +205,8 @@ pub fn build(env: &BuildEnv) -> Result<()> {
                     }
                 }
 
-                if has_lib {
-                    for target in env.target().compile_targets() {
-                        let arch_dir = platform_dir.join(target.arch().to_string());
-                        let cargo_dir = arch_dir.join("cargo");
-                        let lib = env.cargo_artefact(&cargo_dir, target, CrateType::Cdylib)?;
-
-                        let ndk = env.android_ndk();
-
-                        let deps_dir = {
-                            let arch_dir = if target.is_host()? {
-                                cargo_dir.to_path_buf()
-                            } else {
-                                cargo_dir.join(target.rust_triple()?)
-                            };
-                            let opt_dir = arch_dir.join(target.opt().to_string());
-                            opt_dir.join("deps")
-                        };
-
-                        let mut search_paths = env
-                            .cargo()
-                            .lib_search_paths(&cargo_dir, target)
-                            .with_context(|| {
-                                format!(
-                                    "Finding libraries in `{}` for {:?}",
-                                    cargo_dir.display(),
-                                    target
-                                )
-                            })?;
-                        search_paths.push(deps_dir);
-                        let search_paths =
-                            search_paths.iter().map(AsRef::as_ref).collect::<Vec<_>>();
-
-                        let ndk_sysroot_libs = ndk.join("usr/lib").join(target.ndk_triple());
-                        let provided_libs_paths = [
-                            ndk_sysroot_libs.as_path(),
-                            &*ndk_sysroot_libs.join(
-                                // Use libraries (symbols) from the lowest NDK that is supported by the application,
-                                // to prevent inadvertently making newer APIs available:
-                                // https://developer.android.com/ndk/guides/sdk-versions
-                                env.config()
-                                    .android()
-                                    .manifest
-                                    .sdk
-                                    .min_sdk_version
-                                    .unwrap()
-                                    .to_string(),
-                            ),
-                        ];
-
-                        let mut explicit_libs = vec![lib];
-
-                        // Collect the libraries the user wants to include
-                        for runtime_lib_path in env.config().runtime_libs(env.target().platform()) {
-                            let abi_dir = env
-                                .cargo()
-                                .package_root()
-                                .join(runtime_lib_path)
-                                .join(target.android_abi().android_abi());
-                            let entries = std::fs::read_dir(abi_dir)?;
-                            for entry in entries {
-                                let entry = entry?;
-                                let path = entry.path();
-                                if !path.is_dir() && path.extension() == Some(OsStr::new("so")) {
-                                    explicit_libs.push(path);
-                                }
-                            }
-                        }
-
-                        // Collect the names of libraries provided by the user, and assume these
-                        // are available for other dependencies to link to, too.
-                        let mut included_libs = explicit_libs
-                            .iter()
-                            .map(|p| p.file_name().unwrap().to_owned())
-                            .collect::<HashSet<_>>();
-
-                        // Collect the names of all libraries that are available on Android
-                        for provided_libs_path in provided_libs_paths {
-                            included_libs
-                                .extend(xcommon::llvm::find_libs_in_dir(provided_libs_path)?);
-                        }
-
-                        // libc++_shared is bundled with the NDK but not available on-device
-                        included_libs.remove(OsStr::new("libc++_shared.so"));
-
-                        let mut needs_cpp_shared = false;
-
-                        for lib in explicit_libs {
-                            apk.add_lib(target.android_abi(), &lib)?;
-
-                            let (extra_libs, cpp_shared) = xcommon::llvm::list_needed_libs_recursively(
-                                &lib,
-                                &search_paths,
-                                &included_libs,
-                            )
-                            .with_context(|| {
-                                format!(
-                                    "Failed to collect all required libraries for `{}` with `{:?}` available libraries and `{:?}` shippable libraries",
-                                    lib.display(),
-                                    provided_libs_paths,
-                                    search_paths
-                                )
-                            })?;
-                            needs_cpp_shared |= cpp_shared;
-                            for lib in &extra_libs {
-                                apk.add_lib(target.android_abi(), lib)?;
-                            }
-                        }
-                        if needs_cpp_shared {
-                            let cpp_shared = ndk_sysroot_libs.join("libc++_shared.so");
-                            apk.add_lib(target.android_abi(), &cpp_shared)?;
-                        }
-                    }
+                for (target, lib) in libraries {
+                    apk.add_lib(target, &lib)?;
                 }
 
                 apk.finish(env.target().signer().cloned())?;
