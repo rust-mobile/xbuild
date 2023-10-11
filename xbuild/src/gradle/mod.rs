@@ -67,6 +67,12 @@ pub fn build(env: &BuildEnv, out: &Path) -> Result<()> {
         dependencies.push_str(&format!("implementation '{}'\n", dep));
     }
 
+    let asset_packs = if config.assets.is_empty() {
+        ""
+    } else {
+        r#"assetPacks = [":baseAssets"]"#
+    };
+
     let app_build_gradle = format!(
         r#"
             plugins {{
@@ -83,6 +89,7 @@ pub fn build(env: &BuildEnv, out: &Path) -> Result<()> {
                     versionCode {version_code}
                     versionName '{version_name}'
                 }}
+                {asset_packs}
             }}
             dependencies {{
                 {dependencies}
@@ -95,6 +102,55 @@ pub fn build(env: &BuildEnv, out: &Path) -> Result<()> {
         version_name = version_name,
         dependencies = dependencies,
     );
+
+    let pack_name = "baseAssets";
+    let base_assets = gradle.join(pack_name);
+    // Make sure that any possibly-obsolete asset pack does not clobber the build
+    let _ = std::fs::remove_dir_all(&base_assets);
+
+    if !config.assets.is_empty() {
+        std::fs::create_dir_all(&base_assets)?;
+        let assets = format!(
+            r#"
+            plugins {{
+                id 'com.android.asset-pack'
+            }}
+            assetPack {{
+                packName = "{pack_name}" // Directory name for the asset pack
+                dynamicDelivery {{
+                    // Use install-time to make assets available to AAssetManager
+                    // https://developer.android.com/guide/playcore/asset-delivery/integrate-native
+                    deliveryType = "install-time"
+                }}
+            }}
+            "#,
+        );
+
+        std::fs::write(base_assets.join("build.gradle"), assets)?;
+
+        let target_dir = base_assets.join("src/main/assets");
+        let _ = std::fs::remove_dir_all(&target_dir);
+        std::fs::create_dir_all(&target_dir)?;
+        for asset in &config.assets {
+            let path = env.cargo().package_root().join(asset.path());
+            let target = target_dir.join(asset.path().file_name().unwrap());
+
+            if !asset.optional() || path.exists() {
+                // Make this file or directory available to the `gradle` build system
+
+                // Windows has special functions for files and directories:
+                // https://doc.rust-lang.org/std/fs/fn.soft_link.html
+                #[cfg(windows)]
+                if path.is_dir() {
+                    std::os::windows::fs::symlink_dir(path, target)?;
+                } else {
+                    std::os::windows::fs::symlink_file(path, target)?;
+                }
+                #[cfg(unix)]
+                std::os::unix::fs::symlink(path, target)?;
+            }
+        }
+    }
 
     if let Some(icon_path) = env.icon.as_ref() {
         let mut scaler = xcommon::Scaler::open(icon_path)?;
