@@ -29,7 +29,12 @@ pub fn build(env: &BuildEnv) -> Result<()> {
     let bin_target = env.target().platform() != Platform::Android;
     let has_lib = env.root_dir().join("src").join("lib.rs").exists();
     if bin_target || has_lib {
-        if env.target().platform() == Platform::Android && env.config().android().gradle {
+        ensure!(
+            env.target().format() != Format::Aab || env.target().android_gradle,
+            "Android App Bundles (AABs) can currently only be built using `gradle`"
+        );
+
+        if env.target().platform() == Platform::Android && env.target().android_gradle {
             crate::gradle::prepare(env)?;
         }
         for target in env.target().compile_targets() {
@@ -190,7 +195,7 @@ pub fn build(env: &BuildEnv) -> Result<()> {
                 }
             }
 
-            if env.config().android().gradle {
+            if env.target().android_gradle {
                 crate::gradle::build(env, libraries, &out)?;
                 runner.end_verbose_task();
                 return Ok(());

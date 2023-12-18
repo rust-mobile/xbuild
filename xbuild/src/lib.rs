@@ -1,7 +1,7 @@
 use crate::cargo::{Cargo, CargoBuild, CrateType};
 use crate::config::Config;
 use crate::devices::Device;
-use anyhow::Result;
+use anyhow::{ensure, Result};
 use clap::{Parser, ValueEnum};
 use std::path::{Path, PathBuf};
 use xcommon::Signer;
@@ -386,8 +386,18 @@ impl BuildTargetArgs {
         } else if store == Some(Store::Play) {
             Format::Aab
         } else {
-            Format::platform_default(platform, opt, config.android().gradle)
+            let user_wants_gradle = config.android().gradle.unwrap_or(false);
+            Format::platform_default(platform, opt, user_wants_gradle)
         };
+
+        let android_gradle = config.android().gradle.unwrap_or(format == Format::Aab);
+
+        ensure!(
+            // This fails if the format is Aab while `gradle == Some(false)`
+            format != Format::Aab || android_gradle,
+            "Android App Bundles (AABs) can currently only be built using `gradle`"
+        );
+
         let provisioning_profile = if let Some(profile) = self.provisioning_profile {
             anyhow::ensure!(
                 profile.exists(),
@@ -412,6 +422,7 @@ impl BuildTargetArgs {
             signer,
             provisioning_profile,
             api_key,
+            android_gradle,
         })
     }
 }
@@ -427,6 +438,7 @@ pub struct BuildTarget {
     signer: Option<Signer>,
     provisioning_profile: Option<Vec<u8>>,
     api_key: Option<PathBuf>,
+    android_gradle: bool,
 }
 
 impl BuildTarget {
