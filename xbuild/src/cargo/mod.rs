@@ -317,9 +317,13 @@ impl CargoBuild {
         self.add_include_dir(&path.join("sdk").join("include").join("um"));
         self.add_include_dir(&path.join("sdk").join("include").join("ucrt"));
         self.add_include_dir(&path.join("sdk").join("include").join("shared"));
-        self.add_lib_dir(&path.join("crt").join("lib").join("x86_64"));
-        self.add_lib_dir(&path.join("sdk").join("lib").join("um").join("x86_64"));
-        self.add_lib_dir(&path.join("sdk").join("lib").join("ucrt").join("x86_64"));
+        let arch_folder = match self.target.arch() {
+            crate::Arch::Arm64 => "aarch64",
+            crate::Arch::X64 => "x86_64",
+        };
+        self.add_lib_dir(&path.join("crt").join("lib").join(arch_folder));
+        self.add_lib_dir(&path.join("sdk").join("lib").join("um").join(arch_folder));
+        self.add_lib_dir(&path.join("sdk").join("lib").join("ucrt").join(arch_folder));
         Ok(())
     }
 

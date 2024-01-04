@@ -66,7 +66,7 @@ jobs:
     - name: Install rust toolchain
       uses: hecrj/setup-rust-action@v1
     - run: cargo install xwin
-    - run: xwin --accept-license splat --output Windows.sdk
+    - run: xwin --accept-license --arch aarch64,x86_64 splat --output Windows.sdk
     - run: tar --zstd -cf Windows.sdk.tar.zst Windows.sdk
     - run: gh release upload $TAG Windows.sdk.tar.zst -R rust-mobile/xbuild
       env:
