@@ -166,7 +166,10 @@ impl Config {
         application
             .debuggable
             .get_or_insert_with(|| opt == Opt::Debug);
-        application.has_code.get_or_insert(wry);
+
+        application
+            .has_code
+            .get_or_insert(wry || !self.android.dexes.is_empty());
 
         if application.activities.is_empty() {
             application.activities.push(Activity::default());
@@ -439,6 +442,10 @@ pub struct AndroidConfig {
     /// Debug configuration for `x run`
     #[serde(default)]
     pub debug: AndroidDebugConfig,
+    /// WIP HACK `classes.dex` to include in the APK root
+    #[serde(default)]
+    // pub dexes: Vec<AssetPath>,
+    pub dexes: Vec<PathBuf>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]

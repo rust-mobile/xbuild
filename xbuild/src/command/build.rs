@@ -83,6 +83,17 @@ pub fn build(env: &BuildEnv) -> Result<()> {
                 )?;
                 apk.add_res(env.icon(), &env.android_jar())?;
 
+                assert!(env.config().android().dexes.len() <= 1);
+                for dex in &env.config().android().dexes {
+                    // let path = env.cargo().package_root().join(dex.path());
+                    let path = env.cargo().package_root().join(dex);
+
+                    // if !dex.optional() || path.exists() {
+                    apk.add_dex(&path).unwrap();
+                    // apk.add_asset(&path, dex.alignment().to_zip_file_options())?
+                    // }
+                }
+
                 for asset in &env.config().android().assets {
                     let path = env.cargo().package_root().join(asset.path());
 
