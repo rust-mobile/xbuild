@@ -23,7 +23,10 @@ pub struct Scaler {
 
 impl Scaler {
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let img = ImageReader::open(path)?.decode()?;
+        let path = path.as_ref();
+        let img = ImageReader::open(path)
+            .with_context(|| format!("Scaler failed to open image at `{}`", path.display()))?
+            .decode()?;
         let (width, height) = img.dimensions();
         anyhow::ensure!(width == height, "expected width == height");
         anyhow::ensure!(width >= 512, "expected icon of at least 512x512 px");
