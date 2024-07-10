@@ -277,7 +277,7 @@ impl Adb {
         Ok(Path::new(std::str::from_utf8(&output.stdout)?.trim()).to_path_buf())
     }*/
 
-    pub fn lldb(&self, device: &str, lldb_server: &Path, executable: &Path) -> Result<()> {
+    pub fn lldb(&self, device: &str, executable: &Path, lldb_server: &Path) -> Result<()> {
         /*let package = env.manifest().android().package.as_ref().unwrap();
         let app_dir = self.app_dir(device, package)?;
         self.shell(device, Some(package))
