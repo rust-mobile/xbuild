@@ -302,12 +302,17 @@ impl Adb {
             .arg("700")
             .arg(&dest)
             .status()?;*/
+        let lldb_device_path = Path::new("./lldb-server");
         let mut lldb_server = self
             .shell(device, None)
             .arg("cd")
             .arg("/data/local/tmp")
             .arg("&&")
-            .arg("./lldb-server")
+            .arg("chmod")
+            .arg("777")
+            .arg(lldb_device_path)
+            .arg("&&")
+            .arg(lldb_device_path)
             .arg("platform")
             .arg("--listen")
             .arg("*:10086")
