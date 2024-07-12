@@ -306,17 +306,14 @@ impl CargoBuild {
 
     pub fn use_windows_sdk(&mut self, path: &Path) -> Result<()> {
         let path = dunce::canonicalize(path)?;
-        self.cfg_tool(Tool::Cc, "clang");
-        self.cfg_tool(Tool::Cxx, "clang++");
+        self.cfg_tool(Tool::Cc, "clang-cl");
+        self.cfg_tool(Tool::Cxx, "clang-cl");
         self.cfg_tool(Tool::Ar, "llvm-lib");
-        self.cfg_tool(Tool::Linker, "rust-lld");
-        self.use_ld("lld-link");
-        self.add_target_feature("+crt-static");
-        self.add_cxxflag("-stdlib=libc++");
-        self.add_include_dir(&path.join("crt").join("include"));
-        self.add_include_dir(&path.join("sdk").join("include").join("um"));
-        self.add_include_dir(&path.join("sdk").join("include").join("ucrt"));
-        self.add_include_dir(&path.join("sdk").join("include").join("shared"));
+        self.cfg_tool(Tool::Linker, "rust-lld"); // Rust defaults to link.exe, use its rust-lld binary instead
+        self.add_msvc_include_dir(&path.join("crt").join("include"));
+        self.add_msvc_include_dir(&path.join("sdk").join("include").join("um"));
+        self.add_msvc_include_dir(&path.join("sdk").join("include").join("ucrt"));
+        self.add_msvc_include_dir(&path.join("sdk").join("include").join("shared"));
         self.add_lib_dir(&path.join("crt").join("lib").join("x86_64"));
         self.add_lib_dir(&path.join("sdk").join("lib").join("um").join("x86_64"));
         self.add_lib_dir(&path.join("sdk").join("lib").join("ucrt").join("x86_64"));
@@ -437,6 +434,10 @@ impl CargoBuild {
 
     pub fn add_include_dir(&mut self, path: &Path) {
         self.c_flags.push_str(&format!("-I{} ", path.display()));
+    }
+
+    pub fn add_msvc_include_dir(&mut self, path: &Path) {
+        self.c_flags.push_str(&format!("-imsvc{} ", path.display()));
     }
 
     pub fn set_sysroot(&mut self, path: &Path) {
