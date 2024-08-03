@@ -37,10 +37,16 @@ impl Manifest {
         // Check all member packages inside the workspace
         let mut all_members = HashMap::new();
 
+        let exclude = workspace
+            .exclude
+            .iter()
+            .map(|g| glob::Pattern::new(workspace_root.join(g).to_str().unwrap()))
+            .collect::<Result<Vec<_>, _>>()?;
+
         for member in &workspace.members {
             for manifest_dir in glob::glob(workspace_root.join(member).to_str().unwrap())? {
                 let manifest_dir = manifest_dir?;
-                if !manifest_dir.is_dir() {
+                if !manifest_dir.is_dir() || exclude.iter().any(|g| g.matches_path(&manifest_dir)) {
                     continue;
                 }
                 let manifest_path = manifest_dir.join("Cargo.toml");
@@ -116,6 +122,8 @@ pub struct Workspace {
     pub default_members: Vec<String>,
     #[serde(default)]
     pub members: Vec<String>,
+    #[serde(default)]
+    pub exclude: Vec<String>,
 
     pub package: Option<WorkspacePackage>,
 }
