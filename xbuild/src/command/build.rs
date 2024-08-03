@@ -149,7 +149,12 @@ pub fn build(env: &BuildEnv) -> Result<()> {
                                 .package_root()
                                 .join(runtime_lib_path)
                                 .join(target.android_abi().android_abi());
-                            let entries = std::fs::read_dir(abi_dir)?;
+                            let entries = std::fs::read_dir(&abi_dir).with_context(|| {
+                                format!(
+                                    "Runtime libraries for current ABI not found at `{}`",
+                                    abi_dir.display()
+                                )
+                            })?;
                             for entry in entries {
                                 let entry = entry?;
                                 let path = entry.path();
