@@ -40,6 +40,9 @@ impl Manifest {
         for member in &workspace.members {
             for manifest_dir in glob::glob(workspace_root.join(member).to_str().unwrap())? {
                 let manifest_dir = manifest_dir?;
+                if !manifest_dir.is_dir() {
+                    continue;
+                }
                 let manifest_path = manifest_dir.join("Cargo.toml");
                 let manifest = Manifest::parse_from_toml(&manifest_path).with_context(|| {
                     format!(
