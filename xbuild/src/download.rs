@@ -1,6 +1,7 @@
 use crate::{BuildEnv, Platform};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
+use log::info;
 use mvn::Download;
 use reqwest::blocking::Client;
 use std::fs::File;
@@ -37,7 +38,10 @@ impl<'a> Download for DownloadManager<'a> {
         let len = resp.content_length().unwrap_or_default();
         pb.set_length(len);
 
-        let dest = BufWriter::new(File::create(dest)?);
+        let dest = BufWriter::new(
+            File::create(dest)
+                .with_context(|| format!("While creating download output file `{dest:?}`"))?,
+        );
         std::io::copy(&mut resp, &mut pb.wrap_write(dest))?;
         pb.finish_with_message("📥 downloaded");
 
@@ -125,8 +129,14 @@ impl<'a> DownloadManager<'a> {
     }
 
     pub fn prefetch(&self) -> Result<()> {
-        for target in self.env().target().compile_targets() {
-            self.rustup_target(target.rust_triple()?)?;
+        // TODO: We might want to compare the targets instead, in case the user is not building for
+        // the host but specified exactly the same triple after all.
+        if !self.env().target().is_host() {
+            for target in self.env().target().compile_targets() {
+                self.rustup_target(target.rust_triple()?)?;
+            }
+        } else {
+            info!("Building for host, assuming everything is available");
         }
 
         match self.env().target().platform() {
@@ -140,8 +150,8 @@ impl<'a> DownloadManager<'a> {
                 self.macos_sdk()?;
             }
             Platform::Android => {
-                self.android_ndk()?;
-                self.android_jar()?;
+                self.android_ndk().context("ndk")?;
+                self.android_jar().context("jar")?;
             }
             Platform::Ios => {
                 self.ios_sdk()?;
