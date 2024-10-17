@@ -279,6 +279,9 @@ pub struct CargoArgs {
     /// Space or comma separated list of features to activate
     #[clap(long, short = 'F')]
     features: Vec<String>,
+    /// Do not activate the `default` feature.
+    #[clap(long)]
+    no_default_features: bool,
 }
 
 impl CargoArgs {
@@ -286,6 +289,7 @@ impl CargoArgs {
         Cargo::new(
             self.package.as_deref(),
             self.features,
+            self.no_default_features,
             self.manifest_path,
             self.target_dir,
             self.offline,

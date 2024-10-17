@@ -17,6 +17,7 @@ use crate::{task, CompileTarget, Opt};
 pub struct Cargo {
     package: String,
     features: Vec<String>,
+    no_default_features: bool,
     workspace_manifest: Option<Manifest>,
     manifest: Manifest,
     package_root: PathBuf,
@@ -28,6 +29,7 @@ impl Cargo {
     pub fn new(
         package: Option<&str>,
         features: Vec<String>,
+        no_default_features: bool,
         manifest_path: Option<PathBuf>,
         target_dir: Option<PathBuf>,
         offline: bool,
@@ -104,6 +106,7 @@ impl Cargo {
         Ok(Self {
             package: package.clone(),
             features,
+            no_default_features,
             workspace_manifest: workspace_manifest.map(|(_path, manifest)| manifest),
             manifest,
             package_root: package_root.to_owned(),
@@ -152,6 +155,7 @@ impl Cargo {
         CargoBuild::new(
             target,
             &self.features,
+            self.no_default_features,
             self.package_root(),
             target_dir,
             self.offline,
@@ -243,6 +247,7 @@ impl CargoBuild {
     fn new(
         target: CompileTarget,
         features: &[String],
+        no_default_features: bool,
         root_dir: &Path,
         target_dir: &Path,
         offline: bool,
@@ -265,9 +270,13 @@ impl CargoBuild {
         if offline {
             cmd.arg("--offline");
         }
+        if no_default_features {
+            cmd.arg("--no-default-features");
+        }
         for features in features {
             cmd.arg("--features").arg(features);
         }
+
         Ok(Self {
             cmd,
             target,
