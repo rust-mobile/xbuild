@@ -377,7 +377,7 @@ impl Adb {
             "arm64-v8a" => Arch::Arm64,
             //"armeabi-v7a" => Arch::Arm,
             "x86_64" => Arch::X64,
-            //"x86" => Arch::X86,
+            "x86" => Arch::X86,
             abi => anyhow::bail!("unrecognized abi {}", abi),
         };
         Ok(arch)

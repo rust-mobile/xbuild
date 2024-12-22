@@ -7,7 +7,11 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use xcommon::Signer;
 
+#[cfg(target_arch = "x86_64")]
 static RUNTIME: &[u8] = include_bytes!("../assets/runtime-x86_64");
+
+#[cfg(target_arch = "x86")]
+static RUNTIME: &[u8] = include_bytes!("../assets/runtime-i686");
 
 pub struct AppImage {
     appdir: PathBuf,
