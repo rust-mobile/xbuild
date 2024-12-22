@@ -15,7 +15,7 @@ pub struct DownloadManager<'a> {
     client: Client,
 }
 
-impl<'a> Download for DownloadManager<'a> {
+impl Download for DownloadManager<'_> {
     fn download(&self, url: &str, dest: &Path) -> Result<()> {
         let pb = ProgressBar::with_draw_target(Some(0), ProgressDrawTarget::stdout())
         .with_style(
@@ -233,7 +233,7 @@ impl WorkItem {
     }
 }
 
-impl<'a> DownloadManager<'a> {
+impl DownloadManager<'_> {
     pub fn android_jar(&self) -> Result<()> {
         let dir = self.env.android_sdk();
         let sdk = self.env.target_sdk_version();
