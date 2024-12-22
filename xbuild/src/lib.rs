@@ -92,7 +92,8 @@ impl std::str::FromStr for Platform {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Arch {
-    //Arm,
+    Armv7,
+    Arm,
     Arm64,
     X64,
     //X86,
@@ -113,7 +114,8 @@ impl Arch {
 impl std::fmt::Display for Arch {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            //Self::Arm => write!(f, "arm"),
+            Self::Armv7 => write!(f, "armv7"),
+            Self::Arm => write!(f, "arm"),
             Self::Arm64 => write!(f, "arm64"),
             Self::X64 => write!(f, "x64"),
             //Self::X86 => write!(f, "x86"),
@@ -126,7 +128,8 @@ impl std::str::FromStr for Arch {
 
     fn from_str(arch: &str) -> Result<Self> {
         Ok(match arch {
-            //"arm" => Self::Arm,
+            "arm" => Self::Arm,
+            "armv7" => Self::Armv7,
             "arm64" => Self::Arm64,
             "x64" => Self::X64,
             //"x86" => Self::X86,
@@ -281,6 +284,8 @@ impl CompileTarget {
     pub fn android_abi(self) -> apk::Target {
         assert_eq!(self.platform(), Platform::Android);
         match self.arch() {
+            Arch::Armv7 => apk::Target::ArmV7a,
+            Arch::Arm => apk::Target::Armeabi,
             Arch::Arm64 => apk::Target::Arm64V8a,
             Arch::X64 => apk::Target::X86_64,
         }
@@ -291,7 +296,8 @@ impl CompileTarget {
         assert_eq!(self.platform(), Platform::Android);
         match self.arch() {
             Arch::Arm64 => "aarch64-linux-android",
-            //Arch::Arm => "arm-linux-androideabi",
+            Arch::Arm => "arm-linux-androideabi",
+            Arch::Armv7 => "armv7-linux-androideabi",
             //Arch::X86 => "i686-linux-android",
             Arch::X64 => "x86_64-linux-android",
         }
@@ -300,6 +306,8 @@ impl CompileTarget {
     pub fn rust_triple(self) -> Result<&'static str> {
         Ok(match (self.arch, self.platform) {
             (Arch::Arm64, Platform::Android) => "aarch64-linux-android",
+            (Arch::Armv7, Platform::Android) => "armv7-linux-androideabi",
+            (Arch::Arm, Platform::Android) => "arm-linux-androideabi",
             (Arch::Arm64, Platform::Ios) => "aarch64-apple-ios",
             (Arch::Arm64, Platform::Linux) => "aarch64-unknown-linux-gnu",
             (Arch::Arm64, Platform::Macos) => "aarch64-apple-darwin",
@@ -381,7 +389,7 @@ pub struct BuildTargetArgs {
     #[clap(long, conflicts_with = "device")]
     platform: Option<Platform>,
     /// Build artifacts for target arch. Can be one of
-    /// `arm64` or `x64`.
+    /// `arm`, `armv7` `arm64` or `x64`.
     #[clap(long, requires = "platform")]
     arch: Option<Arch>,
     /// Build artifacts for target device. To find the device

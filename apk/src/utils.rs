@@ -4,9 +4,10 @@ use anyhow::{Context, Result};
 #[repr(u8)]
 pub enum Target {
     ArmV7a = 1,
-    Arm64V8a = 2,
-    X86 = 3,
-    X86_64 = 4,
+    Armeabi = 2,
+    Arm64V8a = 3,
+    X86 = 4,
+    X86_64 = 5,
 }
 
 impl Target {
@@ -14,6 +15,7 @@ impl Target {
     pub fn android_abi(self) -> &'static str {
         match self {
             Self::Arm64V8a => "arm64-v8a",
+            Self::Armeabi => "armeabi",
             Self::ArmV7a => "armeabi-v7a",
             Self::X86 => "x86",
             Self::X86_64 => "x86_64",
