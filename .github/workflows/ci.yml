@@ -52,6 +52,10 @@ jobs:
           arch: x64
         - platform: android
           arch: arm64
+        - platform: android
+          arch: arm
+        - platform: android
+          arch: armv7
         - platform: ios
           arch: arm64
 
