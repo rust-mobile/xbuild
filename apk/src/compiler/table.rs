@@ -144,7 +144,7 @@ pub struct Entry<'a> {
     entry: &'a ResTableEntry,
 }
 
-impl<'a> Entry<'a> {
+impl Entry<'_> {
     pub fn id(self) -> ResTableRef {
         self.id
     }
