@@ -248,7 +248,7 @@ fn find_cde_start_pos<R: Read + Seek>(reader: &mut R) -> Result<u64> {
     const CENTRAL_DIRECTORY_END_SIGNATURE: u32 = 0x06054b50;
     const HEADER_SIZE: u64 = 22;
     let file_length = reader.seek(SeekFrom::End(0))?;
-    let search_upper_bound = file_length.saturating_sub(HEADER_SIZE + ::std::u16::MAX as u64);
+    let search_upper_bound = file_length.saturating_sub(HEADER_SIZE + u16::MAX as u64);
     anyhow::ensure!(file_length >= HEADER_SIZE, "Invalid zip header");
     let mut pos = file_length - HEADER_SIZE;
     while pos >= search_upper_bound {

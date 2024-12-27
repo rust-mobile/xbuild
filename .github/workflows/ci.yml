@@ -81,8 +81,8 @@ jobs:
     - name: install llvm macos
       if: ${{ matrix.host == 'macos-latest' }}
       run: |
-        brew install llvm
-        echo "/usr/local/opt/llvm/bin" >> $GITHUB_PATH
+        brew install llvm lld
+        echo "/opt/homebrew/opt/llvm/bin" >> $GITHUB_PATH
 
     - name: install java
       uses: actions/setup-java@v2
