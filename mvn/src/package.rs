@@ -143,7 +143,7 @@ pub struct Artifact<'a> {
     pub version: &'a Version,
 }
 
-impl<'a> Artifact<'a> {
+impl Artifact<'_> {
     pub fn file_name(self, ext: &str) -> String {
         format!(
             "{}-{}-{}.{}",
@@ -163,7 +163,7 @@ impl<'a> Artifact<'a> {
     }
 }
 
-impl<'a> std::fmt::Display for Artifact<'a> {
+impl std::fmt::Display for Artifact<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,

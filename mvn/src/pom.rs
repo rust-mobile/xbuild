@@ -14,11 +14,7 @@ pub struct Pom {
 
 impl Pom {
     pub fn packaging(&self) -> &str {
-        if let Some(s) = self.packaging.as_deref() {
-            s
-        } else {
-            "jar"
-        }
+        self.packaging.as_deref().unwrap_or("jar")
     }
 
     pub fn dependencies(&self) -> &[Dependency] {
