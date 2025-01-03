@@ -1,4 +1,4 @@
-use crate::{BuildEnv, Platform};
+use crate::{task, BuildEnv, Platform};
 use anyhow::Result;
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
 use mvn::Download;
@@ -115,13 +115,10 @@ impl<'a> DownloadManager<'a> {
     }
 
     fn rustup_target(&self, target: &str) -> Result<()> {
-        let status = Command::new("rustup")
-            .arg("target")
-            .arg("add")
-            .arg(target)
-            .status()?;
-        anyhow::ensure!(status.success(), "failure running rustup target add");
-        Ok(())
+        task::run(
+            Command::new("rustup").arg("target").arg("add").arg(target),
+            true,
+        )
     }
 
     pub fn prefetch(&self) -> Result<()> {
