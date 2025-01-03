@@ -74,14 +74,14 @@ pub fn build(env: &BuildEnv, out: &Path) -> Result<()> {
                 id 'org.jetbrains.kotlin.android'
             }}
             android {{
-                namespace '{package}'
-                compileSdk {target_sdk}
+                namespace = '{package}'
+                compileSdk = {target_sdk}
                 defaultConfig {{
-                    applicationId '{package}'
-                    minSdk {min_sdk}
-                    targetSdk {target_sdk}
-                    versionCode {version_code}
-                    versionName '{version_name}'
+                    applicationId = '{package}'
+                    minSdk = {min_sdk}
+                    targetSdk = {target_sdk}
+                    versionCode = {version_code}
+                    versionName = '{version_name}'
                 }}
             }}
             dependencies {{
