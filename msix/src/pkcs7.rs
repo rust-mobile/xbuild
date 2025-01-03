@@ -6,14 +6,15 @@ use rasn_pkix::Attribute;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 
-pub const SPC_INDIRECT_DATA_OBJID: ConstOid = ConstOid(&[1, 3, 6, 1, 4, 1, 311, 2, 1, 4]);
-pub const SPC_SP_OPUS_INFO_OBJID: ConstOid = ConstOid(&[1, 3, 6, 1, 4, 1, 311, 2, 1, 12]);
-pub const SPC_SIPINFO_OBJID: ConstOid = ConstOid(&[1, 3, 6, 1, 4, 1, 311, 2, 1, 30]);
+pub const SPC_INDIRECT_DATA_OBJID: &Oid = Oid::const_new(&[1, 3, 6, 1, 4, 1, 311, 2, 1, 4]);
+pub const SPC_SP_OPUS_INFO_OBJID: &Oid = Oid::const_new(&[1, 3, 6, 1, 4, 1, 311, 2, 1, 12]);
+pub const SPC_SIPINFO_OBJID: &Oid = Oid::const_new(&[1, 3, 6, 1, 4, 1, 311, 2, 1, 30]);
 
 #[allow(clippy::mutable_key_type)]
 pub fn build_pkcs7(signer: &Signer, encap_content_info: EncapsulatedContentInfo) -> SignedData {
-    let digest = Sha256::digest(&encap_content_info.content.as_bytes()[8..]);
-    let signature = signer.sign(&encap_content_info.content.as_bytes()[8..]);
+    let content = encap_content_info.content.as_ref().unwrap().as_bytes();
+    let digest = Sha256::digest(&content[8..]);
+    let signature = signer.sign(&content[8..]);
     let cert = signer.cert();
 
     let digest_algorithm = AlgorithmIdentifier {

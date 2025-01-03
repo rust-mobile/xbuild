@@ -31,7 +31,7 @@ pub fn p7x(signer: &Signer, digests: &Digests) -> Vec<u8> {
     let payload = Payload::encode(digests);
     let encap_content_info = EncapsulatedContentInfo {
         content_type: SPC_INDIRECT_DATA_OBJID.into(),
-        content: Any::new(payload),
+        content: Some(Any::new(payload)),
     };
     let signed_data = build_pkcs7(signer, encap_content_info);
     let content_info = ContentInfo {
