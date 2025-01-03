@@ -193,7 +193,7 @@ impl WorkItem {
 impl WorkItem {
     const ORG: &'static str = "rust-mobile";
     const REPO: &'static str = "xbuild";
-    const VERSION: &'static str = "v0.1.0+3";
+    const VERSION: &'static str = "v0.2.1-alpha";
 
     pub fn xbuild_release(output: PathBuf, artifact: &str) -> Self {
         Self::github_release(output, Self::ORG, Self::REPO, Self::VERSION, artifact)
