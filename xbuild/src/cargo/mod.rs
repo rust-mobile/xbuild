@@ -12,7 +12,7 @@ pub use artifact::{Artifact, CrateType};
 
 use self::config::LocalizedConfig;
 use self::manifest::Manifest;
-use crate::{CompileTarget, Opt};
+use crate::{task, CompileTarget, Opt};
 
 pub struct Cargo {
     package: String,
@@ -469,9 +469,7 @@ impl CargoBuild {
         self.cc_triple_env("CFLAGS", &self.c_flags.clone());
         // These strings already end with a space if they're non-empty:
         self.cc_triple_env("CXXFLAGS", &format!("{}{}", self.c_flags, self.cxx_flags));
-        if !self.cmd.status()?.success() {
-            std::process::exit(1);
-        }
+        task::run(&mut self.cmd)?;
         Ok(())
     }
 }

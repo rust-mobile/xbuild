@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use console::{style, Term};
 use std::process::Command;
 use std::time::Instant;
@@ -66,37 +66,20 @@ impl TaskRunner {
     }
 }
 
-pub fn run(mut command: Command, verbose: bool) -> Result<()> {
-    fn print_error(command: &Command, status: Option<i32>) {
-        let program = command.get_program().to_str().unwrap();
-        let args = command
-            .get_args()
-            .map(|arg| arg.to_str().unwrap())
-            .collect::<Vec<_>>()
-            .join(" ");
+pub fn run(command: &mut Command) -> Result<()> {
+    fn format_error(command: &Command, status: Option<i32>) -> String {
         let status = if let Some(code) = status {
             format!(" exited with {}", code)
         } else {
             Default::default()
         };
-        println!("{} {} {} {}", style("[ERROR]").red(), program, args, status);
+        format!("{} `{:?}`{}", style("[ERROR]").red(), command, status)
     }
-    if !verbose {
-        let output = command.output()?;
-        if !output.status.success() {
-            print_error(&command, output.status.code());
-            let stdout = std::str::from_utf8(&output.stdout)?;
-            print!("{}", stdout);
-            let stderr = std::str::from_utf8(&output.stderr)?;
-            print!("{}", stderr);
-            std::process::exit(1);
-        }
-    } else {
-        let status = command.status()?;
-        if !status.success() {
-            print_error(&command, status.code());
-            std::process::exit(1);
-        }
+    let status = command
+        .status()
+        .with_context(|| format_error(command, None))?;
+    if !status.success() {
+        anyhow::bail!("{}", format_error(command, status.code()));
     }
     Ok(())
 }
