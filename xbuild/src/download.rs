@@ -115,10 +115,7 @@ impl<'a> DownloadManager<'a> {
     }
 
     fn rustup_target(&self, target: &str) -> Result<()> {
-        task::run(
-            Command::new("rustup").arg("target").arg("add").arg(target),
-            true,
-        )
+        task::run(Command::new("rustup").arg("target").arg("add").arg(target))
     }
 
     pub fn prefetch(&self) -> Result<()> {
