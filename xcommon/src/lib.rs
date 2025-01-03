@@ -156,13 +156,13 @@ impl Signer {
     /// ```
     pub fn new(pem: &str) -> Result<Self> {
         let pem = pem::parse_many(pem)?;
-        let key = if let Some(key) = pem.iter().find(|pem| pem.tag == "PRIVATE KEY") {
-            RsaPrivateKey::from_pkcs8_der(&key.contents)?
+        let key = if let Some(key) = pem.iter().find(|pem| pem.tag() == "PRIVATE KEY") {
+            RsaPrivateKey::from_pkcs8_der(key.contents())?
         } else {
             anyhow::bail!("no private key found");
         };
-        let cert = if let Some(cert) = pem.iter().find(|pem| pem.tag == "CERTIFICATE") {
-            rasn::der::decode::<Certificate>(&cert.contents)
+        let cert = if let Some(cert) = pem.iter().find(|pem| pem.tag() == "CERTIFICATE") {
+            rasn::der::decode::<Certificate>(cert.contents())
                 .map_err(|err| anyhow::anyhow!("{}", err))?
         } else {
             anyhow::bail!("no certificate found");
