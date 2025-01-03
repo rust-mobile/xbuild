@@ -8,12 +8,12 @@ license = "Apache-2.0 OR MIT"
 
 [dependencies]
 anyhow = { workspace = true }
-byteorder = "1.5.0"
+byteorder = { workspace = true }
 dunce = { workspace = true }
 image = { version = "0.24.9", default-features = false, features = ["png", "webp"] }
 pem = "1.1.1"
-rasn = "0.6.1"
-rasn-pkix = "0.6.0"
-rsa = "0.7.2"
-sha2 = { version = "0.10.8", features = ["oid"] }
+rasn = { workspace = true }
+rasn-pkix = { workspace = true }
+rsa = { workspace = true }
+sha2 = { workspace = true, features = ["oid"] }
 zip = { workspace = true, features = ["deflate"] }

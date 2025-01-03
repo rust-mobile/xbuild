@@ -8,4 +8,4 @@ license = "Apache-2.0 OR MIT"
 
 [dependencies]
 anyhow = { workspace = true }
-byteorder = "1.5.0"
+byteorder = { workspace = true }

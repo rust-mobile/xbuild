@@ -15,11 +15,17 @@ exclude = ["examples"]
 [workspace.dependencies]
 anyhow = "1.0.95"
 base64 = "0.20.0"
+byteorder = "1.5.0"
 dunce = "1.0.5"
 log = "0.4.20"
 plist = "1.7.0"
 quick-xml = { version = "0.26.0", features = ["serialize"] }
+rasn = "0.6.1"
+rasn-cms = "0.6.0"
+rasn-pkix = "0.6.0"
+rsa = "0.7.2"
 serde = { version = "1.0.217", features = ["derive"] }
+sha2 = "0.10.8"
 tracing = { version = "0.1.41", default-features = false }
 tracing-log = "0.1.4"
 tracing-subscriber = { version = "0.3.16", default-features = false, features = ["env-filter"]} 
