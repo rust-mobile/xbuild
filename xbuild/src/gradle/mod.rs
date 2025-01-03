@@ -200,14 +200,16 @@ pub fn build(env: &BuildEnv, libraries: Vec<(Target, PathBuf)>, out: &Path) -> R
 
     let opt = env.target().opt();
     let format = env.target().format();
-    let mut cmd = Command::new("gradle");
-    cmd.current_dir(&gradle);
-    cmd.arg(match format {
-        Format::Aab => "bundle",
-        Format::Apk => "assemble",
-        _ => unreachable!(),
-    });
-    task::run(cmd, true)?;
+    task::run(
+        Command::new("gradle")
+            .current_dir(&gradle)
+            .arg(match format {
+                Format::Aab => "bundle",
+                Format::Apk => "assemble",
+                _ => unreachable!(),
+            }),
+        true,
+    )?;
     let output = gradle
         .join("app")
         .join("build")
