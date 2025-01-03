@@ -1,4 +1,5 @@
 use anyhow::Result;
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::io::Read;
@@ -114,7 +115,7 @@ pub struct Block {
 impl Block {
     pub fn new(bytes: &[u8]) -> Self {
         Self {
-            hash: base64::encode(Sha256::digest(bytes)),
+            hash: STANDARD.encode(Sha256::digest(bytes)),
             size: None,
         }
     }
