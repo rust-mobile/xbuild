@@ -12,7 +12,7 @@ byteorder = { workspace = true }
 quick-xml = { workspace = true }
 rasn = { workspace = true }
 rasn-pkix = { workspace = true }
-roxmltree = "0.16.0"
+roxmltree = "0.20.0"
 rsa = { workspace = true }
 serde = { workspace = true }
 sha2 = { workspace = true, features = ["oid"] }
