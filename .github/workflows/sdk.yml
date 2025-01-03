@@ -10,8 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - run: echo "TOOLCHAIN=$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64" >> $GITHUB_ENV
-    - run: ls $TOOLCHAIN/lib64/clang | xargs -0 printf "CLANG_VERSION=%s" >> $GITHUB_ENV
-    - run: echo "CLANG=$TOOLCHAIN/lib64/clang/$CLANG_VERSION" >> $GITHUB_ENV
+    - run: ls $TOOLCHAIN/lib/clang | xargs -0 printf "CLANG_VERSION=%s" >> $GITHUB_ENV
+    - run: echo "CLANG=$TOOLCHAIN/lib/clang/$CLANG_VERSION" >> $GITHUB_ENV
 
     - run: echo $ANDROID_NDK_LATEST_HOME
     - run: echo $CLANG_VERSION
