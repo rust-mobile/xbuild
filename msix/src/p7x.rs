@@ -165,8 +165,8 @@ impl Default for SpcSipInfoContent {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rsa::{pkcs8::DecodePrivateKey, Pkcs1v15Sign};
     use rsa::RsaPrivateKey;
+    use rsa::{pkcs8::DecodePrivateKey, Pkcs1v15Sign};
     use sha2::{Digest, Sha256};
 
     const HASHES: Digests = Digests {

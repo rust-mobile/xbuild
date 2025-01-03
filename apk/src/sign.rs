@@ -1,8 +1,11 @@
 use anyhow::Result;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use rasn_pkix::Certificate;
-use rsa::{pkcs8::{DecodePublicKey, EncodePublicKey}, Pkcs1v15Sign};
 use rsa::RsaPublicKey;
+use rsa::{
+    pkcs8::{DecodePublicKey, EncodePublicKey},
+    Pkcs1v15Sign,
+};
 use sha2::{Digest as _, Sha256};
 use std::fs::File;
 use std::io::{BufReader, Cursor, Read, Seek, SeekFrom, Write};

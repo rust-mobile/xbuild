@@ -2,8 +2,8 @@ pub mod llvm;
 
 use anyhow::{Context, Result};
 use byteorder::{LittleEndian, ReadBytesExt};
-use image::{imageops::FilterType, ImageFormat};
 use image::ImageReader;
+use image::{imageops::FilterType, ImageFormat};
 use image::{DynamicImage, GenericImageView, RgbaImage};
 use rsa::{pkcs8::DecodePrivateKey, Pkcs1v15Sign};
 use rsa::{RsaPrivateKey, RsaPublicKey};
