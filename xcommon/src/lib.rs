@@ -2,9 +2,9 @@ pub mod llvm;
 
 use anyhow::{Context, Result};
 use byteorder::{LittleEndian, ReadBytesExt};
-use image::imageops::FilterType;
-use image::io::Reader as ImageReader;
-use image::{DynamicImage, GenericImageView, ImageOutputFormat, RgbaImage};
+use image::{imageops::FilterType, ImageFormat};
+use image::ImageReader;
+use image::{DynamicImage, GenericImageView, RgbaImage};
 use rsa::{pkcs8::DecodePrivateKey, Pkcs1v15Sign};
 use rsa::{RsaPrivateKey, RsaPublicKey};
 use sha2::{Digest, Sha256};
@@ -61,13 +61,13 @@ impl Scaler {
             .img
             .resize(opts.scaled_size, opts.scaled_size, FilterType::Nearest);
         if opts.scaled_size == opts.target_width && opts.scaled_size == opts.target_height {
-            resized.write_to(w, ImageOutputFormat::Png)?;
+            resized.write_to(w, ImageFormat::Png)?;
         } else {
             let x = (opts.target_width - opts.scaled_size) / 2;
             let y = (opts.target_height - opts.scaled_size) / 2;
             let mut padded = RgbaImage::new(opts.target_width, opts.target_height);
             image::imageops::overlay(&mut padded, &resized, x as i64, y as i64);
-            padded.write_to(w, ImageOutputFormat::Png)?;
+            padded.write_to(w, ImageFormat::Png)?;
         }
         Ok(())
     }
