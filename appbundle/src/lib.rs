@@ -1,8 +1,7 @@
 use anyhow::{Context, Result};
+use app_store_connect::notary_api::SubmissionResponseStatus;
 use apple_codesign::dmg::DmgSigner;
-use apple_codesign::notarization::{
-    notary_api::SubmissionResponseStatus, NotarizationUpload, Notarizer,
-};
+use apple_codesign::notarization::{NotarizationUpload, Notarizer};
 use apple_codesign::stapling::Stapler;
 use apple_codesign::{BundleSigner, CodeSignatureFlags, SettingsScope, SigningSettings};
 use icns::{IconFamily, Image};

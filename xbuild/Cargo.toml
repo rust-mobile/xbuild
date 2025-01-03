@@ -13,7 +13,7 @@ apk = { version = "0.4.0", path = "../apk" }
 appbundle = { version = "0.3.0", path = "../appbundle" }
 appimage = { version = "0.4.0", path = "../appimage" }
 apple-dmg = "0.5.0"
-app-store-connect = "0.7.0"
+app-store-connect = { workspace = true }
 base64 = { workspace = true }
 clap = { version = "4.5.23", features = ["derive"] }
 console = "0.15.10"
