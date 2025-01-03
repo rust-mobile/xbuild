@@ -27,6 +27,6 @@ rsa = { version = "0.9.7", features=["pem"] }
 serde = { version = "1.0.217", features = ["derive"] }
 sha2 = "0.10.8"
 tracing = { version = "0.1.41", default-features = false }
-tracing-log = "0.1.4"
+tracing-log = "0.2.0"
 tracing-subscriber = { version = "0.3.16", default-features = false, features = ["env-filter"]} 
 zip = { version = "0.6.6", default-features = false }
