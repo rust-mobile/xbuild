@@ -20,9 +20,9 @@ dunce = "1.0.5"
 log = "0.4.20"
 plist = "1.7.0"
 quick-xml = { version = "0.26.0", features = ["serialize"] }
-rasn = "0.6.1"
-rasn-cms = "0.6.0"
-rasn-pkix = "0.6.0"
+rasn = "0.22.0"
+rasn-cms = "0.22.0"
+rasn-pkix = "0.22.0"
 rsa = "0.7.2"
 serde = { version = "1.0.217", features = ["derive"] }
 sha2 = "0.10.8"
