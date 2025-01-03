@@ -11,7 +11,7 @@ pub enum Target {
 
 impl Target {
     /// Identifier used in the NDK to refer to the ABI
-    pub fn android_abi(self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             Self::Arm64V8a => "arm64-v8a",
             Self::ArmV7a => "armeabi-v7a",
