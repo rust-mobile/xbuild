@@ -23,7 +23,7 @@ quick-xml = { version = "0.26.0", features = ["serialize"] }
 rasn = "0.22.0"
 rasn-cms = "0.22.0"
 rasn-pkix = "0.22.0"
-rsa = "0.7.2"
+rsa = { version = "0.9.7", features=["pem"] }
 serde = { version = "1.0.217", features = ["derive"] }
 sha2 = "0.10.8"
 tracing = { version = "0.1.41", default-features = false }
