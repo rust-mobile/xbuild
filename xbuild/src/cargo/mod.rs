@@ -14,6 +14,8 @@ use self::config::LocalizedConfig;
 use self::manifest::Manifest;
 use crate::{CompileTarget, Opt};
 
+const SEP: &str = "\x1f";
+
 pub struct Cargo {
     package: String,
     features: Vec<String>,
@@ -236,7 +238,7 @@ pub struct CargoBuild {
     triple: Option<&'static str>,
     c_flags: String,
     cxx_flags: String,
-    rust_flags: String,
+    rust_flags: Vec<String>,
 }
 
 impl CargoBuild {
@@ -401,31 +403,29 @@ impl CargoBuild {
     }
 
     pub fn add_lib_dir(&mut self, path: &Path) {
-        self.rust_flags
-            .push_str(&format!("-Lnative={} ", path.display()));
+        self.rust_flags.push(format!("-Lnative={}", path.display()));
     }
 
     pub fn add_framework_dir(&mut self, path: &Path) {
         self.rust_flags
-            .push_str(&format!("-Lframework={} ", path.display()));
+            .push(format!("-Lframework={}", path.display()));
     }
 
     pub fn link_lib(&mut self, name: &str) {
-        self.rust_flags.push_str(&format!("-l{} ", name));
+        self.rust_flags.push(format!("-l{}", name));
     }
 
     pub fn link_framework(&mut self, name: &str) {
-        self.rust_flags.push_str(&format!("-lframework={} ", name));
+        self.rust_flags.push(format!("-lframework={}", name));
     }
 
     pub fn add_target_feature(&mut self, target_feature: &str) {
         self.rust_flags
-            .push_str(&format!("-Ctarget-feature={} ", target_feature));
+            .push(format!("-Ctarget-feature={}", target_feature));
     }
 
     pub fn add_link_arg(&mut self, link_arg: &str) {
-        self.rust_flags
-            .push_str(&format!("-Clink-arg={} ", link_arg));
+        self.rust_flags.push(format!("-Clink-arg={}", link_arg));
     }
 
     pub fn add_define(&mut self, name: &str, value: &str) {
@@ -465,7 +465,10 @@ impl CargoBuild {
     }
 
     pub fn exec(mut self) -> Result<()> {
-        self.cargo_target_env("RUSTFLAGS", &self.rust_flags.clone());
+        // TODO: There's no target-triple specific ENCODED_RUSTFLAGS: https://github.com/rust-lang/cargo/issues/14398
+        // self.cargo_target_env("ENCODED_RUSTFLAGS", &self.rust_flags.join(SEP));
+        self.cmd
+            .env("CARGO_ENCODED_RUSTFLAGS", self.rust_flags.join(SEP));
         self.cc_triple_env("CFLAGS", &self.c_flags.clone());
         // These strings already end with a space if they're non-empty:
         self.cc_triple_env("CXXFLAGS", &format!("{}{}", self.c_flags, self.cxx_flags));
