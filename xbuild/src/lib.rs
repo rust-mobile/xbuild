@@ -167,17 +167,18 @@ impl std::fmt::Display for Format {
 impl std::str::FromStr for Format {
     type Err = anyhow::Error;
 
-    fn from_str(arch: &str) -> Result<Self> {
-        Ok(match arch {
+    fn from_str(format: &str) -> Result<Self> {
+        Ok(match format {
             "aab" => Self::Aab,
             "apk" => Self::Apk,
             "appbundle" => Self::Appbundle,
             "appdir" => Self::Appdir,
             "appimage" => Self::Appimage,
             "dmg" => Self::Dmg,
+            "exe" => Self::Exe,
             "ipa" => Self::Ipa,
             "msix" => Self::Msix,
-            _ => anyhow::bail!("unsupported arch {}", arch),
+            _ => anyhow::bail!("unsupported format {}", format),
         })
     }
 }
