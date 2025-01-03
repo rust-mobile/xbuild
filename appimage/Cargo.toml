@@ -7,5 +7,5 @@ repository = "https://github.com/rust-mobile/xbuild"
 license = "Apache-2.0 OR MIT"
 
 [dependencies]
-anyhow = "1.0.95"
+anyhow = { workspace = true }
 xcommon = { version = "0.3.0", path = "../xcommon" }

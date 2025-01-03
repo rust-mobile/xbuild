@@ -7,18 +7,18 @@ repository = "https://github.com/rust-mobile/xbuild"
 license = "Apache-2.0 OR MIT"
 
 [dependencies]
-anyhow = "1.0.95"
-base64 = "0.20.0"
+anyhow = { workspace = true }
+base64 = { workspace = true }
 byteorder = "1.5.0"
 mime_guess = "2.0.5"
-quick-xml = { version = "0.26.0", features = ["serialize"] }
+quick-xml = { workspace = true }
 rasn = "0.6.1"
 rasn-cms = "0.6.0"
 rasn-pkix = "0.6.0"
-serde = { version = "1.0.217", features = ["derive"] }
+serde = { workspace = true }
 sha2 = "0.10.8"
 xcommon = { version = "0.3.0", path = "../xcommon" }
-zip = { version = "0.6.6", default-features = false }
+zip = { workspace = true }
 
 [dev-dependencies]
 der-parser = "8.2.0"

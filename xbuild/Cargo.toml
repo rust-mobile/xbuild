@@ -8,39 +8,39 @@ license = "Apache-2.0 OR MIT"
 
 [dependencies]
 android-sdkmanager-rs = "0.5.0"
-anyhow = "1.0.95"
+anyhow = { workspace = true }
 apk = { version = "0.4.0", path = "../apk" }
 appbundle = { version = "0.3.0", path = "../appbundle" }
 appimage = { version = "0.4.0", path = "../appimage" }
 apple-dmg = "0.2.0"
 app-store-connect = "0.1.0"
-base64 = "0.20.0"
+base64 = { workspace = true }
 clap = { version = "4.5.23", features = ["derive"] }
 console = "0.15.10"
 dirs = "4.0.0"
-dunce = "1.0.5"
+dunce = { workspace = true }
 futures = "0.3.31"
 glob = "0.3.2"
 indicatif = "0.17.9"
-log = "0.4.22"
+log = { workspace = true }
 log-panics = "2.1.0"
 msix = { version = "0.4.0", path = "../msix" }
 mvn = { version = "0.2.0", path = "../mvn" }
 path-slash = "0.2.1"
-plist = "1.7.0"
-quick-xml = { version = "0.26.0", features = ["serialize"] }
+plist = { workspace = true }
+quick-xml = { workspace = true }
 reqwest = { version = "0.11.27", default-features = false, features = ["blocking", "rustls-tls"] }
-serde = { version = "1.0.217", features = ["derive"] }
+serde = { workspace = true }
 serde_yaml = "0.9.34"
 symlink = "0.1.0"
 tar = "0.4.43"
 toml = "0.5.11"
-tracing = { version = "0.1.41", default-features = false }
-tracing-log = "0.1.4"
-tracing-subscriber = { version = "0.3.19", default-features = false, features = ["env-filter", "fmt"] }
+tracing = { workspace = true }
+tracing-log = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["fmt"] }
 which = "4.4.2"
 xcommon = { version = "0.3.0", path = "../xcommon" }
-zip = { version = "0.6.6", default-features = false }
+zip = { workspace = true }
 zstd = "0.12.4"
 
 [[bin]]
