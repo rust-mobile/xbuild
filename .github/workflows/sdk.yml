@@ -23,11 +23,6 @@ jobs:
     - run: cp -r $CLANG/lib/linux/x86_64/* Android.ndk/usr/lib/x86_64-linux-android/
     - run: cp -r $CLANG/lib/linux/i386/* Android.ndk/usr/lib/i686-linux-android/
 
-    - run: echo "INPUT(-lunwind)" > Android.ndk/usr/lib/aarch64-linux-android/libgcc.a
-    - run: echo "INPUT(-lunwind)" > Android.ndk/usr/lib/arm-linux-androideabi/libgcc.a
-    - run: echo "INPUT(-lunwind)" > Android.ndk/usr/lib/x86_64-linux-android/libgcc.a
-    - run: echo "INPUT(-lunwind)" > Android.ndk/usr/lib/i686-linux-android/libgcc.a
-
     - run: tar --zstd -cf Android.ndk.tar.zst Android.ndk
     - run: gh release upload $TAG Android.ndk.tar.zst -R ${{ github.repository }}
       env:
