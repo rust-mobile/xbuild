@@ -7,5 +7,5 @@ repository = "https://github.com/rust-mobile/xbuild"
 license = "Apache-2.0 OR MIT"
 
 [dependencies]
-anyhow = "1.0.68"
-byteorder = "1.4.3"
+anyhow = "1.0.95"
+byteorder = "1.5.0"
