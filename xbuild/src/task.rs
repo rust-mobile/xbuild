@@ -66,7 +66,7 @@ impl TaskRunner {
     }
 }
 
-pub fn run(command: &mut Command, verbose: bool) -> Result<()> {
+pub fn run(command: &mut Command) -> Result<()> {
     fn format_error(command: &Command, status: Option<i32>) -> String {
         let status = if let Some(code) = status {
             format!(" exited with {code}")
@@ -75,24 +75,11 @@ pub fn run(command: &mut Command, verbose: bool) -> Result<()> {
         };
         format!("{} `{:?}`{}", style("[ERROR]").red(), command, status)
     }
-    if !verbose {
-        let output = command
-            .output()
-            .with_context(|| format_error(command, None))?;
-        if !output.status.success() {
-            let stdout = std::str::from_utf8(&output.stdout)?;
-            print!("{stdout}");
-            let stderr = std::str::from_utf8(&output.stderr)?;
-            print!("{stderr}");
-            anyhow::bail!("{}", format_error(command, output.status.code()));
-        }
-    } else {
-        let status = command
-            .status()
-            .with_context(|| format_error(command, None))?;
-        if !status.success() {
-            anyhow::bail!("{}", format_error(command, status.code()));
-        }
+    let status = command
+        .status()
+        .with_context(|| format_error(command, None))?;
+    if !status.success() {
+        anyhow::bail!("{}", format_error(command, status.code()));
     }
     Ok(())
 }

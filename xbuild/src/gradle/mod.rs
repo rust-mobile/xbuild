@@ -208,7 +208,6 @@ pub fn build(env: &BuildEnv, libraries: Vec<(Target, PathBuf)>, out: &Path) -> R
                 Format::Apk => "assemble",
                 _ => unreachable!(),
             }),
-        true,
     )?;
     let output = gradle
         .join("app")
