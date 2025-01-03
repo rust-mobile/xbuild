@@ -1,8 +1,11 @@
 use anyhow::Result;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use rasn_pkix::Certificate;
-use rsa::pkcs8::{DecodePublicKey, EncodePublicKey};
-use rsa::{PaddingScheme, PublicKey, RsaPublicKey};
+use rsa::RsaPublicKey;
+use rsa::{
+    pkcs8::{DecodePublicKey, EncodePublicKey},
+    Pkcs1v15Sign,
+};
 use sha2::{Digest as _, Sha256};
 use std::fs::File;
 use std::io::{BufReader, Cursor, Read, Seek, SeekFrom, Write};
@@ -61,7 +64,7 @@ pub fn verify(path: &Path) -> Result<Vec<Certificate>> {
             );
             let pubkey = RsaPublicKey::from_public_key_der(&signer.public_key)?;
             let digest = Sha256::digest(&signer.signed_data);
-            let padding = PaddingScheme::new_pkcs1v15_sign::<sha2::Sha256>();
+            let padding = Pkcs1v15Sign::new::<sha2::Sha256>();
             pubkey.verify(padding, &digest, &sig.signature)?;
         }
         let mut r = Cursor::new(&signer.signed_data[..]);
