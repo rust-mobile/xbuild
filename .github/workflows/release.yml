@@ -17,7 +17,7 @@ jobs:
     - uses: hecrj/setup-rust-action@v1
     - run: cargo install --path xbuild --root .
     - run: mv bin/x xbuild-linux-x64
-    - run: gh release upload $TAG xbuild-linux-x64 -R rust-mobile/xbuild
+    - run: gh release upload $TAG xbuild-linux-x64 -R ${{ github.repository }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         TAG: ${{ github.event.release.tag_name }}
@@ -29,7 +29,7 @@ jobs:
     - uses: hecrj/setup-rust-action@v1
     - run: cargo install --path xbuild --root .
     - run: mv bin/x xbuild-macos-x64
-    - run: gh release upload $TAG xbuild-macos-x64 -R rust-mobile/xbuild
+    - run: gh release upload $TAG xbuild-macos-x64 -R ${{ github.repository }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         TAG: ${{ github.event.release.tag_name }}
@@ -41,7 +41,7 @@ jobs:
     - uses: hecrj/setup-rust-action@v1
     - run: cargo install --path xbuild --root .
     - run: mv bin/x.exe xbuild-windows-x64.exe
-    - run: gh release upload $TAG xbuild-windows-x64.exe -R rust-mobile/xbuild
+    - run: gh release upload $TAG xbuild-windows-x64.exe -R ${{ github.repository }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         TAG: ${{ github.event.release.tag_name }}
