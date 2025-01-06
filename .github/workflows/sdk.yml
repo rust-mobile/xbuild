@@ -30,12 +30,12 @@ jobs:
         TAG: ${{ github.event.release.tag_name }}
 
   macos:
-    runs-on: macos-11
+    runs-on: macos-latest
     steps:
     - run: ls /Applications/Xcode*
     - run: cp -R $SDK_PATH .
       env:
-        SDK_PATH: /Applications/Xcode_13.2.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
+        SDK_PATH: /Applications/Xcode_16.4.0.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
     - run: gtar --zstd -cf MacOSX.sdk.tar.zst MacOSX.sdk
     - run: gh release upload $TAG MacOSX.sdk.tar.zst -R ${{ github.repository }}
       env:
@@ -43,12 +43,12 @@ jobs:
         TAG: ${{ github.event.release.tag_name }}
 
   ios:
-    runs-on: macos-11
+    runs-on: macos-latest
     steps:
     - run: ls /Applications/Xcode*
     - run: cp -R $SDK_PATH .
       env:
-        SDK_PATH: /Applications/Xcode_13.2.1.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk
+        SDK_PATH: /Applications/Xcode_16.4.0.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk
     - run: gtar --zstd -cf iPhoneOS.sdk.tar.zst iPhoneOS.sdk
     - run: gh release upload $TAG iPhoneOS.sdk.tar.zst -R ${{ github.repository }}
       env:
