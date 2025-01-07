@@ -281,11 +281,14 @@ impl CargoBuild {
     pub fn use_android_ndk(&mut self, path: &Path, target_sdk_version: u32) -> Result<()> {
         let path = dunce::canonicalize(path)?;
         let ndk_triple = self.target.ndk_triple();
+        assert_eq!(Some(ndk_triple), self.triple);
+        let ndk_versioned_triple = format!("{ndk_triple}{target_sdk_version}");
         self.cfg_tool(Tool::Cc, "clang");
         self.cfg_tool(Tool::Cxx, "clang++");
         self.cfg_tool(Tool::Ar, "llvm-ar");
         self.cfg_tool(Tool::Linker, "clang");
         self.set_sysroot(&path);
+        self.add_cflag(&format!("--target={ndk_versioned_triple}"));
         self.add_cxxflag("-stdlib=libc++");
         let lib_dir = path.join("usr").join("lib").join(ndk_triple);
         let sdk_lib_dir = lib_dir.join(target_sdk_version.to_string());
@@ -295,9 +298,7 @@ impl CargoBuild {
             target_sdk_version
         );
         self.use_ld("lld");
-        if let Some(triple) = self.triple {
-            self.add_link_arg(&format!("--target={triple}"));
-        }
+        self.add_link_arg(&format!("--target={ndk_versioned_triple}"));
         self.add_link_arg(&format!("-B{}", sdk_lib_dir.display()));
         self.add_link_arg(&format!("-L{}", sdk_lib_dir.display()));
         self.add_link_arg(&format!("-L{}", lib_dir.display()));
