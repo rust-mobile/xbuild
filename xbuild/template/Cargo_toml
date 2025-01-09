@@ -8,16 +8,16 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 anyhow = "1.0.68"
-dioxus = "0.4"
+dioxus = "0.6"
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-dioxus-desktop = "0.4"
+dioxus-desktop = "0.6"
 
 [target.'cfg(target_os = "android")'.dependencies]
-android_logger = "0.11"
+android_logger = "0.14"
 log = "0.4"
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 console_error_panic_hook = "0.1.7"
-dioxus-web = "0.4"
+dioxus-web = "0.6"
 wasm-logger = "0.2"
