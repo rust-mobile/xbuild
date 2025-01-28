@@ -26,10 +26,10 @@ pub fn devices() -> Result<()> {
     Ok(())
 }
 
-pub fn run(env: &BuildEnv) -> Result<()> {
+pub fn run(env: &BuildEnv, launch_args: &[String]) -> Result<()> {
     let out = env.executable();
     if let Some(device) = env.target().device() {
-        device.run(env, &out)?;
+        device.run(env, &out, launch_args)?;
     } else {
         anyhow::bail!("no device specified");
     }

@@ -48,12 +48,13 @@ impl IMobileDevice {
         Ok(())
     }
 
-    fn start(&self, device: &str, bundle_identifier: &str) -> Result<()> {
+    fn start(&self, device: &str, bundle_identifier: &str, launch_args: &[String]) -> Result<()> {
         let status = Command::new(&self.idevicedebug)
             .arg("--udid")
             .arg(device)
             .arg("run")
             .arg(bundle_identifier)
+            .args(launch_args)
             .status()?;
         anyhow::ensure!(status.success(), "failed to run idevicedebug");
         Ok(())
@@ -92,11 +93,17 @@ impl IMobileDevice {
         Ok(())
     }
 
-    pub fn run(&self, env: &BuildEnv, device: &str, path: &Path) -> Result<()> {
+    pub fn run(
+        &self,
+        env: &BuildEnv,
+        device: &str,
+        path: &Path,
+        launch_args: &[String],
+    ) -> Result<()> {
         let bundle_identifier = appbundle::app_bundle_identifier(path)?;
         self.mount_disk_image(env, device)?;
         self.install(device, path)?;
-        self.start(device, &bundle_identifier)?;
+        self.start(device, &bundle_identifier, launch_args)?;
         Ok(())
     }
 

@@ -46,6 +46,16 @@ enum Commands {
     Run {
         #[clap(flatten)]
         args: BuildArgs,
+
+        /// Platform-specific arguments to pass to the launch command:
+        /// - **Host**: Passed to the running executable, similar to `cargo run -- <launch_args>`.
+        /// - **Android**: Passed to [`am start`], after the `-a MAIN` and `-n package/.Activity` flags.
+        /// - **iOS**: Passed to [`idevicedebug`] after `run <bundleid>`.
+        ///
+        /// [`am start`]: https://developer.android.com/tools/adb#am
+        /// [`idevicedebug`]: https://manpages.debian.org/testing/libimobiledevice-utils/idevicedebug.1.en.html
+        #[clap(last = true)]
+        launch_args: Vec<String>,
     },
     /// Launch app in a debugger on an attached device
     Lldb {
@@ -104,10 +114,10 @@ impl Commands {
                 let env = BuildEnv::new(args)?;
                 command::build(&env)?;
             }
-            Self::Run { args } => {
+            Self::Run { args, launch_args } => {
                 let env = BuildEnv::new(args)?;
                 command::build(&env)?;
-                command::run(&env)?;
+                command::run(&env, &launch_args)?;
             }
             Self::Lldb { args } => {
                 let env = BuildEnv::new(args)?;
