@@ -110,11 +110,17 @@ impl Device {
         }
     }
 
-    pub fn run(&self, env: &BuildEnv, path: &Path) -> Result<()> {
+    pub fn run(&self, env: &BuildEnv, path: &Path, launch_args: &[String]) -> Result<()> {
         match &self.backend {
-            Backend::Adb(adb) => adb.run(&self.id, path, &env.config.android().debug, false),
-            Backend::Host(host) => host.run(path),
-            Backend::Imd(imd) => imd.run(env, &self.id, path),
+            Backend::Adb(adb) => adb.run(
+                &self.id,
+                path,
+                launch_args,
+                &env.config.android().debug,
+                false,
+            ),
+            Backend::Host(host) => host.run(path, launch_args),
+            Backend::Imd(imd) => imd.run(env, &self.id, path, launch_args),
         }?;
         Ok(())
     }

@@ -46,8 +46,8 @@ impl Host {
         }
     }
 
-    pub fn run(&self, path: &Path) -> Result<()> {
-        Command::new(path).status()?;
+    pub fn run(&self, path: &Path, launch_args: &[String]) -> Result<()> {
+        Command::new(path).args(launch_args).status()?;
         Ok(())
     }
 
