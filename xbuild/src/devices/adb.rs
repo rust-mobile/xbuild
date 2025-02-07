@@ -197,23 +197,21 @@ impl Adb {
         Ok(())
     }
 
-    fn logcat_last_timestamp(&self, device: &str) -> Result<String> {
+    /// Returns the current device date and time in logcat timestamp format
+    fn current_date_time(&self, device: &str) -> Result<String> {
         let output = self
             .shell(device, None)
-            .arg("logcat")
-            .arg("-v")
-            .arg("time")
-            .arg("-t")
-            .arg("1")
+            .arg("date")
+            // Escape string so that `adb` passes it as-is to `date`
+            .arg("'+%m-%d %T.000'")
             .output()?;
         anyhow::ensure!(
             output.status.success(),
-            "adb logcat exited with code {:?}: {}",
+            "`adb shell date` exited with code {:?}: {}",
             output.status.code(),
             std::str::from_utf8(&output.stderr)?.trim()
         );
-        let line = std::str::from_utf8(&output.stdout)?.lines().nth(1).unwrap();
-        Ok(line[..18].to_string())
+        Ok(std::str::from_utf8(&output.stdout)?.trim().to_owned())
     }
 
     fn uidof(&self, device: &str, id: &str) -> Result<u32> {
@@ -244,13 +242,13 @@ impl Adb {
         Ok(uid.parse()?)
     }
 
-    fn logcat(&self, device: &str, uid: u32, last_timestamp: &str) -> Result<Logcat> {
+    fn logcat(&self, device: &str, uid: u32, since: &str) -> Result<Logcat> {
         let child = self
-            .shell(device, None)
+            .adb(device)
             .arg("logcat")
             .arg("-T")
-            .arg(format!("'{last_timestamp}'"))
             .arg(format!("--uid={uid}"))
+            .arg(since)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .spawn()?;
@@ -366,10 +364,10 @@ impl Adb {
         }
         self.install(device, path)?;
         self.forward_reverse(device, debug_config)?;
-        let last_timestamp = self.logcat_last_timestamp(device)?;
+        let since = self.current_date_time(device)?;
         self.start(device, package, activity, launch_args)?;
         let uid = self.uidof(device, package)?;
-        let logcat = self.logcat(device, uid, &last_timestamp)?;
+        let logcat = self.logcat(device, uid, &since)?;
         for line in logcat {
             println!("{line}");
         }
