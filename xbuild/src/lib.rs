@@ -2,7 +2,7 @@ use crate::cargo::{Cargo, CargoBuild, CrateType};
 use crate::config::Config;
 use crate::devices::Device;
 use anyhow::Result;
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use std::path::{Path, PathBuf};
 use xcommon::Signer;
 
@@ -40,7 +40,7 @@ impl std::fmt::Display for Opt {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 pub enum Platform {
     Android,
     Ios,
@@ -65,32 +65,14 @@ impl Platform {
 
 impl std::fmt::Display for Platform {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Android => write!(f, "android"),
-            Self::Ios => write!(f, "ios"),
-            Self::Linux => write!(f, "linux"),
-            Self::Macos => write!(f, "macos"),
-            Self::Windows => write!(f, "windows"),
-        }
+        self.to_possible_value()
+            .expect("No variant is skipped in clap")
+            .get_name()
+            .fmt(f)
     }
 }
 
-impl std::str::FromStr for Platform {
-    type Err = anyhow::Error;
-
-    fn from_str(platform: &str) -> Result<Self> {
-        Ok(match platform {
-            "android" => Self::Android,
-            "ios" => Self::Ios,
-            "linux" => Self::Linux,
-            "macos" => Self::Macos,
-            "windows" => Self::Windows,
-            _ => anyhow::bail!("unsupported platform {}", platform),
-        })
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 pub enum Arch {
     Armv7,
     Arm,
@@ -113,32 +95,14 @@ impl Arch {
 
 impl std::fmt::Display for Arch {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Armv7 => write!(f, "armv7"),
-            Self::Arm => write!(f, "arm"),
-            Self::Arm64 => write!(f, "arm64"),
-            Self::X64 => write!(f, "x64"),
-            //Self::X86 => write!(f, "x86"),
-        }
+        self.to_possible_value()
+            .expect("No variant is skipped in clap")
+            .get_name()
+            .fmt(f)
     }
 }
 
-impl std::str::FromStr for Arch {
-    type Err = anyhow::Error;
-
-    fn from_str(arch: &str) -> Result<Self> {
-        Ok(match arch {
-            "arm" => Self::Arm,
-            "armv7" => Self::Armv7,
-            "arm64" => Self::Arm64,
-            "x64" => Self::X64,
-            //"x86" => Self::X86,
-            _ => anyhow::bail!("unsupported arch {}", arch),
-        })
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 pub enum Format {
     Aab,
     Apk,
@@ -153,35 +117,10 @@ pub enum Format {
 
 impl std::fmt::Display for Format {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Aab => write!(f, "aab"),
-            Self::Apk => write!(f, "apk"),
-            Self::Appbundle => write!(f, "appbundle"),
-            Self::Appdir => write!(f, "appdir"),
-            Self::Appimage => write!(f, "appimage"),
-            Self::Dmg => write!(f, "dmg"),
-            Self::Exe => write!(f, "exe"),
-            Self::Ipa => write!(f, "ipa"),
-            Self::Msix => write!(f, "msix"),
-        }
-    }
-}
-
-impl std::str::FromStr for Format {
-    type Err = anyhow::Error;
-
-    fn from_str(arch: &str) -> Result<Self> {
-        Ok(match arch {
-            "aab" => Self::Aab,
-            "apk" => Self::Apk,
-            "appbundle" => Self::Appbundle,
-            "appdir" => Self::Appdir,
-            "appimage" => Self::Appimage,
-            "dmg" => Self::Dmg,
-            "ipa" => Self::Ipa,
-            "msix" => Self::Msix,
-            _ => anyhow::bail!("unsupported arch {}", arch),
-        })
+        self.to_possible_value()
+            .expect("No variant is skipped in clap")
+            .get_name()
+            .fmt(f)
     }
 }
 
@@ -220,7 +159,7 @@ impl Format {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 pub enum Store {
     Apple,
     Microsoft,
@@ -230,26 +169,10 @@ pub enum Store {
 
 impl std::fmt::Display for Store {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Apple => write!(f, "apple"),
-            Self::Microsoft => write!(f, "microsoft"),
-            Self::Play => write!(f, "play"),
-            Self::Sideload => write!(f, "sideload"),
-        }
-    }
-}
-
-impl std::str::FromStr for Store {
-    type Err = anyhow::Error;
-
-    fn from_str(store: &str) -> Result<Self> {
-        Ok(match store {
-            "apple" => Self::Apple,
-            "microsoft" => Self::Microsoft,
-            "play" => Self::Play,
-            "sideload" => Self::Sideload,
-            _ => anyhow::bail!("unsupported store {}", store),
-        })
+        self.to_possible_value()
+            .expect("No variant is skipped in clap")
+            .get_name()
+            .fmt(f)
     }
 }
 
@@ -384,25 +307,20 @@ pub struct BuildTargetArgs {
     /// Build artifacts in release mode, with optimizations
     #[clap(long, short, conflicts_with = "debug")]
     release: bool,
-    /// Build artifacts for target platform. Can be one of
-    /// `android`, `ios`, `linux`, `macos` or `windows`.
+    /// Build artifacts for target platform.
     #[clap(long, conflicts_with = "device")]
     platform: Option<Platform>,
-    /// Build artifacts for target arch. Can be one of
-    /// `arm`, `armv7` `arm64` or `x64`.
+    /// Build artifacts for target arch.
     #[clap(long, requires = "platform")]
     arch: Option<Arch>,
     /// Build artifacts for target device. To find the device
     /// identifier of a connected device run `x devices`.
     #[clap(long, conflicts_with = "store")]
     device: Option<String>,
-    /// Build artifacts with format. Can be one of `aab`,
-    /// `apk`, `appbundle`, `appdir`, `appimage`, `dmg`,
-    /// `exe`, `ipa`, `msix`.
+    /// Build artifacts with format.
     #[clap(long, conflicts_with = "store")]
     format: Option<Format>,
-    /// Build artifacts for target app store. Can be one of
-    /// `apple`, `microsoft`, `play` or `sideload`.
+    /// Build artifacts for target app store.
     #[clap(long, conflicts_with = "device", conflicts_with = "format")]
     store: Option<Store>,
     /// Path to a PEM encoded RSA2048 signing key and certificate
