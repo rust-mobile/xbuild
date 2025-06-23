@@ -8,6 +8,8 @@ pub enum Target {
     Arm64V8a = 3,
     X86 = 4,
     X86_64 = 5,
+    ArmV6a = 6,      // ARM 32-bit (ARMv6-A)
+    ArmV8a32 = 7,    // ARM 32-bit (ARMv8-A)
 }
 
 impl Target {
@@ -19,6 +21,8 @@ impl Target {
             Self::ArmV7a => "armeabi-v7a",
             Self::X86 => "x86",
             Self::X86_64 => "x86_64",
+            Self::ArmV6a => "armeabi-v6a",
+            Self::ArmV8a32 => "armv8a",
         }
     }
 }

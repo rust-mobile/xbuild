@@ -375,9 +375,12 @@ impl Adb {
     pub fn arch(&self, device: &str) -> Result<Arch> {
         let arch = match self.getprop(device, "ro.product.cpu.abi")?.as_str() {
             "arm64-v8a" => Arch::Arm64,
-            //"armeabi-v7a" => Arch::Arm,
+            "armeabi-v7a" => Arch::Armv7,
+            "armeabi-v6a" => Arch::Armv6,
+            "armv8a" => Arch::Armv8a32,
+            "armeabi" => Arch::Arm,
             "x86_64" => Arch::X64,
-            //"x86" => Arch::X86,
+            "x86" => Arch::X86,
             abi => anyhow::bail!("unrecognized abi {}", abi),
         };
         Ok(arch)
