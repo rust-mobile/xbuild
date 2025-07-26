@@ -63,8 +63,6 @@ jobs:
   windows:
     runs-on: ubuntu-latest
     steps:
-    - name: Install rust toolchain
-      uses: hecrj/setup-rust-action@v1
     - run: cargo install xwin
     - run: xwin --accept-license splat --output Windows.sdk
     - run: tar --zstd -cf Windows.sdk.tar.zst Windows.sdk

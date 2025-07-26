@@ -14,7 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - uses: hecrj/setup-rust-action@v1
     - run: cargo install --path xbuild --root .
     - run: mv bin/x xbuild-linux-x64
     - run: gh release upload $TAG xbuild-linux-x64 -R ${{ github.repository }}
@@ -26,7 +25,6 @@ jobs:
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v3
-    - uses: hecrj/setup-rust-action@v1
     - run: cargo install --path xbuild --root .
     - run: mv bin/x xbuild-macos-x64
     - run: gh release upload $TAG xbuild-macos-x64 -R ${{ github.repository }}
@@ -38,7 +36,6 @@ jobs:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v3
-    - uses: hecrj/setup-rust-action@v1
     - run: cargo install --path xbuild --root .
     - run: mv bin/x.exe xbuild-windows-x64.exe
     - run: gh release upload $TAG xbuild-windows-x64.exe -R ${{ github.repository }}

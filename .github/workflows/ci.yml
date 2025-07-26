@@ -11,9 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - uses: hecrj/setup-rust-action@v1
-      with:
-        components: clippy, rustfmt
     - run: cargo fmt --all -- --check
     - run: cargo clippy --workspace --examples --tests --all-features -- -D warnings
     - run: cargo test
@@ -25,7 +22,6 @@ jobs:
     runs-on: ${{ matrix.host }}
     steps:
     - uses: actions/checkout@v3
-    - uses: hecrj/setup-rust-action@v1
     - run: cargo install --path xbuild --root .
     - uses: actions/upload-artifact@v4
       with:
@@ -58,11 +54,6 @@ jobs:
     runs-on: ${{ matrix.host }}
     needs: build
     steps:
-    - name: install rust
-      uses: hecrj/setup-rust-action@v1
-      with:
-        rust-version: stable
-
     - name: install x
       uses: actions/download-artifact@v4
       with:
