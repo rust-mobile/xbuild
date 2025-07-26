@@ -296,7 +296,7 @@ impl CargoBuild {
         );
         self.use_ld("lld");
         if let Some(triple) = self.triple {
-            self.add_link_arg(&format!("--target={}", triple));
+            self.add_link_arg(&format!("--target={triple}"));
         }
         self.add_link_arg(&format!("-B{}", sdk_lib_dir.display()));
         self.add_link_arg(&format!("-L{}", sdk_lib_dir.display()));
@@ -329,9 +329,9 @@ impl CargoBuild {
         self.use_ld("lld");
         self.set_sysroot(&path);
         self.add_cxxflag("-stdlib=libc++");
-        self.add_cflag(&format!("-mmacosx-version-min={}", minimum_version));
+        self.add_cflag(&format!("-mmacosx-version-min={minimum_version}"));
         self.add_link_arg("--target=x86_64-apple-darwin");
-        self.add_link_arg(&format!("-mmacosx-version-min={}", minimum_version));
+        self.add_link_arg(&format!("-mmacosx-version-min={minimum_version}"));
         self.add_link_arg("-rpath");
         self.add_link_arg("@executable_path/../Frameworks");
         self.add_lib_dir(&path.join("usr").join("lib"));
@@ -359,9 +359,9 @@ impl CargoBuild {
         self.use_ld("lld");
         self.set_sysroot(&path);
         self.add_cxxflag("-stdlib=libc++");
-        self.add_cflag(&format!("-miphoneos-version-min={}", minimum_version));
+        self.add_cflag(&format!("-miphoneos-version-min={minimum_version}"));
         self.add_link_arg("--target=arm64-apple-ios");
-        self.add_link_arg(&format!("-miphoneos-version-min={}", minimum_version));
+        self.add_link_arg(&format!("-miphoneos-version-min={minimum_version}"));
         self.add_link_arg("-rpath");
         self.add_link_arg("@executable_path/Frameworks");
         self.add_lib_dir(&path.join("usr").join("lib"));
@@ -394,7 +394,7 @@ impl CargoBuild {
     /// Configures an environment variable for the `cc` crate.
     fn cc_triple_env(&mut self, name: &str, value: &str) {
         if let Some(triple) = self.triple {
-            self.cmd.env(format!("{}_{}", name, triple), value);
+            self.cmd.env(format!("{name}_{triple}"), value);
         } else {
             self.cmd.env(name, value);
         }
@@ -411,25 +411,24 @@ impl CargoBuild {
     }
 
     pub fn link_lib(&mut self, name: &str) {
-        self.rust_flags.push_str(&format!("-l{} ", name));
+        self.rust_flags.push_str(&format!("-l{name} "));
     }
 
     pub fn link_framework(&mut self, name: &str) {
-        self.rust_flags.push_str(&format!("-lframework={} ", name));
+        self.rust_flags.push_str(&format!("-lframework={name} "));
     }
 
     pub fn add_target_feature(&mut self, target_feature: &str) {
         self.rust_flags
-            .push_str(&format!("-Ctarget-feature={} ", target_feature));
+            .push_str(&format!("-Ctarget-feature={target_feature} "));
     }
 
     pub fn add_link_arg(&mut self, link_arg: &str) {
-        self.rust_flags
-            .push_str(&format!("-Clink-arg={} ", link_arg));
+        self.rust_flags.push_str(&format!("-Clink-arg={link_arg} "));
     }
 
     pub fn add_define(&mut self, name: &str, value: &str) {
-        self.c_flags.push_str(&format!("-D{}={} ", name, value));
+        self.c_flags.push_str(&format!("-D{name}={value} "));
     }
 
     pub fn add_include_dir(&mut self, path: &Path) {
@@ -457,7 +456,7 @@ impl CargoBuild {
     }
 
     pub fn use_ld(&mut self, name: &str) {
-        self.add_link_arg(&format!("-fuse-ld={}", name));
+        self.add_link_arg(&format!("-fuse-ld={name}"));
     }
 
     pub fn arg(&mut self, arg: &str) {

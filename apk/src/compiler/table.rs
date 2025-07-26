@@ -29,10 +29,10 @@ impl<'a> Ref<'a> {
     pub fn parse(s: &'a str) -> Result<Self> {
         let s = s
             .strip_prefix('@')
-            .with_context(|| format!("invalid reference {}: expected `@`", s))?;
+            .with_context(|| format!("invalid reference {s}: expected `@`"))?;
         let (descr, name) = s
             .split_once('/')
-            .with_context(|| format!("invalid reference {}: expected `/`", s))?;
+            .with_context(|| format!("invalid reference {s}: expected `/`"))?;
         let (package, ty) = if let Some((package, ty)) = descr.split_once(':') {
             (Some(package), ty)
         } else {
@@ -75,7 +75,7 @@ impl<'a> Package<'a> {
             .types
             .iter()
             .position(|s| s.as_str() == name)
-            .with_context(|| format!("failed to locate type id {}", name))?;
+            .with_context(|| format!("failed to locate type id {name}"))?;
         Ok(id as u8 + 1)
     }
 
@@ -84,7 +84,7 @@ impl<'a> Package<'a> {
             .keys
             .iter()
             .position(|s| s.as_str() == name)
-            .with_context(|| format!("failed to locate key id {}", name))?;
+            .with_context(|| format!("failed to locate key id {name}"))?;
         Ok(id as u32)
     }
 
@@ -122,7 +122,7 @@ impl<'a> Type<'a> {
                     false
                 }
             })
-            .with_context(|| format!("failed to lookup entry id {}", key))?;
+            .with_context(|| format!("failed to lookup entry id {key}"))?;
         Ok(id as u16)
     }
 
@@ -130,9 +130,9 @@ impl<'a> Type<'a> {
         let entry = self
             .entries
             .get(id as usize)
-            .with_context(|| format!("failed to lookup entry {}", id))?
+            .with_context(|| format!("failed to lookup entry {id}"))?
             .as_ref()
-            .with_context(|| format!("failed to lookup entry {}", id))?;
+            .with_context(|| format!("failed to lookup entry {id}"))?;
         let id = ResTableRef::new(self.package, self.id, id);
         Ok(Entry { id, entry })
     }
@@ -165,7 +165,7 @@ impl Entry<'_> {
             if let Some(value) = ResAttributeType::from_u32(entries[0].value.data) {
                 Some(value)
             } else {
-                panic!("attribute_type: 0x{:x}", data);
+                panic!("attribute_type: 0x{data:x}");
             }
         } else {
             None

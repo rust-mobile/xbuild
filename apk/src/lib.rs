@@ -241,7 +241,7 @@ pub(crate) mod tests {
         let home = std::env::var("ANDROID_HOME")?;
         let android = Path::new(&home)
             .join("platforms")
-            .join(format!("android-{}", platform))
+            .join(format!("android-{platform}"))
             .join("android.jar");
         Ok(android)
     }

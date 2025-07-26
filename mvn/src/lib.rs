@@ -77,12 +77,12 @@ impl<D: Download> Maven<D> {
                                 metadata.release(),
                             );
                         } else {
-                            log::info!("selected {} {}", package, version,);
+                            log::info!("selected {package} {version}",);
                         }
                         Some(path)
                     }
                     Err(err) => {
-                        log::info!("{}", err);
+                        log::info!("{err}");
                         None
                     }
                 },
@@ -107,7 +107,7 @@ impl<D: Download> Maven<D> {
                 .rev()
                 .collect(),
             Err(err) => {
-                log::debug!("failed to get metadata for {}: {}", package, err);
+                log::debug!("failed to get metadata for {package}: {err}");
                 range.lowest_version().into_iter().collect()
             }
         }
@@ -139,7 +139,7 @@ impl<D: Download> Maven<D> {
                 Ok(pom)
             }
             Err(err) => {
-                log::info!("{}", err);
+                log::info!("{err}");
                 Ok(Default::default())
             }
         }
@@ -148,7 +148,7 @@ impl<D: Download> Maven<D> {
     fn artifact(&self, artifact: Artifact, ext: &str) -> Result<PathBuf> {
         let path = self.cache_dir.join(artifact.file_name(ext));
         if !path.exists() {
-            log::info!("downloading {}", artifact);
+            log::info!("downloading {artifact}");
             let mut downloaded = false;
             for repo in &self.repositories {
                 let url = artifact.url(repo, ext);

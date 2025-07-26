@@ -71,7 +71,7 @@ impl Default for Doctor {
 impl std::fmt::Display for Doctor {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         for group in &self.groups {
-            write!(f, "{}", group)?;
+            write!(f, "{group}")?;
         }
         Ok(())
     }
@@ -94,7 +94,7 @@ impl std::fmt::Display for Group {
                 } else {
                     "unknown".into()
                 };
-                write!(f, "{:20}", version)?;
+                write!(f, "{version:20}")?;
                 write!(f, "{}", path.display())?;
             } else {
                 write!(f, "not found")?;
@@ -164,5 +164,5 @@ impl Check {
 
 pub fn doctor() {
     let doctor = Doctor::default();
-    print!("{}", doctor);
+    print!("{doctor}");
 }

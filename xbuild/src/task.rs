@@ -75,7 +75,7 @@ pub fn run(mut command: Command, verbose: bool) -> Result<()> {
             .collect::<Vec<_>>()
             .join(" ");
         let status = if let Some(code) = status {
-            format!(" exited with {}", code)
+            format!(" exited with {code}")
         } else {
             Default::default()
         };
@@ -86,9 +86,9 @@ pub fn run(mut command: Command, verbose: bool) -> Result<()> {
         if !output.status.success() {
             print_error(&command, output.status.code());
             let stdout = std::str::from_utf8(&output.stdout)?;
-            print!("{}", stdout);
+            print!("{stdout}");
             let stderr = std::str::from_utf8(&output.stderr)?;
-            print!("{}", stderr);
+            print!("{stderr}");
             std::process::exit(1);
         }
     } else {

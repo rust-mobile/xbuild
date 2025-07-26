@@ -131,7 +131,7 @@ impl std::fmt::Display for Version {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}.{}.{}", self.major, self.minor, self.patch)?;
         if let Some(suffix) = self.suffix.as_ref() {
-            write!(f, "-{}", suffix)?;
+            write!(f, "-{suffix}")?;
         }
         Ok(())
     }

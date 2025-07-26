@@ -237,7 +237,7 @@ mod tests {
         let indirect_data = Payload::encode(&HASHES);
         let (rem, res) = der_parser::parse_der(&indirect_data).unwrap();
         assert!(rem.is_empty());
-        println!("{:#?}", res);
+        println!("{res:#?}");
         assert_eq!(indirect_data, orig_indirect_data);
     }
 

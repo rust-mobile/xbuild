@@ -208,10 +208,7 @@ impl WorkItem {
     ) -> Self {
         Self::new(
             output,
-            format!(
-                "https://github.com/{}/{}/releases/download/{}/{}",
-                org, name, version, artifact
-            ),
+            format!("https://github.com/{org}/{name}/releases/download/{version}/{artifact}"),
         )
     }
 
@@ -225,10 +222,7 @@ impl WorkItem {
     ) -> Self {
         Self::new(
             output,
-            format!(
-                "https://raw.githubusercontent.com/{}/{}/{}/{}",
-                org, name, branch, artifact
-            ),
+            format!("https://raw.githubusercontent.com/{org}/{name}/{branch}/{artifact}"),
         )
     }
 }
@@ -239,10 +233,10 @@ impl DownloadManager<'_> {
         let sdk = self.env.target_sdk_version();
         let path = dir
             .join("platforms")
-            .join(format!("android-{}", sdk))
+            .join(format!("android-{sdk}"))
             .join("android.jar");
         if !path.exists() {
-            let package = format!("platforms;android-{}", sdk);
+            let package = format!("platforms;android-{sdk}");
             android_sdkmanager::download_and_extract_packages(
                 dir.to_str().unwrap(),
                 android_sdkmanager::HostOs::Linux,
@@ -292,8 +286,8 @@ impl DownloadManager<'_> {
             output.parent().unwrap().into(),
             "mspvirajpatel",
             "Xcode_Developer_Disk_Images",
-            &format!("{}.{}", major, minor),
-            &format!("{}.{}.zip", major, minor),
+            &format!("{major}.{minor}"),
+            &format!("{major}.{minor}.zip"),
         );
         self.fetch(item)
     }

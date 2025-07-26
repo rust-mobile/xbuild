@@ -18,10 +18,9 @@ pub fn prepare(env: &BuildEnv) -> Result<()> {
         if !env.cargo().package_root().join("kotlin").exists() {
             let main_activity = format!(
                 r#"
-                    package {}
+                    package {package}
                     class MainActivity : TauriActivity()
                 "#,
-                package,
             );
             std::fs::write(wry.join("MainActivity.kt"), main_activity)?;
         }
@@ -64,7 +63,7 @@ pub fn build(env: &BuildEnv, libraries: Vec<(Target, PathBuf)>, out: &Path) -> R
 
     let mut dependencies = String::new();
     for dep in &config.dependencies {
-        dependencies.push_str(&format!("implementation '{}'\n", dep));
+        dependencies.push_str(&format!("implementation '{dep}'\n"));
     }
 
     let app_build_gradle = format!(
@@ -88,12 +87,6 @@ pub fn build(env: &BuildEnv, libraries: Vec<(Target, PathBuf)>, out: &Path) -> R
                 {dependencies}
             }}
         "#,
-        package = package,
-        target_sdk = target_sdk,
-        min_sdk = min_sdk,
-        version_code = version_code,
-        version_name = version_name,
-        dependencies = dependencies,
     );
 
     if let Some(icon_path) = env.icon.as_ref() {
@@ -111,12 +104,12 @@ pub fn build(env: &BuildEnv, libraries: Vec<(Target, PathBuf)>, out: &Path) -> R
             ("xxxh", 256),
         ];
         for (name, size) in dpis {
-            let dir_name = format!("mipmap-{}dpi", name);
+            let dir_name = format!("mipmap-{name}dpi");
             let dir = res.join(dir_name);
             std::fs::create_dir_all(&dir)?;
             for variant in ["foreground", "monochrome"] {
                 let mut icon =
-                    std::fs::File::create(dir.join(format!("ic_launcher_{}.png", variant)))?;
+                    std::fs::File::create(dir.join(format!("ic_launcher_{variant}.png")))?;
                 scaler.write(
                     &mut icon,
                     xcommon::ScalerOptsBuilder::new(size, size).build(),

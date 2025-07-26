@@ -108,7 +108,7 @@ impl Strings {
         self.strings
             .iter()
             .position(|s| s == s2)
-            .with_context(|| format!("all strings added to the string pool: {}", s2))
+            .with_context(|| format!("all strings added to the string pool: {s2}"))
             .unwrap() as i32
     }
 }

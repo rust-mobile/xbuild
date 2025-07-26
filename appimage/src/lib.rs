@@ -16,7 +16,7 @@ pub struct AppImage {
 
 impl AppImage {
     pub fn new(build_dir: &Path, name: String) -> Result<Self> {
-        let appdir = build_dir.join(format!("{}.AppDir", name));
+        let appdir = build_dir.join(format!("{name}.AppDir"));
         std::fs::remove_dir_all(&appdir).ok();
         std::fs::create_dir_all(&appdir)?;
         Ok(Self { appdir, name })

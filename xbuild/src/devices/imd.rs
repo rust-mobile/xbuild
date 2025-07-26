@@ -141,7 +141,7 @@ impl IMobileDevice {
     pub fn details(&self, device: &str) -> Result<String> {
         let name = self.getkey(device, "ProductName")?;
         let version = self.getkey(device, "ProductVersion")?;
-        Ok(format!("{} {}", name, version))
+        Ok(format!("{name} {version}"))
     }
 
     pub fn bundle_path_device(&self, device: &str, bundle_identifier: &str) -> Result<PathBuf> {

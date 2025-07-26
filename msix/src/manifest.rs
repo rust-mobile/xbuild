@@ -328,6 +328,6 @@ mod tests {
             ..Default::default()
         };
         let xml = quick_xml::se::to_string(&manifest).unwrap();
-        println!("{}", xml);
+        println!("{xml}");
     }
 }

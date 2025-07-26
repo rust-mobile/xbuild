@@ -635,7 +635,7 @@ impl BuildEnv {
         self.cache_dir()
             .join("iPhoneOS.platform")
             .join("DeviceSupport")
-            .join(format!("{}.{}", major, minor))
+            .join(format!("{major}.{minor}"))
             .join("DeveloperDiskImage.dmg")
     }
 

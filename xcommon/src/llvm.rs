@@ -35,8 +35,7 @@ pub fn list_needed_libs_recursively(
             } else if !provided_libs.contains(OsStr::new(&need)) {
                 if let Some(path) = find_library_path(search_paths, &need).with_context(|| {
                     format!(
-                        "Could not iterate one or more search directories in `{:?}` while searching for library `{}`",
-                        search_paths, need
+                        "Could not iterate one or more search directories in `{search_paths:?}` while searching for library `{need}`"
                     )
                 })? {
                     to_copy.insert(path.clone());
@@ -57,7 +56,7 @@ fn list_needed_libs(library_path: &Path) -> Result<HashSet<String>> {
     let readelf = readelf.arg("--needed-libs").arg(library_path);
     let output = readelf
         .output()
-        .with_context(|| format!("Failed to run `{:?}`", readelf))?;
+        .with_context(|| format!("Failed to run `{readelf:?}`"))?;
     ensure!(
         output.status.success(),
         "Failed to run `{:?}`: {}",

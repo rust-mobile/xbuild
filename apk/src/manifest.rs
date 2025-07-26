@@ -221,7 +221,7 @@ pub struct Feature {
     ///   for available levels and the respective Vulkan features required/provided.
     ///
     /// - `name="android.hardware.vulkan.version"`: Represents the value of Vulkan's `VkPhysicalDeviceProperties::apiVersion`. See the [Android documentation](https://developer.android.com/reference/android/content/pm/PackageManager#FEATURE_VULKAN_HARDWARE_VERSION)
-    ///    for available levels and the respective Vulkan features required/provided.
+    ///   for available levels and the respective Vulkan features required/provided.
     #[serde(rename(serialize = "android:version"))]
     pub version: Option<u32>,
     #[serde(rename(serialize = "android:glEsVersion"))]

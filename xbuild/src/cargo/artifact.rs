@@ -39,11 +39,11 @@ impl Artifact {
             CrateType::Cdylib => {
                 let name = self.name().replace('-', "_");
                 if target.contains("windows") {
-                    format!("{}.dll", name)
+                    format!("{name}.dll")
                 } else if target.contains("darwin") {
-                    format!("lib{}.dylib", name)
+                    format!("lib{name}.dylib")
                 } else {
-                    format!("lib{}.so", name)
+                    format!("lib{name}.so")
                 }
             }
         }

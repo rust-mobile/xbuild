@@ -91,7 +91,7 @@ impl AppBundle {
 
         if self.ios() {
             for size in sizes {
-                let filename = format!("icon_{}x{}.png", size, size);
+                let filename = format!("icon_{size}x{size}.png");
                 let icon = self.appdir.join(&filename);
                 let mut icon = BufWriter::new(File::create(icon)?);
                 scaler.write(&mut icon, ScalerOpts::new(*size))?;
@@ -167,7 +167,7 @@ impl AppBundle {
             .map_err(|err| anyhow::anyhow!("{}", err))?;
         let xml = data.encap_content_info.content.as_ref().unwrap().as_ref();
         let profile: plist::Value = plist::from_reader_xml(xml)?;
-        log::debug!("provisioning profile: {:?}", profile);
+        log::debug!("provisioning profile: {profile:?}");
         let dict = profile
             .as_dictionary()
             .context("invalid provisioning profile")?;
@@ -184,7 +184,7 @@ impl AppBundle {
             .context("missing application identifier")?;
         let bundle_prefix = app_id
             .split_once('.')
-            .with_context(|| format!("invalid app id {}", app_id))?
+            .with_context(|| format!("invalid app id {app_id}"))?
             .1;
         self.development = dict.get("ProvisionedDevices").is_some();
 
@@ -292,7 +292,7 @@ pub fn notarize(path: &Path, api_key: &Path) -> Result<()> {
         } else {
             anyhow::bail!("impossible");
         };
-    println!("submission id: {}", submission_id);
+    println!("submission id: {submission_id}");
     let start_time = Instant::now();
     loop {
         let resp = notarizer.get_submission(&submission_id)?;
@@ -301,7 +301,7 @@ pub fn notarize(path: &Path, api_key: &Path) -> Result<()> {
         println!("poll state after {}s: {:?}", elapsed.as_secs(), status,);
         if status != SubmissionResponseStatus::InProgress {
             let log = notarizer.fetch_notarization_log(&submission_id)?;
-            println!("{}", log);
+            println!("{log}");
             resp.into_result()?;
             break;
         }

@@ -82,7 +82,7 @@ impl Adb {
             .shell(device, None)
             .arg("pm")
             .arg("install")
-            .arg(format!("/data/local/tmp/{}", file_name))
+            .arg(format!("/data/local/tmp/{file_name}"))
             .status()?;
         anyhow::ensure!(
             status.success(),
@@ -101,7 +101,7 @@ impl Adb {
             .arg("-a")
             .arg("android.intent.action.MAIN")
             .arg("-n")
-            .arg(format!("{}/{}", package, activity))
+            .arg(format!("{package}/{activity}"))
             .status()?;
         anyhow::ensure!(
             status.success(),
@@ -238,8 +238,8 @@ impl Adb {
             .shell(device, None)
             .arg("logcat")
             .arg("-T")
-            .arg(format!("'{}'", last_timestamp))
-            .arg(format!("--uid={}", uid))
+            .arg(format!("'{last_timestamp}'"))
+            .arg(format!("--uid={uid}"))
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .spawn()?;
@@ -251,7 +251,7 @@ impl Adb {
             .adb(device)
             .arg("forward")
             .arg("tcp:0")
-            .arg(format!("tcp:{}", port))
+            .arg(format!("tcp:{port}"))
             .output()?;
         anyhow::ensure!(
             output.status.success(),
@@ -328,7 +328,7 @@ impl Adb {
             //.arg(format!("platform settings -w {}", app_dir.display()))
             //.arg("platform settings -w /data/local/tmp")
             .arg("-O")
-            .arg(format!("platform connect connect://{}:10086", device))
+            .arg(format!("platform connect connect://{device}:10086"))
             .arg(executable)
             .status()?;
         anyhow::ensure!(status.success(), "lldb exited with nonzero exit code.");
@@ -359,7 +359,7 @@ impl Adb {
         let uid = self.uidof(device, package)?;
         let logcat = self.logcat(device, uid, &last_timestamp)?;
         for line in logcat {
-            println!("{}", line);
+            println!("{line}");
         }
         Ok(())
     }
@@ -386,7 +386,7 @@ impl Adb {
     pub fn details(&self, device: &str) -> Result<String> {
         let release = self.getprop(device, "ro.build.version.release")?;
         let sdk = self.getprop(device, "ro.build.version.sdk")?;
-        Ok(format!("Android {} (API {})", release, sdk))
+        Ok(format!("Android {release} (API {sdk})"))
     }
 }
 
