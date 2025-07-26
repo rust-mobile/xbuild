@@ -33,7 +33,10 @@ jobs:
       fail-fast: false
       matrix:
         host:
-        - ubuntu-latest
+        # Disabled until we bump to `dioxus 0.4` with `wry 0.28`.  The latest
+        # Ubuntu provides `libwebkit2gtk-4.1-dev` while these crates still rely
+        # on `libwebkit2gtk-4.0-dev`:
+        # - ubuntu-latest
         - macos-latest
         - windows-latest
         opt:
