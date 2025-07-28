@@ -18,6 +18,8 @@ pub enum Inheritable<T> {
 pub struct Manifest {
     pub workspace: Option<Workspace>,
     pub package: Option<Package>,
+    #[serde(default)]
+    pub dependencies: HashMap<String, Dependency>,
 }
 
 impl Manifest {
@@ -34,37 +36,68 @@ impl Manifest {
             .context("The provided Cargo.toml does not contain a `[workspace]`")?;
         let workspace_root = utils::canonicalize(workspace_root)?;
 
-        // Check all member packages inside the workspace
-        let mut all_members = HashMap::new();
+        let mut member_dirs = vec![];
 
+        // resolve members and exclude globs
+        let exclude = workspace
+            .exclude
+            .iter()
+            .map(|g| glob::Pattern::new(workspace_root.join(g).to_str().unwrap()))
+            .collect::<Result<Vec<_>, _>>()?;
         for member in &workspace.members {
             for manifest_dir in glob::glob(workspace_root.join(member).to_str().unwrap())? {
                 let manifest_dir = manifest_dir?;
-                let manifest_path = manifest_dir.join("Cargo.toml");
-                let manifest = Manifest::parse_from_toml(&manifest_path).with_context(|| {
-                    format!(
-                        "Failed to load manifest for workspace member `{}`",
-                        manifest_dir.display()
-                    )
-                })?;
+                if !manifest_dir.is_dir() || exclude.iter().any(|g| g.matches_path(&manifest_dir)) {
+                    continue;
+                }
+                member_dirs.push(manifest_dir);
+            }
+        }
 
-                // Workspace members cannot themselves be/contain a new workspace
-                anyhow::ensure!(
-                    manifest.workspace.is_none(),
-                    "Did not expect a `[workspace]` at `{}`",
-                    manifest_path.display(),
-                );
+        // include all local path dependencies
+        if self.package.is_some() {
+            for dep in self.dependencies.values() {
+                if let Dependency::Table { path: Some(path) } = dep {
+                    let manifest_dir = workspace_root.join(path);
+                    if manifest_dir.starts_with(&workspace_root) {
+                        member_dirs.push(manifest_dir);
+                    }
+                }
+            }
+        }
 
-                // And because they cannot contain a [workspace], they may not be a virtual manifest
-                // and must hence contain [package]
-                anyhow::ensure!(
+        // Check all member packages inside the workspace
+        let mut all_members = HashMap::new();
+
+        for manifest_dir in member_dirs {
+            if all_members.contains_key(&manifest_dir) {
+                continue;
+            }
+
+            let manifest_path = manifest_dir.join("Cargo.toml");
+            let manifest = Manifest::parse_from_toml(&manifest_path).with_context(|| {
+                format!(
+                    "Failed to load manifest for workspace member `{}`",
+                    manifest_dir.display()
+                )
+            })?;
+
+            // Workspace members cannot themselves be/contain a new workspace
+            anyhow::ensure!(
+                manifest.workspace.is_none(),
+                "Did not expect a `[workspace]` at `{}`",
+                manifest_path.display(),
+            );
+
+            // And because they cannot contain a [workspace], they may not be a virtual manifest
+            // and must hence contain [package]
+            anyhow::ensure!(
                     manifest.package.is_some(),
                     "Failed to parse manifest at `{}`: virtual manifests must be configured with `[workspace]`",
                     manifest_path.display(),
                 );
 
-                all_members.insert(manifest_dir, (manifest_path, manifest));
-            }
+            all_members.insert(manifest_dir, (manifest_path, manifest));
         }
 
         Ok(all_members)
@@ -113,6 +146,8 @@ pub struct Workspace {
     pub default_members: Vec<String>,
     #[serde(default)]
     pub members: Vec<String>,
+    #[serde(default)]
+    pub exclude: Vec<String>,
 
     pub package: Option<WorkspacePackage>,
 }
@@ -123,6 +158,13 @@ pub struct Workspace {
 pub struct WorkspacePackage {
     pub version: Option<String>,
     pub description: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(untagged)]
+pub enum Dependency {
+    Table { path: Option<PathBuf> },
+    Version(String),
 }
 
 #[derive(Clone, Debug, Deserialize)]
