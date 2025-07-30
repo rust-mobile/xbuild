@@ -4,9 +4,12 @@ use anyhow::{Context, Result};
 #[repr(u8)]
 pub enum Target {
     ArmV7a = 1,
-    Arm64V8a = 2,
-    X86 = 3,
-    X86_64 = 4,
+    Armeabi = 2,
+    Arm64V8a = 3,
+    X86 = 4,
+    X86_64 = 5,
+    ArmV6a = 6,      // ARM 32-bit (ARMv6-A)
+    ArmV8a32 = 7,    // ARM 32-bit (ARMv8-A)
 }
 
 impl Target {
@@ -14,9 +17,12 @@ impl Target {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Arm64V8a => "arm64-v8a",
+            Self::Armeabi => "armeabi",
             Self::ArmV7a => "armeabi-v7a",
             Self::X86 => "x86",
             Self::X86_64 => "x86_64",
+            Self::ArmV6a => "armeabi-v6a",
+            Self::ArmV8a32 => "armv8a",
         }
     }
 }
