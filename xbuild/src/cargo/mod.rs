@@ -340,7 +340,9 @@ impl CargoBuild {
         self.set_sysroot(&path);
         self.add_cxxflag("-stdlib=libc++");
         self.add_cflag(&format!("-mmacosx-version-min={minimum_version}"));
-        self.add_link_arg("--target=x86_64-apple-darwin");
+        if let Some(triple) = self.triple {
+            self.add_link_arg(&format!("--target={triple}"));
+        }
         self.add_link_arg(&format!("-mmacosx-version-min={minimum_version}"));
         self.add_link_arg("-rpath");
         self.add_link_arg("@executable_path/../Frameworks");
@@ -370,7 +372,9 @@ impl CargoBuild {
         self.set_sysroot(&path);
         self.add_cxxflag("-stdlib=libc++");
         self.add_cflag(&format!("-miphoneos-version-min={minimum_version}"));
-        self.add_link_arg("--target=arm64-apple-ios");
+        if let Some(triple) = self.triple {
+            self.add_link_arg(&format!("--target={triple}"));
+        }
         self.add_link_arg(&format!("-miphoneos-version-min={minimum_version}"));
         self.add_link_arg("-rpath");
         self.add_link_arg("@executable_path/Frameworks");
