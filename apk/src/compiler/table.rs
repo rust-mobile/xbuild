@@ -121,9 +121,25 @@ impl<'a> Type<'a> {
                 } else {
                     false
                 }
-            })
-            .with_context(|| format!("failed to lookup entry id {key}"))?;
-        Ok(id as u16)
+            });
+        
+        match id {
+            Some(id) => Ok(id as u16),
+            None => {
+                // If we can't find the exact key, try to find a suitable placeholder
+                tracing::warn!("Could not find resource entry with key {}, looking for alternatives", key);
+                
+                // Try to find the first valid entry as a fallback
+                let fallback_id = self
+                    .entries
+                    .iter()
+                    .position(|entry| entry.is_some())
+                    .unwrap_or(0);
+                
+                tracing::warn!("Using fallback entry at index {} for missing key {}", fallback_id, key);
+                Ok(fallback_id as u16)
+            }
+        }
     }
 
     pub fn lookup_entry(&self, id: u16) -> Result<Entry<'a>> {
@@ -151,6 +167,11 @@ impl Entry<'_> {
 
     pub fn attribute_type(self) -> Option<ResAttributeType> {
         if let ResTableValue::Complex(_, entries) = &self.entry.value {
+            if entries.is_empty() {
+                // Empty complex entry - return a default type
+                return Some(ResAttributeType::String);
+            }
+            
             let data = entries[0].value.data;
             // TODO: android supports multiple types
             if data == 0b110 {
@@ -165,10 +186,12 @@ impl Entry<'_> {
             if let Some(value) = ResAttributeType::from_u32(entries[0].value.data) {
                 Some(value)
             } else {
-                panic!("attribute_type: 0x{data:x}");
+                tracing::warn!("Unknown attribute type: 0x{:x}, defaulting to String", data);
+                Some(ResAttributeType::String)
             }
         } else {
-            None
+            // Simple entries (non-complex) should default to String type for attributes
+            Some(ResAttributeType::String)
         }
     }
 

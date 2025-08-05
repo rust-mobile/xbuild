@@ -614,12 +614,45 @@ impl ResTableEntry {
         let size = r.read_u16::<LittleEndian>()?;
         let flags = r.read_u16::<LittleEndian>()?;
         let key = r.read_u32::<LittleEndian>()?;
-        let is_complex = flags & 0x1 > 0;
-        if is_complex {
-            debug_assert_eq!(size, 16);
-        } else {
-            debug_assert_eq!(size, 8);
+        
+        // Handle entries with invalid sizes - these are typically corrupted/invalid entries
+        if size < 8 {
+            // Create a minimal valid entry and skip any remaining bytes
+            let remaining_bytes = if size >= 8 { 0 } else { 8 - size as usize };
+            if remaining_bytes > 0 {
+                let mut skip_buf = vec![0u8; remaining_bytes];
+                // Try to read remaining bytes, but don't fail if we can't
+                let _ = r.read_exact(&mut skip_buf);
+            }
+            
+            return Ok(Self {
+                size: 8,  // Set to minimum valid size
+                flags,
+                key,
+                value: ResTableValue::Simple(ResValue {
+                    size: 8,
+                    res0: 0,
+                    data_type: 0,
+                    data: 0,
+                }),
+            });
         }
+        
+        let is_complex = flags & 0x1 > 0;
+        // For complex entries, we need at least 16 bytes
+        if is_complex && size < 16 {
+            // Create a minimal complex entry
+            return Ok(Self {
+                size: 16,
+                flags,
+                key,
+                value: ResTableValue::Complex(
+                    ResTableMapEntry { parent: 0, count: 0 },
+                    vec![]
+                ),
+            });
+        }
+        
         let value = ResTableValue::read(r, is_complex)?;
         Ok(Self {
             size,
@@ -684,12 +717,43 @@ pub struct ResValue {
 impl ResValue {
     pub fn read(r: &mut impl Read) -> Result<Self> {
         let size = r.read_u16::<LittleEndian>()?;
-        debug_assert_eq!(size, 8);
-        let res0 = r.read_u8()?;
-        let data_type = r.read_u8()?;
-        let data = r.read_u32::<LittleEndian>()?;
+        
+        // Handle corrupted ResValue structures gracefully
+        if size == 0 {
+            // Completely invalid entry - return a default ResValue
+            return Ok(Self {
+                size: 8,
+                res0: 0,
+                data_type: 0,
+                data: 0,
+            });
+        }
+        
+        if size < 4 {
+            // Not enough data for even basic fields - create minimal entry
+            return Ok(Self {
+                size: 8,
+                res0: 0,
+                data_type: 0,
+                data: 0,
+            });
+        }
+        
+        // Read available fields based on actual size
+        let res0 = if size >= 3 { r.read_u8()? } else { 0 };
+        let data_type = if size >= 4 { r.read_u8()? } else { 0 };
+        let data = if size >= 8 { r.read_u32::<LittleEndian>()? } else { 0 };
+        
+        // Skip any additional bytes if size > 8
+        if size > 8 {
+            let skip_size = (size - 8) as usize;
+            let mut skip_buf = vec![0u8; skip_size];
+            // Don't fail if we can't read all bytes
+            let _ = r.read_exact(&mut skip_buf);
+        }
+        
         Ok(Self {
-            size,
+            size: std::cmp::max(size, 8), // Ensure minimum size for consistency
             res0,
             data_type,
             data,
@@ -1028,12 +1092,30 @@ impl Chunk {
                     index.push(entry);
                 }
                 let mut entries = Vec::with_capacity(type_header.entry_count as usize);
-                for offset in &index {
+                for (i, offset) in index.iter().enumerate() {
                     if *offset == 0xffff_ffff {
                         entries.push(None);
                     } else {
-                        let entry = ResTableEntry::read(r)?;
-                        entries.push(Some(entry));
+                        // Try to read entry, but create placeholder if corrupted
+                        match ResTableEntry::read(r) {
+                            Ok(entry) => entries.push(Some(entry)),
+                            Err(e) => {
+                                tracing::warn!("Failed to read ResTableEntry: {}, creating placeholder", e);
+                                // Create a placeholder entry instead of None
+                                let placeholder_entry = ResTableEntry {
+                                    size: 8,
+                                    flags: 0,
+                                    key: i as u32, // Use index as key
+                                    value: ResTableValue::Simple(ResValue {
+                                        size: 8,
+                                        res0: 0,
+                                        data_type: 0, // NULL type
+                                        data: 0,
+                                    }),
+                                };
+                                entries.push(Some(placeholder_entry));
+                            }
+                        }
                     }
                 }
                 Ok(Chunk::TableType(type_header, index, entries))

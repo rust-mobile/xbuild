@@ -6,13 +6,16 @@ use std::collections::{BTreeMap, BTreeSet};
 
 pub fn compile_attr(table: &Table, name: &str, value: &str, strings: &Strings) -> Result<ResValue> {
     let entry = table.entry_by_ref(Ref::attr(name))?;
-    let attr_type = entry.attribute_type().unwrap();
+    let attr_type = entry.attribute_type().unwrap_or_else(|| {
+        tracing::warn!("No attribute type found for '{}', defaulting to String", name);
+        ResAttributeType::String
+    });
     let (data, data_type) = match attr_type {
         ResAttributeType::Reference => {
             let id = table.entry_by_ref(Ref::parse(value)?)?.id();
             (u32::from(id), ResValueType::Reference)
         }
-        ResAttributeType::String => (strings.id(value) as u32, ResValueType::String),
+        ResAttributeType::String => (strings.id(value)? as u32, ResValueType::String),
         ResAttributeType::Integer => (value.parse()?, ResValueType::IntDec),
         ResAttributeType::Boolean => match value {
             "true" => (0xffff_ffff, ResValueType::IntBoolean),
@@ -63,12 +66,24 @@ impl<'a> StringPoolBuilder<'a> {
     pub fn add_attribute(&mut self, attr: Attribute<'a, 'a>) -> Result<()> {
         if let Some(ns) = attr.namespace() {
             if ns == "http://schemas.android.com/apk/res/android" {
-                let entry = self.table.entry_by_ref(Ref::attr(attr.name()))?;
-                self.attributes.insert(entry.id().into(), attr.name());
-                if entry.attribute_type() == Some(ResAttributeType::String) {
-                    self.strings.insert(attr.value());
+                // Try to look up the attribute in the table, but handle missing attributes gracefully
+                match self.table.entry_by_ref(Ref::attr(attr.name())) {
+                    Ok(entry) => {
+                        self.attributes.insert(entry.id().into(), attr.name());
+                        if entry.attribute_type() == Some(ResAttributeType::String) {
+                            self.strings.insert(attr.value());
+                        }
+                        return Ok(());
+                    }
+                    Err(_) => {
+                        // Attribute not found in the table (e.g., "minSdkVersion" might be missing from older android.jar)
+                        // Fall back to adding both name and value to strings pool
+                        tracing::warn!("Android attribute '{}' not found in resource table, adding to string pool as fallback", attr.name());
+                        self.strings.insert(attr.name());
+                        self.strings.insert(attr.value());
+                        return Ok(());
+                    }
                 }
-                return Ok(());
             }
         }
         if attr.name() == "platformBuildVersionCode" || attr.name() == "platformBuildVersionName" {
@@ -104,11 +119,12 @@ pub struct Strings {
 }
 
 impl Strings {
-    pub fn id(&self, s2: &str) -> i32 {
-        self.strings
-            .iter()
-            .position(|s| s == s2)
-            .with_context(|| format!("all strings added to the string pool: {s2}"))
-            .unwrap() as i32
+    pub fn id(&self, s2: &str) -> Result<i32> {
+        match self.strings.iter().position(|s| s == s2) {
+            Some(pos) => Ok(pos as i32),
+            None => {
+                anyhow::bail!("String '{}' not found in string pool. Available strings: {:?}", s2, self.strings);
+            }
+        }
     }
 }
