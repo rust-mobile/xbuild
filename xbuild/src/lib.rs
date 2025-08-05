@@ -331,6 +331,21 @@ pub struct BuildTargetArgs {
     /// Path to an api key.
     #[clap(long)]
     api_key: Option<PathBuf>,
+    /// Path to Android AAB/APK signing keystore
+    #[clap(long)]
+    android_sign_keystore: Option<PathBuf>,
+    /// Android AAB/APK signing keystore password
+    #[clap(long)]
+    android_sign_storepass: Option<String>,
+    /// Android AAB/APK signing key name/alias
+    #[clap(long)]
+    android_sign_keyname: Option<String>,
+    /// Android AAB/APK signing key password
+    #[clap(long)]
+    android_sign_keypass: Option<String>,
+    /// Path to Google Play app signing encryption public key (for --store play)
+    #[clap(long)]
+    play_app_sign_enc_pubkey: Option<PathBuf>,
 }
 
 impl BuildTargetArgs {
@@ -427,6 +442,11 @@ impl BuildTargetArgs {
             provisioning_profile,
             api_key,
             android_gradle,
+            android_sign_keystore: self.android_sign_keystore,
+            android_sign_storepass: self.android_sign_storepass,
+            android_sign_keyname: self.android_sign_keyname,
+            android_sign_keypass: self.android_sign_keypass,
+            play_app_sign_enc_pubkey: self.play_app_sign_enc_pubkey,
         })
     }
 }
@@ -443,6 +463,11 @@ pub struct BuildTarget {
     provisioning_profile: Option<Vec<u8>>,
     api_key: Option<PathBuf>,
     android_gradle: bool,
+    android_sign_keystore: Option<PathBuf>,
+    android_sign_storepass: Option<String>,
+    android_sign_keyname: Option<String>,
+    android_sign_keypass: Option<String>,
+    play_app_sign_enc_pubkey: Option<PathBuf>,
 }
 
 impl BuildTarget {
@@ -493,6 +518,26 @@ impl BuildTarget {
 
     pub fn api_key(&self) -> Option<&Path> {
         self.api_key.as_deref()
+    }
+
+    pub fn android_sign_keystore(&self) -> Option<&Path> {
+        self.android_sign_keystore.as_deref()
+    }
+
+    pub fn android_sign_storepass(&self) -> Option<&str> {
+        self.android_sign_storepass.as_deref()
+    }
+
+    pub fn android_sign_keyname(&self) -> Option<&str> {
+        self.android_sign_keyname.as_deref()
+    }
+
+    pub fn android_sign_keypass(&self) -> Option<&str> {
+        self.android_sign_keypass.as_deref()
+    }
+
+    pub fn play_app_sign_enc_pubkey(&self) -> Option<&Path> {
+        self.play_app_sign_enc_pubkey.as_deref()
     }
 }
 
