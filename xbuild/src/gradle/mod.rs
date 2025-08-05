@@ -18,9 +18,9 @@ fn generate_default_keystore(
 ) -> Result<()> {
     std::fs::create_dir_all(keystore_path.parent().unwrap())?;
 
-    let dname = format!("CN={}, OU=NA, O=Company, L=City, S=State, C=US", domain);
+    let dname = format!("CN={domain}, OU=NA, O=Company, L=City, S=State, C=US");
     let pkg_name = &env.name();
-    let alias_name = format!("{}-release-key", pkg_name);
+    let alias_name = format!("{pkg_name}-release-key");
 
     task::run(
         Command::new("keytool")
@@ -51,7 +51,7 @@ fn generate_default_keystore(
     let pem_path = keystore_path
         .parent()
         .unwrap()
-        .join(format!("{}-release-upload-certificate.pem", pkg_name));
+        .join(format!("{pkg_name}-release-upload-certificate.pem"));
     task::run(
         Command::new("keytool")
             .arg("-export")
@@ -146,7 +146,7 @@ fn sign_apk_with_apksigner(
     // Sign the aligned APK
     let apk_name = apk_path.file_stem().unwrap().to_string_lossy();
     let apk_dir = apk_path.parent().unwrap();
-    let signed_path = apk_dir.join(format!("{}-signed.apk", apk_name));
+    let signed_path = apk_dir.join(format!("{apk_name}-signed.apk"));
 
     println!("Signing aligned APK...");
     println!("Signed APK will be created at: {}", signed_path.display());
@@ -159,9 +159,9 @@ fn sign_apk_with_apksigner(
             .arg("--ks-key-alias")
             .arg(keyname)
             .arg("--ks-pass")
-            .arg(&format!("pass:{}", storepass))
+            .arg(format!("pass:{storepass}"))
             .arg("--key-pass")
-            .arg(&format!("pass:{}", keypass))
+            .arg(format!("pass:{keypass}"))
             .arg("--out")
             .arg(&signed_path)
             .arg(&aligned_path),
@@ -200,7 +200,7 @@ fn sign_apk_with_apksigner(
             }
         }
         Err(e) => {
-            println!("⚠ Could not verify APK signature: {}", e);
+            println!("⚠ Could not verify APK signature: {e}");
         }
     }
 
@@ -524,9 +524,9 @@ fn handle_android_signing(env: &BuildEnv, file_path: &Path, format: Format) -> R
             let default_keystore = env
                 .platform_dir()
                 .join("keys")
-                .join(format!("{}-release-key.keystore", pkg_name));
+                .join(format!("{pkg_name}-release-key.keystore"));
             let default_password = "Test123".to_string();
-            let default_keyname = format!("{}-release-key", pkg_name);
+            let default_keyname = format!("{pkg_name}-release-key");
             let domain = get_domain_from_manifest(env);
 
             if !default_keystore.exists() {
@@ -639,8 +639,7 @@ pub fn validate_aab_with_bundletool(aab_path: &Path) -> Result<bool> {
     let bundle_config_count = validation_output.matches("BundleConfig.pb").count();
 
     println!(
-        "AAB validation passed. BundleConfig.pb found: {} times",
-        bundle_config_count
+        "AAB validation passed. BundleConfig.pb found: {bundle_config_count} times"
     );
     Ok(bundle_config_count > 0)
 }
