@@ -10,13 +10,18 @@ static SETTINGS_GRADLE: &[u8] = include_bytes!("./settings.gradle");
 static IC_LAUNCHER: &[u8] = include_bytes!("./ic_launcher.xml");
 
 /// Generate a default Android keystore for signing if none provided
-fn generate_default_keystore(env: &BuildEnv, keystore_path: &Path, password: &str, domain: &str) -> Result<()> {
+fn generate_default_keystore(
+    env: &BuildEnv,
+    keystore_path: &Path,
+    password: &str,
+    domain: &str,
+) -> Result<()> {
     std::fs::create_dir_all(keystore_path.parent().unwrap())?;
-    
+
     let dname = format!("CN={}, OU=NA, O=Company, L=City, S=State, C=US", domain);
     let pkg_name = &env.name();
     let alias_name = format!("{}-release-key", pkg_name);
-    
+
     task::run(
         Command::new("keytool")
             .arg("-genkeypair")
@@ -41,9 +46,12 @@ fn generate_default_keystore(env: &BuildEnv, keystore_path: &Path, password: &st
             .arg("-dname")
             .arg(&dname),
     )?;
-    
+
     // Export the certificate for upload to Google Play
-    let pem_path = keystore_path.parent().unwrap().join(format!("{}-release-upload-certificate.pem", pkg_name));
+    let pem_path = keystore_path
+        .parent()
+        .unwrap()
+        .join(format!("{}-release-upload-certificate.pem", pkg_name));
     task::run(
         Command::new("keytool")
             .arg("-export")
@@ -61,13 +69,13 @@ fn generate_default_keystore(env: &BuildEnv, keystore_path: &Path, password: &st
             .arg("-file")
             .arg(&pem_path),
     )?;
-    
+
     Ok(())
 }
 
 /// Sign AAB with jarsigner
 fn sign_aab_with_jarsigner(
-    aab_path: &Path, 
+    aab_path: &Path,
     keystore_path: &Path,
     storepass: &str,
     keyname: &str,
@@ -98,16 +106,16 @@ fn sign_apk_with_apksigner(
     println!("Starting APK signing process...");
     println!("Input APK: {}", apk_path.display());
     println!("Keystore: {}", keystore_path.display());
-    
+
     // First align the APK
     let aligned_path = apk_path.with_extension("aligned.apk");
     println!("Aligned APK path: {}", aligned_path.display());
-    
+
     // Find zipalign in Android SDK
     let android_home = std::env::var("ANDROID_HOME")
         .or_else(|_| std::env::var("ANDROID_SDK_ROOT"))
         .context("ANDROID_HOME or ANDROID_SDK_ROOT environment variable not set")?;
-    
+
     let build_tools_dir = Path::new(&android_home).join("build-tools");
     let build_tools_version = std::fs::read_dir(&build_tools_dir)?
         .filter_map(|entry| entry.ok())
@@ -115,15 +123,15 @@ fn sign_apk_with_apksigner(
         .map(|entry| entry.file_name().to_string_lossy().to_string())
         .max()
         .context("No build-tools found in Android SDK")?;
-    
+
     let build_tools_path = build_tools_dir.join(&build_tools_version);
     let zipalign = build_tools_path.join("zipalign");
     let apksigner = build_tools_path.join("apksigner");
-    
+
     println!("Using build tools: {}", build_tools_path.display());
     println!("zipalign: {}", zipalign.display());
     println!("apksigner: {}", apksigner.display());
-    
+
     // Align the APK
     println!("Aligning APK...");
     task::run(
@@ -134,15 +142,15 @@ fn sign_apk_with_apksigner(
             .arg(&aligned_path),
     )?;
     println!("APK alignment completed");
-    
+
     // Sign the aligned APK
     let apk_name = apk_path.file_stem().unwrap().to_string_lossy();
     let apk_dir = apk_path.parent().unwrap();
     let signed_path = apk_dir.join(format!("{}-signed.apk", apk_name));
-    
+
     println!("Signing aligned APK...");
     println!("Signed APK will be created at: {}", signed_path.display());
-    
+
     task::run(
         Command::new(&apksigner)
             .arg("sign")
@@ -158,12 +166,15 @@ fn sign_apk_with_apksigner(
             .arg(&signed_path)
             .arg(&aligned_path),
     )?;
-    
+
     // Verify the signed APK was created
     if !signed_path.exists() {
-        return Err(anyhow::anyhow!("Signed APK was not created at: {}", signed_path.display()));
+        return Err(anyhow::anyhow!(
+            "Signed APK was not created at: {}",
+            signed_path.display()
+        ));
     }
-    
+
     // Verify the APK signature
     println!("Verifying APK signature...");
     let verify_result = Command::new(&apksigner)
@@ -172,29 +183,35 @@ fn sign_apk_with_apksigner(
         .arg("--print-certs")
         .arg(&signed_path)
         .output();
-    
+
     match verify_result {
         Ok(output) => {
             if output.status.success() {
                 println!("✓ APK signature verification passed");
-                println!("Signature details:\n{}", String::from_utf8_lossy(&output.stdout));
+                println!(
+                    "Signature details:\n{}",
+                    String::from_utf8_lossy(&output.stdout)
+                );
             } else {
-                println!("⚠ APK signature verification failed: {}", String::from_utf8_lossy(&output.stderr));
+                println!(
+                    "⚠ APK signature verification failed: {}",
+                    String::from_utf8_lossy(&output.stderr)
+                );
             }
         }
         Err(e) => {
             println!("⚠ Could not verify APK signature: {}", e);
         }
     }
-    
+
     println!("✓ Signed APK created successfully");
     println!("✓ Unsigned APK: {}", apk_path.display());
     println!("✓ Signed APK: {}", signed_path.display());
     println!("APK signing process completed successfully");
-    
+
     // Clean up the aligned APK
     let _ = std::fs::remove_file(&aligned_path);
-    
+
     Ok(())
 }
 
@@ -210,13 +227,17 @@ fn create_encrypted_keystore_for_play(
     // Download pepk.jar if it doesn't exist
     let pepk_jar_path = std::env::temp_dir().join("pepk.jar");
     if !pepk_jar_path.exists() {
-        let response = reqwest::blocking::get("https://www.gstatic.com/play-apps-publisher-rapid/signing-tool/prod/pepk.jar")
-            .context("Failed to download pepk.jar")?;
-        
-        let bytes = response.bytes().context("Failed to read pepk.jar response")?;
+        let response = reqwest::blocking::get(
+            "https://www.gstatic.com/play-apps-publisher-rapid/signing-tool/prod/pepk.jar",
+        )
+        .context("Failed to download pepk.jar")?;
+
+        let bytes = response
+            .bytes()
+            .context("Failed to read pepk.jar response")?;
         std::fs::write(&pepk_jar_path, &bytes)?;
     }
-    
+
     task::run(
         Command::new("java")
             .arg("-jar")
@@ -232,7 +253,7 @@ fn create_encrypted_keystore_for_play(
             .arg("--encryption-key-path")
             .arg(pubkey_path),
     )?;
-    
+
     Ok(())
 }
 
@@ -487,14 +508,23 @@ fn handle_android_signing(env: &BuildEnv, file_path: &Path, format: Format) -> R
     let keypass = env.target().android_sign_keypass();
 
     // Determine if we need to generate a default keystore
-    let (final_keystore_path, final_storepass, final_keyname, final_keypass) = 
-        if let (Some(keystore), Some(storepass), Some(keyname), Some(keypass)) = 
-            (keystore_path, storepass, keyname, keypass) {
-            (keystore.to_path_buf(), storepass.to_string(), keyname.to_string(), keypass.to_string())
+    let (final_keystore_path, final_storepass, final_keyname, final_keypass) =
+        if let (Some(keystore), Some(storepass), Some(keyname), Some(keypass)) =
+            (keystore_path, storepass, keyname, keypass)
+        {
+            (
+                keystore.to_path_buf(),
+                storepass.to_string(),
+                keyname.to_string(),
+                keypass.to_string(),
+            )
         } else {
             // Generate default keystore
             let pkg_name = &env.name();
-            let default_keystore = env.platform_dir().join("keys").join(format!("{}-release-key.keystore", pkg_name));
+            let default_keystore = env
+                .platform_dir()
+                .join("keys")
+                .join(format!("{}-release-key.keystore", pkg_name));
             let default_password = "Test123".to_string();
             let default_keyname = format!("{}-release-key", pkg_name);
             let domain = get_domain_from_manifest(env);
@@ -504,7 +534,12 @@ fn handle_android_signing(env: &BuildEnv, file_path: &Path, format: Format) -> R
                 generate_default_keystore(env, &default_keystore, &default_password, &domain)?;
             }
 
-            (default_keystore, default_password.clone(), default_keyname, default_password)
+            (
+                default_keystore,
+                default_password.clone(),
+                default_keyname,
+                default_password,
+            )
         };
 
     // Sign the file based on format
@@ -518,7 +553,7 @@ fn handle_android_signing(env: &BuildEnv, file_path: &Path, format: Format) -> R
                 &final_keyname,
                 &final_keypass,
             )?;
-            
+
             // Validate the AAB after signing
             println!("Validating AAB with bundletool...");
             let is_valid = validate_aab_with_bundletool(file_path)?;
@@ -574,8 +609,10 @@ pub fn validate_aab_with_bundletool(aab_path: &Path) -> Result<bool> {
         println!("Downloading bundletool...");
         let response = reqwest::blocking::get("https://github.com/google/bundletool/releases/latest/download/bundletool-all-1.18.1.jar")
             .context("Failed to download bundletool")?;
-        
-        let bytes = response.bytes().context("Failed to read bundletool response")?;
+
+        let bytes = response
+            .bytes()
+            .context("Failed to read bundletool response")?;
         std::fs::write(&bundletool_jar_path, &bytes)?;
     }
 
@@ -590,14 +627,20 @@ pub fn validate_aab_with_bundletool(aab_path: &Path) -> Result<bool> {
         .context("Failed to run bundletool validate")?;
 
     if !output.status.success() {
-        println!("bundletool validation failed: {}", String::from_utf8_lossy(&output.stderr));
+        println!(
+            "bundletool validation failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
         return Ok(false);
     }
 
     // Check for BundleConfig.pb by grepping the output
     let validation_output = String::from_utf8_lossy(&output.stdout);
     let bundle_config_count = validation_output.matches("BundleConfig.pb").count();
-    
-    println!("AAB validation passed. BundleConfig.pb found: {} times", bundle_config_count);
+
+    println!(
+        "AAB validation passed. BundleConfig.pb found: {} times",
+        bundle_config_count
+    );
     Ok(bundle_config_count > 0)
 }
