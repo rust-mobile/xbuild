@@ -426,8 +426,8 @@ pub struct ResTableTypeSpecHeader {
     pub id: NonZeroU8,
     /// Must be 0.
     pub res0: u8,
-    /// Must be 0.
-    pub res1: u16,
+    /// Used to be reserved, if >0 specifies the number of `ResTable_type` entries for this spec.
+    pub types_count: u16,
     /// Number of u32 entry configuration masks that follow.
     pub entry_count: u32,
 }
@@ -440,16 +440,12 @@ impl ResTableTypeSpecHeader {
             res0, 0,
             "ResTableTypeSpecHeader reserved field 0 should be 0"
         );
-        let res1 = r.read_u16::<LittleEndian>()?;
-        debug_assert_eq!(
-            res1, 0,
-            "ResTableTypeSpecHeader reserved field 1 should be 0"
-        );
+        let types_count = r.read_u16::<LittleEndian>()?;
         let entry_count = r.read_u32::<LittleEndian>()?;
         Ok(Self {
             id,
             res0,
-            res1,
+            types_count,
             entry_count,
         })
     }
@@ -457,7 +453,7 @@ impl ResTableTypeSpecHeader {
     pub fn write(&self, w: &mut impl Write) -> Result<()> {
         w.write_u8(self.id.get())?;
         w.write_u8(self.res0)?;
-        w.write_u16::<LittleEndian>(self.res1)?;
+        w.write_u16::<LittleEndian>(self.types_count)?;
         w.write_u32::<LittleEndian>(self.entry_count)?;
         Ok(())
     }
@@ -1362,7 +1358,7 @@ impl Chunk {
                 let type_spec_header = ResTableTypeSpecHeader {
                     id: *type_id,
                     res0: 0,
-                    res1: 0,
+                    types_count: 0,
                     entry_count: type_spec.len() as u32,
                 };
                 type_spec_header.write(w)?;
