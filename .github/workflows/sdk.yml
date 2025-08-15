@@ -30,7 +30,7 @@ jobs:
         TAG: ${{ github.event.release.tag_name }}
 
   macos:
-    runs-on: macos-latest
+    runs-on: macos-15
     steps:
     - run: ls /Applications/Xcode*
     - run: cp -R $SDK_PATH .
@@ -43,7 +43,7 @@ jobs:
         TAG: ${{ github.event.release.tag_name }}
 
   ios:
-    runs-on: macos-latest
+    runs-on: macos-15
     steps:
     - run: ls /Applications/Xcode*
     - run: cp -R $SDK_PATH .
