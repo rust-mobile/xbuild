@@ -247,8 +247,8 @@ impl Adb {
             .adb(device)
             .arg("logcat")
             .arg("-T")
-            .arg(format!("--uid={uid}"))
             .arg(since)
+            .arg(format!("--uid={uid}"))
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .spawn()?;
