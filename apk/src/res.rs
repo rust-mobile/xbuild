@@ -98,6 +98,11 @@ impl ResStringPoolHeader {
         let string_count = r.read_u32::<LittleEndian>()?;
         let style_count = r.read_u32::<LittleEndian>()?;
         let flags = r.read_u32::<LittleEndian>()?;
+        assert_eq!(
+            flags & !(Self::SORTED_FLAG | Self::UTF8_FLAG),
+            0,
+            "Unrecognized ResStringPoolHeader flags"
+        );
         let strings_start = r.read_u32::<LittleEndian>()?;
         let styles_start = r.read_u32::<LittleEndian>()?;
         Ok(Self {
@@ -148,12 +153,10 @@ pub struct ResXmlNodeHeader {
 
 impl ResXmlNodeHeader {
     pub fn read(r: &mut impl Read) -> Result<Self> {
+        // TODO: Why is this skipped?
         let _line_number = r.read_u32::<LittleEndian>()?;
         let _comment = r.read_i32::<LittleEndian>()?;
-        Ok(Self {
-            line_number: 1,
-            comment: -1,
-        })
+        Ok(Self::default())
     }
 
     pub fn write(&self, w: &mut impl Write) -> Result<()> {
@@ -214,21 +217,6 @@ pub struct ResXmlStartElement {
     pub class_index: u16,
     /// Index (1-based) of the "style" attribute. 0 if none.
     pub style_index: u16,
-}
-
-impl Default for ResXmlStartElement {
-    fn default() -> Self {
-        Self {
-            namespace: -1,
-            name: -1,
-            attribute_start: 0x0014,
-            attribute_size: 0x0014,
-            attribute_count: 0,
-            id_index: 0,
-            class_index: 0,
-            style_index: 0,
-        }
-    }
 }
 
 impl ResXmlStartElement {
@@ -353,12 +341,6 @@ impl From<ResTableRef> for u32 {
     }
 }
 
-impl std::fmt::Display for ResTableRef {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ResTablePackageHeader {
     /// If this is a base package, its ID. Package IDs start
@@ -451,7 +433,15 @@ impl ResTableTypeSpecHeader {
     pub fn read(r: &mut impl Read) -> Result<Self> {
         let id = r.read_u8()?;
         let res0 = r.read_u8()?;
+        debug_assert_eq!(
+            res0, 0,
+            "ResTableTypeSpecHeader reserved field 0 should be 0"
+        );
         let res1 = r.read_u16::<LittleEndian>()?;
+        debug_assert_eq!(
+            res1, 0,
+            "ResTableTypeSpecHeader reserved field 1 should be 0"
+        );
         let entry_count = r.read_u32::<LittleEndian>()?;
         Ok(Self {
             id,
@@ -489,10 +479,12 @@ pub struct ResTableTypeHeader {
 }
 
 impl ResTableTypeHeader {
-    pub fn read(r: &mut impl Read) -> Result<Self> {
+    pub fn read(r: &mut (impl Read + Seek)) -> Result<Self> {
         let id = r.read_u8()?;
         let res0 = r.read_u8()?;
+        debug_assert_eq!(res0, 0, "ResTableTypeHeader reserved field 0 should be 0");
         let res1 = r.read_u16::<LittleEndian>()?;
+        debug_assert_eq!(res1, 0, "ResTableTypeHeader reserved field 1 should be 0");
         let entry_count = r.read_u32::<LittleEndian>()?;
         let entries_start = r.read_u32::<LittleEndian>()?;
         let config = ResTableConfig::read(r)?;
@@ -506,7 +498,7 @@ impl ResTableTypeHeader {
         })
     }
 
-    pub fn write(&self, w: &mut impl Write) -> Result<()> {
+    pub fn write(&self, w: &mut (impl Write + Seek)) -> Result<()> {
         w.write_u8(self.id)?;
         w.write_u8(self.res0)?;
         w.write_u16::<LittleEndian>(self.res1)?;
@@ -530,7 +522,8 @@ pub struct ResTableConfig {
 }
 
 impl ResTableConfig {
-    pub fn read(r: &mut impl Read) -> Result<Self> {
+    pub fn read(r: &mut (impl Read + Seek)) -> Result<Self> {
+        let start_pos = r.stream_position()?;
         let size = r.read_u32::<LittleEndian>()?;
         let imsi = r.read_u32::<LittleEndian>()?;
         let locale = r.read_u32::<LittleEndian>()?;
@@ -538,7 +531,8 @@ impl ResTableConfig {
         let input = r.read_u32::<LittleEndian>()?;
         let screen_size = r.read_u32::<LittleEndian>()?;
         let version = r.read_u32::<LittleEndian>()?;
-        let unknown_len = size as usize - 28;
+        let known_len = r.stream_position()? - start_pos;
+        let unknown_len = size as usize - known_len as usize;
         let mut unknown = vec![0; unknown_len];
         r.read_exact(&mut unknown)?;
         Ok(Self {
@@ -553,7 +547,8 @@ impl ResTableConfig {
         })
     }
 
-    pub fn write(&self, w: &mut impl Write) -> Result<()> {
+    pub fn write(&self, w: &mut (impl Write + Seek)) -> Result<()> {
+        let start_pos = w.stream_position()?;
         w.write_u32::<LittleEndian>(self.size)?;
         w.write_u32::<LittleEndian>(self.imsi)?;
         w.write_u32::<LittleEndian>(self.locale)?;
@@ -562,6 +557,7 @@ impl ResTableConfig {
         w.write_u32::<LittleEndian>(self.screen_size)?;
         w.write_u32::<LittleEndian>(self.version)?;
         w.write_all(&self.unknown)?;
+        debug_assert_eq!(self.size as u64, w.stream_position()? - start_pos);
         Ok(())
     }
 }
@@ -602,19 +598,20 @@ pub struct ResTableEntry {
 }
 
 impl ResTableEntry {
-    pub fn is_complex(&self) -> bool {
-        self.flags & 0x1 > 0
-    }
-
-    pub fn is_public(&self) -> bool {
-        self.flags & 0x2 > 0
-    }
+    const FLAG_COMPLEX: u16 = 0x1;
+    const FLAG_PUBLIC: u16 = 0x2;
+    const FLAG_WEAK: u16 = 0x4;
 
     pub fn read(r: &mut impl Read) -> Result<Self> {
         let size = r.read_u16::<LittleEndian>()?;
         let flags = r.read_u16::<LittleEndian>()?;
         let key = r.read_u32::<LittleEndian>()?;
-        let is_complex = flags & 0x1 > 0;
+        debug_assert_eq!(
+            flags & !(Self::FLAG_COMPLEX | Self::FLAG_PUBLIC | Self::FLAG_WEAK),
+            0,
+            "Unrecognized ResTableEntry flags"
+        );
+        let is_complex = flags & Self::FLAG_COMPLEX != 0;
         if is_complex {
             debug_assert_eq!(size, 16);
         } else {
@@ -686,6 +683,7 @@ impl ResValue {
         let size = r.read_u16::<LittleEndian>()?;
         debug_assert_eq!(size, 8);
         let res0 = r.read_u8()?;
+        debug_assert_eq!(res0, 0, "ResValue reserved field 0 should be 0");
         let data_type = r.read_u8()?;
         let data = r.read_u32::<LittleEndian>()?;
         Ok(Self {
@@ -851,6 +849,9 @@ impl ResSpan {
     }
 }
 
+// TODO: Remove all *Header structures from these elements.  This enum is user-facing in a
+// high-level data structure, where all byte offsets are irrelevant to the user after parsing, or
+// nigh-impossible to guess before writing.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Chunk {
     Null,
@@ -873,7 +874,7 @@ impl Chunk {
         let start_pos = r.stream_position()?;
         let header = ResChunkHeader::read(r)?;
         let end_pos = start_pos + header.size as u64;
-        match ChunkType::from_u16(header.ty) {
+        let result = match ChunkType::from_u16(header.ty) {
             Some(ChunkType::Null) => {
                 tracing::trace!("null");
                 Ok(Chunk::Null)
@@ -984,10 +985,21 @@ impl Chunk {
             Some(ChunkType::XmlStartElement) => {
                 tracing::trace!("xml start element");
                 let node_header = ResXmlNodeHeader::read(r)?;
+                let element_pos = r.stream_position()?;
                 let start_element = ResXmlStartElement::read(r)?;
                 let mut attributes = Vec::with_capacity(start_element.attribute_count as usize);
+                debug_assert_eq!(
+                    element_pos + start_element.attribute_start as u64,
+                    r.stream_position()?,
+                    "TODO: Handle padding between XmlStartElement and attributes"
+                );
                 for _ in 0..start_element.attribute_count {
+                    let attr_pos = r.stream_position()?;
                     attributes.push(ResXmlAttribute::read(r)?);
+                    debug_assert_eq!(
+                        attr_pos + start_element.attribute_size as u64,
+                        r.stream_position()?
+                    );
                 }
                 Ok(Chunk::XmlStartElement(
                     node_header,
@@ -1027,11 +1039,21 @@ impl Chunk {
                     let entry = r.read_u32::<LittleEndian>()?;
                     index.push(entry);
                 }
+                debug_assert_eq!(
+                    start_pos + type_header.entries_start as u64,
+                    r.stream_position()?,
+                    "TODO: Handle padding between TableType index and entries"
+                );
                 let mut entries = Vec::with_capacity(type_header.entry_count as usize);
-                for offset in &index {
-                    if *offset == 0xffff_ffff {
+                for &offset in &index {
+                    if offset == 0xffff_ffff {
                         entries.push(None);
                     } else {
+                        debug_assert_eq!(
+                            start_pos + type_header.entries_start as u64 + offset as u64,
+                            r.stream_position()?,
+                            "TODO: Handle non-sequential or padding between entries in TableType"
+                        );
                         let entry = ResTableEntry::read(r)?;
                         entries.push(Some(entry));
                     }
@@ -1056,7 +1078,15 @@ impl Chunk {
             None => {
                 anyhow::bail!("unrecognized chunk {:?}", header);
             }
-        }
+        };
+
+        debug_assert_eq!(
+            r.stream_position().unwrap(),
+            end_pos,
+            "Did not read entire chunk for {header:?}"
+        );
+
+        result
     }
 
     pub fn write<W: Seek + Write>(&self, w: &mut W) -> Result<()> {
