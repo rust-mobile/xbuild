@@ -469,8 +469,8 @@ pub struct ResTableTypeHeader {
     /// at 1 (corresponding to the value of the type bits in a
     /// resource identifier). 0 is invalid.
     pub id: NonZeroU8,
-    /// Must be 0.
-    pub res0: u8,
+    /// Flags.
+    pub flags: u8,
     /// Must be 0.
     pub res1: u16,
     /// Number of u32 entry indices that follow.
@@ -482,10 +482,25 @@ pub struct ResTableTypeHeader {
 }
 
 impl ResTableTypeHeader {
+    const NO_ENTRY: u32 = 0xffff_ffff;
+    const fn offset_from16(offset: u16) -> u32 {
+        if offset == 0xffff {
+            Self::NO_ENTRY
+        } else {
+            offset as u32 * 4
+        }
+    }
+
+    const FLAG_SPARSE: u8 = 1 << 0;
+
     pub fn read(r: &mut (impl Read + Seek)) -> Result<Self> {
         let id = NonZeroU8::new(r.read_u8()?).context("ID of 0 is invalid")?;
-        let res0 = r.read_u8()?;
-        debug_assert_eq!(res0, 0, "ResTableTypeHeader reserved field 0 should be 0");
+        let flags = r.read_u8()?;
+        debug_assert_eq!(
+            flags & !Self::FLAG_SPARSE,
+            0,
+            "Unrecognized ResTableTypeHeader flags"
+        );
         let res1 = r.read_u16::<LittleEndian>()?;
         debug_assert_eq!(res1, 0, "ResTableTypeHeader reserved field 1 should be 0");
         let entry_count = r.read_u32::<LittleEndian>()?;
@@ -493,7 +508,7 @@ impl ResTableTypeHeader {
         let config = ResTableConfig::read(r)?;
         Ok(Self {
             id,
-            res0,
+            flags,
             res1,
             entry_count,
             entries_start,
@@ -501,9 +516,13 @@ impl ResTableTypeHeader {
         })
     }
 
+    pub fn is_sparse(&self) -> bool {
+        self.flags & Self::FLAG_SPARSE != 0
+    }
+
     pub fn write(&self, w: &mut (impl Write + Seek)) -> Result<()> {
         w.write_u8(self.id.get())?;
-        w.write_u8(self.res0)?;
+        w.write_u8(self.flags)?;
         w.write_u16::<LittleEndian>(self.res1)?;
         w.write_u32::<LittleEndian>(self.entry_count)?;
         w.write_u32::<LittleEndian>(self.entries_start)?;
@@ -1047,22 +1066,43 @@ impl Chunk {
 
                 // Parse all entry offsets at once so that we don't repeatedly have to seek back.
                 let mut entry_offsets = Vec::with_capacity(type_header.entry_count as usize);
+                let mut high_idx = type_header.entry_count as u16;
                 for _ in 0..type_header.entry_count {
-                    let offset = r.read_u32::<LittleEndian>()?;
-                    entry_offsets.push(offset);
+                    entry_offsets.push(if type_header.is_sparse() {
+                        let idx = r.read_u16::<LittleEndian>()?;
+                        high_idx = high_idx.max(idx + 1);
+                        let offset =
+                            ResTableTypeHeader::offset_from16(r.read_u16::<LittleEndian>()?);
+                        (offset, Some(idx))
+                    } else {
+                        let offset = r.read_u32::<LittleEndian>()?;
+                        (offset, None)
+                    });
                 }
 
-                let mut entries = Vec::with_capacity(type_header.entry_count as usize);
-                for offset in entry_offsets {
-                    if offset == 0xffff_ffff {
-                        entries.push(None);
-                    } else {
-                        r.seek(SeekFrom::Start(
-                            start_pos + type_header.entries_start as u64 + offset as u64,
-                        ))?;
-                        let entry = ResTableEntry::read(r)?;
-                        entries.push(Some(entry));
+                // The current scheme of allocating a large vector with mostly None's for sparse data
+                // may result in high peak memory usage.  Since by far most tables in android.jar are
+                // sparse, we should switch to a HashMap/BTreeMap.
+                if type_header.is_sparse() {
+                    tracing::trace!(
+                        "Sparse table is occupying {} out of {} `Vec` elements",
+                        type_header.entry_count,
+                        high_idx
+                    );
+                }
+
+                let mut entries = vec![None; high_idx as usize];
+                for (i, &(offset, idx)) in entry_offsets.iter().enumerate() {
+                    if offset == ResTableTypeHeader::NO_ENTRY {
+                        continue;
                     }
+
+                    r.seek(SeekFrom::Start(
+                        start_pos + type_header.entries_start as u64 + offset as u64,
+                    ))?;
+                    let entry = ResTableEntry::read(r)?;
+
+                    entries[idx.map_or(i, |idx| idx as usize)] = Some(entry);
                 }
 
                 Ok(Chunk::TableType {
@@ -1275,7 +1315,7 @@ impl Chunk {
                 let start_type_header = w.stream_position()?;
                 let mut type_header = ResTableTypeHeader {
                     id: *type_id,
-                    res0: 0,
+                    flags: 0, // TODO: Enable SPARSE flag if there are lots of empty elements.
                     res1: 0,
                     entry_count: entries.len() as u32,
                     entries_start: 0, // Will be overwritten later
@@ -1295,7 +1335,7 @@ impl Chunk {
 
                 // Write out all entries
                 for (i, entry) in entries.iter().enumerate() {
-                    let mut offset = 0xffff_ffff;
+                    let mut offset = ResTableTypeHeader::NO_ENTRY;
                     if let Some(entry) = entry {
                         offset = (w.stream_position()? - entries_pos) as u32;
                         entry.write(w)?;
