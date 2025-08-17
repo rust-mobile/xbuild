@@ -488,12 +488,13 @@ impl ResTableTypeHeader {
     }
 
     const FLAG_SPARSE: u8 = 1 << 0;
+    const FLAG_OFFSET16: u8 = 1 << 1;
 
     pub fn read(r: &mut (impl Read + Seek)) -> Result<Self> {
         let id = NonZeroU8::new(r.read_u8()?).context("ID of 0 is invalid")?;
         let flags = r.read_u8()?;
         debug_assert_eq!(
-            flags & !Self::FLAG_SPARSE,
+            flags & !(Self::FLAG_SPARSE | Self::FLAG_OFFSET16),
             0,
             "Unrecognized ResTableTypeHeader flags"
         );
@@ -516,9 +517,18 @@ impl ResTableTypeHeader {
         self.flags & Self::FLAG_SPARSE != 0
     }
 
+    pub fn is_offset16(&self) -> bool {
+        self.flags & Self::FLAG_OFFSET16 != 0
+    }
+
     pub fn write(&self, w: &mut (impl Write + Seek)) -> Result<()> {
         w.write_u8(self.id.get())?;
         w.write_u8(self.flags)?;
+        debug_assert_eq!(
+            self.flags & Self::FLAG_OFFSET16,
+            0,
+            "Writing OFFSET16 ResTableTypeHeader is not yet implemented"
+        );
         w.write_u16::<LittleEndian>(self.res1)?;
         w.write_u32::<LittleEndian>(self.entry_count)?;
         w.write_u32::<LittleEndian>(self.entries_start)?;
@@ -1070,6 +1080,10 @@ impl Chunk {
                         let offset =
                             ResTableTypeHeader::offset_from16(r.read_u16::<LittleEndian>()?);
                         (offset, Some(idx))
+                    } else if type_header.is_offset16() {
+                        let offset =
+                            ResTableTypeHeader::offset_from16(r.read_u16::<LittleEndian>()?);
+                        (offset, None)
                     } else {
                         let offset = r.read_u32::<LittleEndian>()?;
                         (offset, None)
