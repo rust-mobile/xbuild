@@ -629,11 +629,33 @@ impl ResTableEntry {
     const FLAG_COMPLEX: u16 = 0x1;
     const FLAG_PUBLIC: u16 = 0x2;
     const FLAG_WEAK: u16 = 0x4;
+    const FLAG_COMPACT: u16 = 0x8;
 
     pub fn read(r: &mut impl Read) -> Result<Self> {
         let size = r.read_u16::<LittleEndian>()?;
         let flags = r.read_u16::<LittleEndian>()?;
         let key = r.read_u32::<LittleEndian>()?;
+        if flags & Self::FLAG_COMPACT != 0 {
+            // Upper 8 bits are dataType, lower 8 bits remain the flags that we already know about:
+            let data_type = flags >> 8;
+            let flags = flags & 0xff;
+            debug_assert_eq!(
+                flags & !(Self::FLAG_COMPACT | Self::FLAG_PUBLIC | Self::FLAG_WEAK),
+                0,
+                "Unrecognized COMPACT ResTableEntry flags"
+            );
+
+            // If compact, the first u16 (size) is the key and the last u32 is the data:
+            let data = key;
+            let key = size as u32;
+
+            return Ok(Self {
+                size: 8,
+                flags,
+                key,
+                value: ResTableValue::Compact(data_type as u8, data),
+            });
+        }
         debug_assert_eq!(
             flags & !(Self::FLAG_COMPLEX | Self::FLAG_PUBLIC | Self::FLAG_WEAK),
             0,
@@ -656,6 +678,14 @@ impl ResTableEntry {
 
     pub fn write(&self, w: &mut impl Write) -> Result<()> {
         w.write_u16::<LittleEndian>(self.size)?;
+        // TODO: The user likely shouldn't be able to create ResTableMapEntry structures themselves,
+        // but instead rely on the serializer to wrap their ResTableValue variants in the
+        // corresponding structure.
+        debug_assert_eq!(
+            self.flags & Self::FLAG_COMPACT,
+            0,
+            "Writing COMPACT ResTableEntry is not yet implemented"
+        );
         w.write_u16::<LittleEndian>(self.flags)?;
         w.write_u32::<LittleEndian>(self.key)?;
         self.value.write(w)?;
@@ -667,6 +697,7 @@ impl ResTableEntry {
 pub enum ResTableValue {
     Simple(ResValue),
     Complex(ResTableMapEntry, Vec<ResTableMap>),
+    Compact(u8, u32),
 }
 
 impl ResTableValue {
@@ -693,6 +724,7 @@ impl ResTableValue {
                     entry.write(w)?;
                 }
             }
+            Self::Compact(_data_type, _data) => todo!(),
         }
         Ok(())
     }
