@@ -1,3 +1,5 @@
+use std::num::NonZeroU8;
+
 use crate::manifest::AndroidManifest;
 use crate::res::{
     Chunk, ResTableConfig, ResTableEntry, ResTableHeader, ResTablePackageHeader,
@@ -44,18 +46,18 @@ pub fn compile_mipmap<'a>(package_name: &str, name: &'a str) -> Result<Mipmap<'a
                     Chunk::StringPool(vec!["icon".to_string()], vec![]),
                     Chunk::TableTypeSpec(
                         ResTableTypeSpecHeader {
-                            id: 1,
+                            id: NonZeroU8::new(1).unwrap(),
                             res0: 0,
                             res1: 0,
                             entry_count: 1,
                         },
                         vec![256],
                     ),
-                    mipmap_table_type(1, 160, 0),
-                    mipmap_table_type(1, 240, 1),
-                    mipmap_table_type(1, 320, 2),
-                    mipmap_table_type(1, 480, 3),
-                    mipmap_table_type(1, 640, 4),
+                    mipmap_table_type(NonZeroU8::new(1).unwrap(), 160, 0),
+                    mipmap_table_type(NonZeroU8::new(1).unwrap(), 240, 1),
+                    mipmap_table_type(NonZeroU8::new(1).unwrap(), 320, 2),
+                    mipmap_table_type(NonZeroU8::new(1).unwrap(), 480, 3),
+                    mipmap_table_type(NonZeroU8::new(1).unwrap(), 640, 4),
                 ],
             ),
         ],
@@ -63,7 +65,7 @@ pub fn compile_mipmap<'a>(package_name: &str, name: &'a str) -> Result<Mipmap<'a
     Ok(Mipmap { name, chunk })
 }
 
-fn mipmap_table_type(type_id: u8, density: u16, string_id: u32) -> Chunk {
+fn mipmap_table_type(type_id: NonZeroU8, density: u16, string_id: u32) -> Chunk {
     Chunk::TableType(
         ResTableTypeHeader {
             id: type_id,

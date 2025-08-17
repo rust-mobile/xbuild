@@ -1,6 +1,9 @@
-use anyhow::Result;
+use anyhow::{Context as _, Result};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::{
+    io::{Read, Seek, SeekFrom, Write},
+    num::NonZeroU8,
+};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u16)]
@@ -309,9 +312,9 @@ impl ResXmlEndElement {
 pub struct ResTableRef(u32);
 
 impl ResTableRef {
-    pub fn new(package: u8, ty: u8, entry: u16) -> Self {
+    pub fn new(package: u8, ty: NonZeroU8, entry: u16) -> Self {
         let package = (package as u32) << 24;
-        let ty = (ty as u32) << 16;
+        let ty = (ty.get() as u32) << 16;
         let entry = entry as u32;
         Self(package | ty | entry)
     }
@@ -420,7 +423,7 @@ pub struct ResTableTypeSpecHeader {
     /// The type identifier this chunk is holding. Type IDs start
     /// at 1 (corresponding to the value of the type bits in a
     /// resource identifier). 0 is invalid.
-    pub id: u8,
+    pub id: NonZeroU8,
     /// Must be 0.
     pub res0: u8,
     /// Must be 0.
@@ -431,7 +434,7 @@ pub struct ResTableTypeSpecHeader {
 
 impl ResTableTypeSpecHeader {
     pub fn read(r: &mut impl Read) -> Result<Self> {
-        let id = r.read_u8()?;
+        let id = NonZeroU8::new(r.read_u8()?).context("ID of 0 is invalid")?;
         let res0 = r.read_u8()?;
         debug_assert_eq!(
             res0, 0,
@@ -452,7 +455,7 @@ impl ResTableTypeSpecHeader {
     }
 
     pub fn write(&self, w: &mut impl Write) -> Result<()> {
-        w.write_u8(self.id)?;
+        w.write_u8(self.id.get())?;
         w.write_u8(self.res0)?;
         w.write_u16::<LittleEndian>(self.res1)?;
         w.write_u32::<LittleEndian>(self.entry_count)?;
@@ -465,7 +468,7 @@ pub struct ResTableTypeHeader {
     /// The type identifier this chunk is holding. Type IDs start
     /// at 1 (corresponding to the value of the type bits in a
     /// resource identifier). 0 is invalid.
-    pub id: u8,
+    pub id: NonZeroU8,
     /// Must be 0.
     pub res0: u8,
     /// Must be 0.
@@ -480,7 +483,7 @@ pub struct ResTableTypeHeader {
 
 impl ResTableTypeHeader {
     pub fn read(r: &mut (impl Read + Seek)) -> Result<Self> {
-        let id = r.read_u8()?;
+        let id = NonZeroU8::new(r.read_u8()?).context("ID of 0 is invalid")?;
         let res0 = r.read_u8()?;
         debug_assert_eq!(res0, 0, "ResTableTypeHeader reserved field 0 should be 0");
         let res1 = r.read_u16::<LittleEndian>()?;
@@ -499,7 +502,7 @@ impl ResTableTypeHeader {
     }
 
     pub fn write(&self, w: &mut (impl Write + Seek)) -> Result<()> {
-        w.write_u8(self.id)?;
+        w.write_u8(self.id.get())?;
         w.write_u8(self.res0)?;
         w.write_u16::<LittleEndian>(self.res1)?;
         w.write_u32::<LittleEndian>(self.entry_count)?;

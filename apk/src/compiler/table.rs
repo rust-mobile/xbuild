@@ -1,6 +1,7 @@
 use crate::res::{Chunk, ResAttributeType, ResTableEntry, ResTableRef, ResTableValue, ResValue};
 use anyhow::{Context, Result};
 use std::io::Cursor;
+use std::num::NonZeroU8;
 use std::path::Path;
 
 pub struct Ref<'a> {
@@ -70,13 +71,13 @@ impl<'a> Package<'a> {
         })
     }
 
-    fn lookup_type_id(&self, name: &str) -> Result<u8> {
+    fn lookup_type_id(&self, name: &str) -> Result<NonZeroU8> {
         let id = self
             .types
             .iter()
             .position(|s| s.as_str() == name)
             .with_context(|| format!("failed to locate type id {name}"))?;
-        Ok(id as u8 + 1)
+        NonZeroU8::new(id as u8 + 1).context("overflow")
     }
 
     fn lookup_key_id(&self, name: &str) -> Result<u32> {
@@ -88,7 +89,7 @@ impl<'a> Package<'a> {
         Ok(id as u32)
     }
 
-    fn lookup_type(&self, id: u8) -> Result<Type<'a>> {
+    fn lookup_type(&self, id: NonZeroU8) -> Result<Type<'a>> {
         for chunk in self.chunks {
             if let Chunk::TableType(header, _offsets, entries) = chunk {
                 if header.id == id {
@@ -106,7 +107,7 @@ impl<'a> Package<'a> {
 
 struct Type<'a> {
     package: u8,
-    id: u8,
+    id: NonZeroU8,
     entries: &'a [Option<ResTableEntry>],
 }
 
