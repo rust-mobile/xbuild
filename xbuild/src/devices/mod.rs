@@ -5,9 +5,9 @@ use crate::{Arch, BuildEnv, Platform};
 use anyhow::Result;
 use std::path::Path;
 
-mod adb;
-mod host;
-mod imd;
+pub(crate) mod adb;
+pub(crate) mod host;
+pub(crate) mod imd;
 
 #[derive(Clone, Debug)]
 enum Backend {
@@ -31,7 +31,7 @@ impl std::str::FromStr for Device {
         }
         if let Some((backend, id)) = device.split_once(':') {
             let backend = match backend {
-                "adb" => Backend::Adb(Adb::which()?),
+                "adb" => Backend::Adb(Adb::new()?),
                 "imd" => Backend::Imd(IMobileDevice::which()?),
                 _ => anyhow::bail!("unsupported backend {}", backend),
             };
@@ -58,7 +58,7 @@ impl std::fmt::Display for Device {
 impl Device {
     pub fn list() -> Result<Vec<Self>> {
         let mut devices = vec![Self::host()];
-        if let Ok(adb) = Adb::which() {
+        if let Ok(adb) = Adb::new() {
             adb.devices(&mut devices)?;
         }
         if let Ok(imd) = IMobileDevice::which() {
