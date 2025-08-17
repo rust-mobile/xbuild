@@ -1037,26 +1037,19 @@ impl Chunk {
             Some(ChunkType::TableType) => {
                 tracing::trace!("table type");
                 let type_header = ResTableTypeHeader::read(r)?;
-                let mut index = Vec::with_capacity(type_header.entry_count as usize);
-                for _ in 0..type_header.entry_count {
-                    let entry = r.read_u32::<LittleEndian>()?;
-                    index.push(entry);
-                }
-                debug_assert_eq!(
-                    start_pos + type_header.entries_start as u64,
-                    r.stream_position()?,
-                    "TODO: Handle padding between TableType index and entries"
-                );
                 let mut entries = Vec::with_capacity(type_header.entry_count as usize);
+                let mut index = Vec::with_capacity(type_header.entry_count as usize); // TODO: Removing this bogus mapping from the API requires rewriting the write() implementation
+                for _ in 0..type_header.entry_count {
+                    let offset = r.read_u32::<LittleEndian>()?;
+                    index.push(offset);
+                }
                 for &offset in &index {
                     if offset == 0xffff_ffff {
                         entries.push(None);
                     } else {
-                        debug_assert_eq!(
+                        r.seek(SeekFrom::Start(
                             start_pos + type_header.entries_start as u64 + offset as u64,
-                            r.stream_position()?,
-                            "TODO: Handle non-sequential or padding between entries in TableType"
-                        );
+                        ))?;
                         let entry = ResTableEntry::read(r)?;
                         entries.push(Some(entry));
                     }
