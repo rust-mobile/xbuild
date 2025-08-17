@@ -220,18 +220,3 @@ pub enum ResourceValueType {
     AsciiPath,
     Utf8Path,
 }
-
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct CandidateSet {
-    pub resource_map_item: u32,
-    pub decision_index: u16,
-    pub candidates: Vec<Candidate>,
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub struct Candidate {
-    pub qualifier_set: u16,
-    pub ty: ResourceValueType,
-    pub data_item_section: u16,
-    pub data_item_index: u16,
-}

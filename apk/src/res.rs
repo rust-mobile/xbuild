@@ -1,6 +1,9 @@
-use anyhow::Result;
+use anyhow::{Context as _, Result};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::{
+    io::{Read, Seek, SeekFrom, Write},
+    num::NonZeroU8,
+};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u16)]
@@ -98,6 +101,11 @@ impl ResStringPoolHeader {
         let string_count = r.read_u32::<LittleEndian>()?;
         let style_count = r.read_u32::<LittleEndian>()?;
         let flags = r.read_u32::<LittleEndian>()?;
+        assert_eq!(
+            flags & !(Self::SORTED_FLAG | Self::UTF8_FLAG),
+            0,
+            "Unrecognized ResStringPoolHeader flags"
+        );
         let strings_start = r.read_u32::<LittleEndian>()?;
         let styles_start = r.read_u32::<LittleEndian>()?;
         Ok(Self {
@@ -148,12 +156,10 @@ pub struct ResXmlNodeHeader {
 
 impl ResXmlNodeHeader {
     pub fn read(r: &mut impl Read) -> Result<Self> {
+        // TODO: Why is this skipped?
         let _line_number = r.read_u32::<LittleEndian>()?;
         let _comment = r.read_i32::<LittleEndian>()?;
-        Ok(Self {
-            line_number: 1,
-            comment: -1,
-        })
+        Ok(Self::default())
     }
 
     pub fn write(&self, w: &mut impl Write) -> Result<()> {
@@ -214,21 +220,6 @@ pub struct ResXmlStartElement {
     pub class_index: u16,
     /// Index (1-based) of the "style" attribute. 0 if none.
     pub style_index: u16,
-}
-
-impl Default for ResXmlStartElement {
-    fn default() -> Self {
-        Self {
-            namespace: -1,
-            name: -1,
-            attribute_start: 0x0014,
-            attribute_size: 0x0014,
-            attribute_count: 0,
-            id_index: 0,
-            class_index: 0,
-            style_index: 0,
-        }
-    }
 }
 
 impl ResXmlStartElement {
@@ -321,9 +312,9 @@ impl ResXmlEndElement {
 pub struct ResTableRef(u32);
 
 impl ResTableRef {
-    pub fn new(package: u8, ty: u8, entry: u16) -> Self {
+    pub fn new(package: u8, ty: NonZeroU8, entry: u16) -> Self {
         let package = (package as u32) << 24;
-        let ty = (ty as u32) << 16;
+        let ty = (ty.get() as u32) << 16;
         let entry = entry as u32;
         Self(package | ty | entry)
     }
@@ -350,12 +341,6 @@ impl From<u32> for ResTableRef {
 impl From<ResTableRef> for u32 {
     fn from(r: ResTableRef) -> u32 {
         r.0
-    }
-}
-
-impl std::fmt::Display for ResTableRef {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", self.0)
     }
 }
 
@@ -438,33 +423,37 @@ pub struct ResTableTypeSpecHeader {
     /// The type identifier this chunk is holding. Type IDs start
     /// at 1 (corresponding to the value of the type bits in a
     /// resource identifier). 0 is invalid.
-    pub id: u8,
+    pub id: NonZeroU8,
     /// Must be 0.
     pub res0: u8,
-    /// Must be 0.
-    pub res1: u16,
+    /// Used to be reserved, if >0 specifies the number of `ResTable_type` entries for this spec.
+    pub types_count: u16,
     /// Number of u32 entry configuration masks that follow.
     pub entry_count: u32,
 }
 
 impl ResTableTypeSpecHeader {
     pub fn read(r: &mut impl Read) -> Result<Self> {
-        let id = r.read_u8()?;
+        let id = NonZeroU8::new(r.read_u8()?).context("ID of 0 is invalid")?;
         let res0 = r.read_u8()?;
-        let res1 = r.read_u16::<LittleEndian>()?;
+        debug_assert_eq!(
+            res0, 0,
+            "ResTableTypeSpecHeader reserved field 0 should be 0"
+        );
+        let types_count = r.read_u16::<LittleEndian>()?;
         let entry_count = r.read_u32::<LittleEndian>()?;
         Ok(Self {
             id,
             res0,
-            res1,
+            types_count,
             entry_count,
         })
     }
 
     pub fn write(&self, w: &mut impl Write) -> Result<()> {
-        w.write_u8(self.id)?;
+        w.write_u8(self.id.get())?;
         w.write_u8(self.res0)?;
-        w.write_u16::<LittleEndian>(self.res1)?;
+        w.write_u16::<LittleEndian>(self.types_count)?;
         w.write_u32::<LittleEndian>(self.entry_count)?;
         Ok(())
     }
@@ -475,9 +464,9 @@ pub struct ResTableTypeHeader {
     /// The type identifier this chunk is holding. Type IDs start
     /// at 1 (corresponding to the value of the type bits in a
     /// resource identifier). 0 is invalid.
-    pub id: u8,
-    /// Must be 0.
-    pub res0: u8,
+    pub id: NonZeroU8,
+    /// Flags.
+    pub flags: u8,
     /// Must be 0.
     pub res1: u16,
     /// Number of u32 entry indices that follow.
@@ -489,16 +478,34 @@ pub struct ResTableTypeHeader {
 }
 
 impl ResTableTypeHeader {
-    pub fn read(r: &mut impl Read) -> Result<Self> {
-        let id = r.read_u8()?;
-        let res0 = r.read_u8()?;
+    const NO_ENTRY: u32 = 0xffff_ffff;
+    const fn offset_from16(offset: u16) -> u32 {
+        if offset == 0xffff {
+            Self::NO_ENTRY
+        } else {
+            offset as u32 * 4
+        }
+    }
+
+    const FLAG_SPARSE: u8 = 1 << 0;
+    const FLAG_OFFSET16: u8 = 1 << 1;
+
+    pub fn read(r: &mut (impl Read + Seek)) -> Result<Self> {
+        let id = NonZeroU8::new(r.read_u8()?).context("ID of 0 is invalid")?;
+        let flags = r.read_u8()?;
+        debug_assert_eq!(
+            flags & !(Self::FLAG_SPARSE | Self::FLAG_OFFSET16),
+            0,
+            "Unrecognized ResTableTypeHeader flags"
+        );
         let res1 = r.read_u16::<LittleEndian>()?;
+        debug_assert_eq!(res1, 0, "ResTableTypeHeader reserved field 1 should be 0");
         let entry_count = r.read_u32::<LittleEndian>()?;
         let entries_start = r.read_u32::<LittleEndian>()?;
         let config = ResTableConfig::read(r)?;
         Ok(Self {
             id,
-            res0,
+            flags,
             res1,
             entry_count,
             entries_start,
@@ -506,9 +513,22 @@ impl ResTableTypeHeader {
         })
     }
 
-    pub fn write(&self, w: &mut impl Write) -> Result<()> {
-        w.write_u8(self.id)?;
-        w.write_u8(self.res0)?;
+    pub fn is_sparse(&self) -> bool {
+        self.flags & Self::FLAG_SPARSE != 0
+    }
+
+    pub fn is_offset16(&self) -> bool {
+        self.flags & Self::FLAG_OFFSET16 != 0
+    }
+
+    pub fn write(&self, w: &mut (impl Write + Seek)) -> Result<()> {
+        w.write_u8(self.id.get())?;
+        w.write_u8(self.flags)?;
+        debug_assert_eq!(
+            self.flags & Self::FLAG_OFFSET16,
+            0,
+            "Writing OFFSET16 ResTableTypeHeader is not yet implemented"
+        );
         w.write_u16::<LittleEndian>(self.res1)?;
         w.write_u32::<LittleEndian>(self.entry_count)?;
         w.write_u32::<LittleEndian>(self.entries_start)?;
@@ -530,7 +550,8 @@ pub struct ResTableConfig {
 }
 
 impl ResTableConfig {
-    pub fn read(r: &mut impl Read) -> Result<Self> {
+    pub fn read(r: &mut (impl Read + Seek)) -> Result<Self> {
+        let start_pos = r.stream_position()?;
         let size = r.read_u32::<LittleEndian>()?;
         let imsi = r.read_u32::<LittleEndian>()?;
         let locale = r.read_u32::<LittleEndian>()?;
@@ -538,7 +559,8 @@ impl ResTableConfig {
         let input = r.read_u32::<LittleEndian>()?;
         let screen_size = r.read_u32::<LittleEndian>()?;
         let version = r.read_u32::<LittleEndian>()?;
-        let unknown_len = size as usize - 28;
+        let known_len = r.stream_position()? - start_pos;
+        let unknown_len = size as usize - known_len as usize;
         let mut unknown = vec![0; unknown_len];
         r.read_exact(&mut unknown)?;
         Ok(Self {
@@ -553,7 +575,8 @@ impl ResTableConfig {
         })
     }
 
-    pub fn write(&self, w: &mut impl Write) -> Result<()> {
+    pub fn write(&self, w: &mut (impl Write + Seek)) -> Result<()> {
+        let start_pos = w.stream_position()?;
         w.write_u32::<LittleEndian>(self.size)?;
         w.write_u32::<LittleEndian>(self.imsi)?;
         w.write_u32::<LittleEndian>(self.locale)?;
@@ -562,6 +585,7 @@ impl ResTableConfig {
         w.write_u32::<LittleEndian>(self.screen_size)?;
         w.write_u32::<LittleEndian>(self.version)?;
         w.write_all(&self.unknown)?;
+        debug_assert_eq!(self.size as u64, w.stream_position()? - start_pos);
         Ok(())
     }
 }
@@ -602,19 +626,42 @@ pub struct ResTableEntry {
 }
 
 impl ResTableEntry {
-    pub fn is_complex(&self) -> bool {
-        self.flags & 0x1 > 0
-    }
-
-    pub fn is_public(&self) -> bool {
-        self.flags & 0x2 > 0
-    }
+    const FLAG_COMPLEX: u16 = 0x1;
+    const FLAG_PUBLIC: u16 = 0x2;
+    const FLAG_WEAK: u16 = 0x4;
+    const FLAG_COMPACT: u16 = 0x8;
 
     pub fn read(r: &mut impl Read) -> Result<Self> {
         let size = r.read_u16::<LittleEndian>()?;
         let flags = r.read_u16::<LittleEndian>()?;
         let key = r.read_u32::<LittleEndian>()?;
-        let is_complex = flags & 0x1 > 0;
+        if flags & Self::FLAG_COMPACT != 0 {
+            // Upper 8 bits are dataType, lower 8 bits remain the flags that we already know about:
+            let data_type = flags >> 8;
+            let flags = flags & 0xff;
+            debug_assert_eq!(
+                flags & !(Self::FLAG_COMPACT | Self::FLAG_PUBLIC | Self::FLAG_WEAK),
+                0,
+                "Unrecognized COMPACT ResTableEntry flags"
+            );
+
+            // If compact, the first u16 (size) is the key and the last u32 is the data:
+            let data = key;
+            let key = size as u32;
+
+            return Ok(Self {
+                size: 8,
+                flags,
+                key,
+                value: ResTableValue::Compact(data_type as u8, data),
+            });
+        }
+        debug_assert_eq!(
+            flags & !(Self::FLAG_COMPLEX | Self::FLAG_PUBLIC | Self::FLAG_WEAK),
+            0,
+            "Unrecognized ResTableEntry flags"
+        );
+        let is_complex = flags & Self::FLAG_COMPLEX != 0;
         if is_complex {
             debug_assert_eq!(size, 16);
         } else {
@@ -631,6 +678,14 @@ impl ResTableEntry {
 
     pub fn write(&self, w: &mut impl Write) -> Result<()> {
         w.write_u16::<LittleEndian>(self.size)?;
+        // TODO: The user likely shouldn't be able to create ResTableMapEntry structures themselves,
+        // but instead rely on the serializer to wrap their ResTableValue variants in the
+        // corresponding structure.
+        debug_assert_eq!(
+            self.flags & Self::FLAG_COMPACT,
+            0,
+            "Writing COMPACT ResTableEntry is not yet implemented"
+        );
         w.write_u16::<LittleEndian>(self.flags)?;
         w.write_u32::<LittleEndian>(self.key)?;
         self.value.write(w)?;
@@ -642,6 +697,7 @@ impl ResTableEntry {
 pub enum ResTableValue {
     Simple(ResValue),
     Complex(ResTableMapEntry, Vec<ResTableMap>),
+    Compact(u8, u32),
 }
 
 impl ResTableValue {
@@ -668,6 +724,7 @@ impl ResTableValue {
                     entry.write(w)?;
                 }
             }
+            Self::Compact(_data_type, _data) => todo!(),
         }
         Ok(())
     }
@@ -686,6 +743,7 @@ impl ResValue {
         let size = r.read_u16::<LittleEndian>()?;
         debug_assert_eq!(size, 8);
         let res0 = r.read_u8()?;
+        debug_assert_eq!(res0, 0, "ResValue reserved field 0 should be 0");
         let data_type = r.read_u8()?;
         let data = r.read_u32::<LittleEndian>()?;
         Ok(Self {
@@ -851,20 +909,30 @@ impl ResSpan {
     }
 }
 
+// TODO: Remove all *Header structures from these elements.  This enum is user-facing in a
+// high-level data structure, where all byte offsets are irrelevant to the user after parsing, or
+// nigh-impossible to guess before writing.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Chunk {
     Null,
     StringPool(Vec<String>, Vec<Vec<ResSpan>>),
+    // TODO: Remove this header; the number of packages is implied by te number of Chunk::TablePackage elements.
     Table(ResTableHeader, Vec<Chunk>),
     Xml(Vec<Chunk>),
     XmlStartNamespace(ResXmlNodeHeader, ResXmlNamespace),
     XmlEndNamespace(ResXmlNodeHeader, ResXmlNamespace),
+    // TODO: Replace ResXmlStartElement, which contains byte offsets.
     XmlStartElement(ResXmlNodeHeader, ResXmlStartElement, Vec<ResXmlAttribute>),
     XmlEndElement(ResXmlNodeHeader, ResXmlEndElement),
     XmlResourceMap(Vec<u32>),
+    // TODO: Remove this header, it seems to contain fields that are specifically for (de)serialization.
     TablePackage(ResTablePackageHeader, Vec<Chunk>),
-    TableType(ResTableTypeHeader, Vec<u32>, Vec<Option<ResTableEntry>>),
-    TableTypeSpec(ResTableTypeSpecHeader, Vec<u32>),
+    TableType {
+        type_id: NonZeroU8,
+        config: ResTableConfig,
+        entries: Vec<Option<ResTableEntry>>,
+    },
+    TableTypeSpec(NonZeroU8, Vec<u32>),
     Unknown,
 }
 
@@ -873,7 +941,7 @@ impl Chunk {
         let start_pos = r.stream_position()?;
         let header = ResChunkHeader::read(r)?;
         let end_pos = start_pos + header.size as u64;
-        match ChunkType::from_u16(header.ty) {
+        let result = match ChunkType::from_u16(header.ty) {
             Some(ChunkType::Null) => {
                 tracing::trace!("null");
                 Ok(Chunk::Null)
@@ -984,10 +1052,21 @@ impl Chunk {
             Some(ChunkType::XmlStartElement) => {
                 tracing::trace!("xml start element");
                 let node_header = ResXmlNodeHeader::read(r)?;
+                let element_pos = r.stream_position()?;
                 let start_element = ResXmlStartElement::read(r)?;
                 let mut attributes = Vec::with_capacity(start_element.attribute_count as usize);
+                debug_assert_eq!(
+                    element_pos + start_element.attribute_start as u64,
+                    r.stream_position()?,
+                    "TODO: Handle padding between XmlStartElement and attributes"
+                );
                 for _ in 0..start_element.attribute_count {
+                    let attr_pos = r.stream_position()?;
                     attributes.push(ResXmlAttribute::read(r)?);
+                    debug_assert_eq!(
+                        attr_pos + start_element.attribute_size as u64,
+                        r.stream_position()?
+                    );
                 }
                 Ok(Chunk::XmlStartElement(
                     node_header,
@@ -1022,21 +1101,57 @@ impl Chunk {
             Some(ChunkType::TableType) => {
                 tracing::trace!("table type");
                 let type_header = ResTableTypeHeader::read(r)?;
-                let mut index = Vec::with_capacity(type_header.entry_count as usize);
+
+                // Parse all entry offsets at once so that we don't repeatedly have to seek back.
+                let mut entry_offsets = Vec::with_capacity(type_header.entry_count as usize);
+                let mut high_idx = type_header.entry_count as u16;
                 for _ in 0..type_header.entry_count {
-                    let entry = r.read_u32::<LittleEndian>()?;
-                    index.push(entry);
-                }
-                let mut entries = Vec::with_capacity(type_header.entry_count as usize);
-                for offset in &index {
-                    if *offset == 0xffff_ffff {
-                        entries.push(None);
+                    entry_offsets.push(if type_header.is_sparse() {
+                        let idx = r.read_u16::<LittleEndian>()?;
+                        high_idx = high_idx.max(idx + 1);
+                        let offset =
+                            ResTableTypeHeader::offset_from16(r.read_u16::<LittleEndian>()?);
+                        (offset, Some(idx))
+                    } else if type_header.is_offset16() {
+                        let offset =
+                            ResTableTypeHeader::offset_from16(r.read_u16::<LittleEndian>()?);
+                        (offset, None)
                     } else {
-                        let entry = ResTableEntry::read(r)?;
-                        entries.push(Some(entry));
-                    }
+                        let offset = r.read_u32::<LittleEndian>()?;
+                        (offset, None)
+                    });
                 }
-                Ok(Chunk::TableType(type_header, index, entries))
+
+                // The current scheme of allocating a large vector with mostly None's for sparse data
+                // may result in high peak memory usage.  Since by far most tables in android.jar are
+                // sparse, we should switch to a HashMap/BTreeMap.
+                if type_header.is_sparse() {
+                    tracing::trace!(
+                        "Sparse table is occupying {} out of {} `Vec` elements",
+                        type_header.entry_count,
+                        high_idx
+                    );
+                }
+
+                let mut entries = vec![None; high_idx as usize];
+                for (i, &(offset, idx)) in entry_offsets.iter().enumerate() {
+                    if offset == ResTableTypeHeader::NO_ENTRY {
+                        continue;
+                    }
+
+                    r.seek(SeekFrom::Start(
+                        start_pos + type_header.entries_start as u64 + offset as u64,
+                    ))?;
+                    let entry = ResTableEntry::read(r)?;
+
+                    entries[idx.map_or(i, |idx| idx as usize)] = Some(entry);
+                }
+
+                Ok(Chunk::TableType {
+                    type_id: type_header.id,
+                    config: type_header.config,
+                    entries,
+                })
             }
             Some(ChunkType::TableTypeSpec) => {
                 tracing::trace!("table type spec");
@@ -1045,7 +1160,7 @@ impl Chunk {
                 for c in type_spec.iter_mut() {
                     *c = r.read_u32::<LittleEndian>()?;
                 }
-                Ok(Chunk::TableTypeSpec(type_spec_header, type_spec))
+                Ok(Chunk::TableTypeSpec(type_spec_header.id, type_spec))
             }
             Some(ChunkType::Unknown) => {
                 tracing::trace!("unknown");
@@ -1056,7 +1171,15 @@ impl Chunk {
             None => {
                 anyhow::bail!("unrecognized chunk {:?}", header);
             }
-        }
+        };
+
+        debug_assert_eq!(
+            r.stream_position().unwrap(),
+            end_pos,
+            "Did not read entire chunk for {header:?}"
+        );
+
+        result
     }
 
     pub fn write<W: Seek + Write>(&self, w: &mut W) -> Result<()> {
@@ -1081,7 +1204,7 @@ impl Chunk {
                 Ok(())
             }
 
-            fn end_chunk<W: Seek + Write>(self, w: &mut W) -> Result<(u64, u64)> {
+            fn end_chunk<W: Seek + Write>(self, w: &mut W) -> Result<(u64, u64, u64)> {
                 assert_ne!(self.end_header, 0);
                 let end_chunk = w.stream_position()?;
                 let header = ResChunkHeader {
@@ -1092,7 +1215,7 @@ impl Chunk {
                 w.seek(SeekFrom::Start(self.start_chunk))?;
                 header.write(w)?;
                 w.seek(SeekFrom::Start(end_chunk))?;
-                Ok((self.start_chunk, end_chunk))
+                Ok((self.start_chunk, self.end_header, end_chunk))
             }
         }
         match self {
@@ -1127,7 +1250,7 @@ impl Chunk {
                     }
                     w.write_i32::<LittleEndian>(-1)?;
                 }
-                let (start_chunk, end_chunk) = chunk.end_chunk(w)?;
+                let (start_chunk, _end_header, end_chunk) = chunk.end_chunk(w)?;
 
                 w.seek(SeekFrom::Start(start_chunk + 8))?;
                 ResStringPoolHeader {
@@ -1225,24 +1348,69 @@ impl Chunk {
                 package_header.write(w)?;
                 w.seek(SeekFrom::Start(end))?;
             }
-            Chunk::TableType(type_header, index, entries) => {
+            Chunk::TableType {
+                type_id,
+                config,
+                entries,
+            } => {
                 let mut chunk = ChunkWriter::start_chunk(ChunkType::TableType, w)?;
+                let start_type_header = w.stream_position()?;
+                let mut type_header = ResTableTypeHeader {
+                    id: *type_id,
+                    flags: 0, // TODO: Enable SPARSE flag if there are lots of empty elements.
+                    res1: 0,
+                    entry_count: entries.len() as u32,
+                    entries_start: 0, // Will be overwritten later
+                    config: config.clone(),
+                };
                 type_header.write(w)?;
                 chunk.end_header(w)?;
-                for offset in index {
-                    w.write_u32::<LittleEndian>(*offset)?;
+
+                // Reserve space for index table
+                for _ in entries {
+                    w.write_u32::<LittleEndian>(0)?;
                 }
-                for entry in entries.iter().flatten() {
-                    entry.write(w)?;
+
+                let entries_pos = w.stream_position()?;
+                // Offset from the beginning of the chunk to the first entry:
+                let entries_start = entries_pos - chunk.start_chunk;
+
+                // Write out all entries
+                for (i, entry) in entries.iter().enumerate() {
+                    let mut offset = ResTableTypeHeader::NO_ENTRY;
+                    if let Some(entry) = entry {
+                        offset = (w.stream_position()? - entries_pos) as u32;
+                        entry.write(w)?;
+                    }
+                    let pos = w.stream_position()?;
+                    w.seek(SeekFrom::Start(
+                        chunk.end_header + (size_of::<u32>() * i) as u64,
+                    ))?;
+                    w.write_u32::<LittleEndian>(offset)?;
+                    w.seek(SeekFrom::Start(pos))?;
                 }
-                chunk.end_chunk(w)?;
+
+                let (_, end_header, end_chunk) = chunk.end_chunk(w)?;
+
+                // Update entries_start and rewrite the whole header with it:
+                w.seek(SeekFrom::Start(start_type_header))?;
+                type_header.entries_start = entries_start as u32;
+                type_header.write(w)?;
+                debug_assert_eq!(w.stream_position()?, end_header);
+                w.seek(SeekFrom::Start(end_chunk))?;
             }
-            Chunk::TableTypeSpec(type_spec_header, type_spec) => {
+            Chunk::TableTypeSpec(type_id, type_spec) => {
                 let mut chunk = ChunkWriter::start_chunk(ChunkType::TableTypeSpec, w)?;
+                let type_spec_header = ResTableTypeSpecHeader {
+                    id: *type_id,
+                    res0: 0,
+                    types_count: 0,
+                    entry_count: type_spec.len() as u32,
+                };
                 type_spec_header.write(w)?;
                 chunk.end_header(w)?;
-                for spec in type_spec {
-                    w.write_u32::<LittleEndian>(*spec)?;
+                for &spec in type_spec {
+                    w.write_u32::<LittleEndian>(spec)?;
                 }
                 chunk.end_chunk(w)?;
             }

@@ -1,7 +1,9 @@
+use std::num::NonZeroU8;
+
 use crate::manifest::AndroidManifest;
 use crate::res::{
-    Chunk, ResTableConfig, ResTableEntry, ResTableHeader, ResTablePackageHeader,
-    ResTableTypeHeader, ResTableTypeSpecHeader, ResTableValue, ResValue, ScreenType,
+    Chunk, ResTableConfig, ResTableEntry, ResTableHeader, ResTablePackageHeader, ResTableValue,
+    ResValue, ScreenType,
 };
 use anyhow::Result;
 
@@ -42,20 +44,12 @@ pub fn compile_mipmap<'a>(package_name: &str, name: &'a str) -> Result<Mipmap<'a
                 vec![
                     Chunk::StringPool(vec!["mipmap".to_string()], vec![]),
                     Chunk::StringPool(vec!["icon".to_string()], vec![]),
-                    Chunk::TableTypeSpec(
-                        ResTableTypeSpecHeader {
-                            id: 1,
-                            res0: 0,
-                            res1: 0,
-                            entry_count: 1,
-                        },
-                        vec![256],
-                    ),
-                    mipmap_table_type(1, 160, 0),
-                    mipmap_table_type(1, 240, 1),
-                    mipmap_table_type(1, 320, 2),
-                    mipmap_table_type(1, 480, 3),
-                    mipmap_table_type(1, 640, 4),
+                    Chunk::TableTypeSpec(NonZeroU8::new(1).unwrap(), vec![256]),
+                    mipmap_table_type(NonZeroU8::new(1).unwrap(), 160, 0),
+                    mipmap_table_type(NonZeroU8::new(1).unwrap(), 240, 1),
+                    mipmap_table_type(NonZeroU8::new(1).unwrap(), 320, 2),
+                    mipmap_table_type(NonZeroU8::new(1).unwrap(), 480, 3),
+                    mipmap_table_type(NonZeroU8::new(1).unwrap(), 640, 4),
                 ],
             ),
         ],
@@ -63,31 +57,24 @@ pub fn compile_mipmap<'a>(package_name: &str, name: &'a str) -> Result<Mipmap<'a
     Ok(Mipmap { name, chunk })
 }
 
-fn mipmap_table_type(type_id: u8, density: u16, string_id: u32) -> Chunk {
-    Chunk::TableType(
-        ResTableTypeHeader {
-            id: type_id,
-            res0: 0,
-            res1: 0,
-            entry_count: 1,
-            entries_start: 88,
-            config: ResTableConfig {
-                size: 28 + 36,
-                imsi: 0,
-                locale: 0,
-                screen_type: ScreenType {
-                    orientation: 0,
-                    touchscreen: 0,
-                    density,
-                },
-                input: 0,
-                screen_size: 0,
-                version: 4,
-                unknown: vec![0; 36],
+fn mipmap_table_type(type_id: NonZeroU8, density: u16, string_id: u32) -> Chunk {
+    Chunk::TableType {
+        type_id,
+        config: ResTableConfig {
+            size: 28 + 36,
+            imsi: 0,
+            locale: 0,
+            screen_type: ScreenType {
+                orientation: 0,
+                touchscreen: 0,
+                density,
             },
+            input: 0,
+            screen_size: 0,
+            version: 4,
+            unknown: vec![0; 36],
         },
-        vec![0],
-        vec![Some(ResTableEntry {
+        entries: vec![Some(ResTableEntry {
             size: 8,
             flags: 0,
             key: 0,
@@ -98,7 +85,7 @@ fn mipmap_table_type(type_id: u8, density: u16, string_id: u32) -> Chunk {
                 data: string_id,
             }),
         })],
-    )
+    }
 }
 
 pub struct Mipmap<'a> {

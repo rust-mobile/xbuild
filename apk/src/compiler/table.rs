@@ -1,6 +1,7 @@
 use crate::res::{Chunk, ResAttributeType, ResTableEntry, ResTableRef, ResTableValue, ResValue};
 use anyhow::{Context, Result};
 use std::io::Cursor;
+use std::num::NonZeroU8;
 use std::path::Path;
 
 pub struct Ref<'a> {
@@ -70,13 +71,13 @@ impl<'a> Package<'a> {
         })
     }
 
-    fn lookup_type_id(&self, name: &str) -> Result<u8> {
+    fn lookup_type_id(&self, name: &str) -> Result<NonZeroU8> {
         let id = self
             .types
             .iter()
             .position(|s| s.as_str() == name)
             .with_context(|| format!("failed to locate type id {name}"))?;
-        Ok(id as u8 + 1)
+        NonZeroU8::new(id as u8 + 1).context("overflow")
     }
 
     fn lookup_key_id(&self, name: &str) -> Result<u32> {
@@ -88,10 +89,13 @@ impl<'a> Package<'a> {
         Ok(id as u32)
     }
 
-    fn lookup_type(&self, id: u8) -> Result<Type<'a>> {
+    fn lookup_type(&self, id: NonZeroU8) -> Result<Type<'a>> {
         for chunk in self.chunks {
-            if let Chunk::TableType(header, _offsets, entries) = chunk {
-                if header.id == id {
+            if let Chunk::TableType {
+                type_id, entries, ..
+            } = chunk
+            {
+                if *type_id == id {
                     return Ok(Type {
                         package: self.id,
                         id,
@@ -106,7 +110,7 @@ impl<'a> Package<'a> {
 
 struct Type<'a> {
     package: u8,
-    id: u8,
+    id: NonZeroU8,
     entries: &'a [Option<ResTableEntry>],
 }
 
@@ -191,6 +195,7 @@ pub struct Table {
 
 impl Table {
     pub fn import_apk(&mut self, apk: &Path) -> Result<()> {
+        tracing::trace!("Parse `resources.arsc` chunk from `{apk:?}`");
         let resources = xcommon::extract_zip_file(apk, "resources.arsc")?;
         let chunk = Chunk::parse(&mut Cursor::new(resources))?;
         self.import_chunk(&chunk);
@@ -218,7 +223,7 @@ impl Table {
         }
     }
 
-    fn lookup_package(&self, id: u8) -> Result<Package> {
+    fn lookup_package(&self, id: u8) -> Result<Package<'_>> {
         for package in &self.packages {
             if let Chunk::TablePackage(header, chunks) = package {
                 if header.id == id as u32 {
@@ -229,7 +234,7 @@ impl Table {
         anyhow::bail!("failed to locate package {}", id);
     }
 
-    pub fn entry_by_ref(&self, r: Ref) -> Result<Entry> {
+    pub fn entry_by_ref(&self, r: Ref) -> Result<Entry<'_>> {
         let id = self.lookup_package_id(r.package)?;
         let package = self.lookup_package(id)?;
         let id = package.lookup_type_id(r.ty)?;
