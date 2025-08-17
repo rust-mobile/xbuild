@@ -91,8 +91,11 @@ impl<'a> Package<'a> {
 
     fn lookup_type(&self, id: NonZeroU8) -> Result<Type<'a>> {
         for chunk in self.chunks {
-            if let Chunk::TableType(header, _offsets, entries) = chunk {
-                if header.id == id {
+            if let Chunk::TableType {
+                type_id, entries, ..
+            } = chunk
+            {
+                if *type_id == id {
                     return Ok(Type {
                         package: self.id,
                         id,

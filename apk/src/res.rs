@@ -859,16 +859,23 @@ impl ResSpan {
 pub enum Chunk {
     Null,
     StringPool(Vec<String>, Vec<Vec<ResSpan>>),
+    // TODO: Remove this header; the number of packages is implied by te number of Chunk::TablePackage elements.
     Table(ResTableHeader, Vec<Chunk>),
     Xml(Vec<Chunk>),
     XmlStartNamespace(ResXmlNodeHeader, ResXmlNamespace),
     XmlEndNamespace(ResXmlNodeHeader, ResXmlNamespace),
+    // TODO: Replace ResXmlStartElement, which contains byte offsets.
     XmlStartElement(ResXmlNodeHeader, ResXmlStartElement, Vec<ResXmlAttribute>),
     XmlEndElement(ResXmlNodeHeader, ResXmlEndElement),
     XmlResourceMap(Vec<u32>),
+    // TODO: Remove this header, it seems to contain fields that are specifically for (de)serialization.
     TablePackage(ResTablePackageHeader, Vec<Chunk>),
-    TableType(ResTableTypeHeader, Vec<u32>, Vec<Option<ResTableEntry>>),
-    TableTypeSpec(ResTableTypeSpecHeader, Vec<u32>),
+    TableType {
+        type_id: NonZeroU8,
+        config: ResTableConfig,
+        entries: Vec<Option<ResTableEntry>>,
+    },
+    TableTypeSpec(NonZeroU8, Vec<u32>),
     Unknown,
 }
 
@@ -1037,13 +1044,16 @@ impl Chunk {
             Some(ChunkType::TableType) => {
                 tracing::trace!("table type");
                 let type_header = ResTableTypeHeader::read(r)?;
-                let mut entries = Vec::with_capacity(type_header.entry_count as usize);
-                let mut index = Vec::with_capacity(type_header.entry_count as usize); // TODO: Removing this bogus mapping from the API requires rewriting the write() implementation
+
+                // Parse all entry offsets at once so that we don't repeatedly have to seek back.
+                let mut entry_offsets = Vec::with_capacity(type_header.entry_count as usize);
                 for _ in 0..type_header.entry_count {
                     let offset = r.read_u32::<LittleEndian>()?;
-                    index.push(offset);
+                    entry_offsets.push(offset);
                 }
-                for &offset in &index {
+
+                let mut entries = Vec::with_capacity(type_header.entry_count as usize);
+                for offset in entry_offsets {
                     if offset == 0xffff_ffff {
                         entries.push(None);
                     } else {
@@ -1054,7 +1064,12 @@ impl Chunk {
                         entries.push(Some(entry));
                     }
                 }
-                Ok(Chunk::TableType(type_header, index, entries))
+
+                Ok(Chunk::TableType {
+                    type_id: type_header.id,
+                    config: type_header.config,
+                    entries,
+                })
             }
             Some(ChunkType::TableTypeSpec) => {
                 tracing::trace!("table type spec");
@@ -1063,7 +1078,7 @@ impl Chunk {
                 for c in type_spec.iter_mut() {
                     *c = r.read_u32::<LittleEndian>()?;
                 }
-                Ok(Chunk::TableTypeSpec(type_spec_header, type_spec))
+                Ok(Chunk::TableTypeSpec(type_spec_header.id, type_spec))
             }
             Some(ChunkType::Unknown) => {
                 tracing::trace!("unknown");
@@ -1107,7 +1122,7 @@ impl Chunk {
                 Ok(())
             }
 
-            fn end_chunk<W: Seek + Write>(self, w: &mut W) -> Result<(u64, u64)> {
+            fn end_chunk<W: Seek + Write>(self, w: &mut W) -> Result<(u64, u64, u64)> {
                 assert_ne!(self.end_header, 0);
                 let end_chunk = w.stream_position()?;
                 let header = ResChunkHeader {
@@ -1118,7 +1133,7 @@ impl Chunk {
                 w.seek(SeekFrom::Start(self.start_chunk))?;
                 header.write(w)?;
                 w.seek(SeekFrom::Start(end_chunk))?;
-                Ok((self.start_chunk, end_chunk))
+                Ok((self.start_chunk, self.end_header, end_chunk))
             }
         }
         match self {
@@ -1153,7 +1168,7 @@ impl Chunk {
                     }
                     w.write_i32::<LittleEndian>(-1)?;
                 }
-                let (start_chunk, end_chunk) = chunk.end_chunk(w)?;
+                let (start_chunk, _end_header, end_chunk) = chunk.end_chunk(w)?;
 
                 w.seek(SeekFrom::Start(start_chunk + 8))?;
                 ResStringPoolHeader {
@@ -1251,24 +1266,69 @@ impl Chunk {
                 package_header.write(w)?;
                 w.seek(SeekFrom::Start(end))?;
             }
-            Chunk::TableType(type_header, index, entries) => {
+            Chunk::TableType {
+                type_id,
+                config,
+                entries,
+            } => {
                 let mut chunk = ChunkWriter::start_chunk(ChunkType::TableType, w)?;
+                let start_type_header = w.stream_position()?;
+                let mut type_header = ResTableTypeHeader {
+                    id: *type_id,
+                    res0: 0,
+                    res1: 0,
+                    entry_count: entries.len() as u32,
+                    entries_start: 0, // Will be overwritten later
+                    config: config.clone(),
+                };
                 type_header.write(w)?;
                 chunk.end_header(w)?;
-                for offset in index {
-                    w.write_u32::<LittleEndian>(*offset)?;
+
+                // Reserve space for index table
+                for _ in entries {
+                    w.write_u32::<LittleEndian>(0)?;
                 }
-                for entry in entries.iter().flatten() {
-                    entry.write(w)?;
+
+                let entries_pos = w.stream_position()?;
+                // Offset from the beginning of the chunk to the first entry:
+                let entries_start = entries_pos - chunk.start_chunk;
+
+                // Write out all entries
+                for (i, entry) in entries.iter().enumerate() {
+                    let mut offset = 0xffff_ffff;
+                    if let Some(entry) = entry {
+                        offset = (w.stream_position()? - entries_pos) as u32;
+                        entry.write(w)?;
+                    }
+                    let pos = w.stream_position()?;
+                    w.seek(SeekFrom::Start(
+                        chunk.end_header + (size_of::<u32>() * i) as u64,
+                    ))?;
+                    w.write_u32::<LittleEndian>(offset)?;
+                    w.seek(SeekFrom::Start(pos))?;
                 }
-                chunk.end_chunk(w)?;
+
+                let (_, end_header, end_chunk) = chunk.end_chunk(w)?;
+
+                // Update entries_start and rewrite the whole header with it:
+                w.seek(SeekFrom::Start(start_type_header))?;
+                type_header.entries_start = entries_start as u32;
+                type_header.write(w)?;
+                debug_assert_eq!(w.stream_position()?, end_header);
+                w.seek(SeekFrom::Start(end_chunk))?;
             }
-            Chunk::TableTypeSpec(type_spec_header, type_spec) => {
+            Chunk::TableTypeSpec(type_id, type_spec) => {
                 let mut chunk = ChunkWriter::start_chunk(ChunkType::TableTypeSpec, w)?;
+                let type_spec_header = ResTableTypeSpecHeader {
+                    id: *type_id,
+                    res0: 0,
+                    res1: 0,
+                    entry_count: type_spec.len() as u32,
+                };
                 type_spec_header.write(w)?;
                 chunk.end_header(w)?;
-                for spec in type_spec {
-                    w.write_u32::<LittleEndian>(*spec)?;
+                for &spec in type_spec {
+                    w.write_u32::<LittleEndian>(spec)?;
                 }
                 chunk.end_chunk(w)?;
             }
