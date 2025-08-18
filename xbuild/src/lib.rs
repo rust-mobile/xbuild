@@ -74,10 +74,13 @@ impl std::fmt::Display for Platform {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 pub enum Arch {
-    //Arm,
+    Armv7,
+    Arm,
+    Armv6,    // ARM 32-bit (ARMv6)
+    Armv8a32, // ARM 32-bit (ARMv8-A)
     Arm64,
     X64,
-    //X86,
+    X86,      // Intel 32-bit
 }
 
 impl Arch {
@@ -206,8 +209,13 @@ impl CompileTarget {
     pub fn android_abi(self) -> apk::Target {
         assert_eq!(self.platform(), Platform::Android);
         match self.arch() {
+            Arch::Armv7 => apk::Target::ArmV7a,
+            Arch::Arm => apk::Target::Armeabi,
+            Arch::Armv6 => apk::Target::ArmV6a,
+            Arch::Armv8a32 => apk::Target::ArmV8a32,
             Arch::Arm64 => apk::Target::Arm64V8a,
             Arch::X64 => apk::Target::X86_64,
+            Arch::X86 => apk::Target::X86,
         }
     }
 
@@ -216,19 +224,27 @@ impl CompileTarget {
         assert_eq!(self.platform(), Platform::Android);
         match self.arch() {
             Arch::Arm64 => "aarch64-linux-android",
-            //Arch::Arm => "arm-linux-androideabi",
-            //Arch::X86 => "i686-linux-android",
+            Arch::Arm => "arm-linux-androideabi",
+            Arch::Armv7 => "armv7a-linux-androideabi",
+            Arch::Armv6 => "armv6a-linux-androideabi",
+            Arch::Armv8a32 => "armv8a-linux-androideabi",
             Arch::X64 => "x86_64-linux-android",
+            Arch::X86 => "i686-linux-android",
         }
     }
 
     pub fn rust_triple(self) -> Result<&'static str> {
-        Ok(match (self.arch, self.platform) {
+        Ok(match (self.arch(), self.platform) {
             (Arch::Arm64, Platform::Android) => "aarch64-linux-android",
+            (Arch::Armv7, Platform::Android) => "armv7-linux-androideabi",
+            (Arch::Arm, Platform::Android) => "arm-linux-androideabi",
+            (Arch::Armv6, Platform::Android) => "armv6-linux-androideabi",
+            (Arch::Armv8a32, Platform::Android) => "armv8a-linux-androideabi",
+            (Arch::X64, Platform::Android) => "x86_64-linux-android",
+            (Arch::X86, Platform::Android) => "i686-linux-android",
             (Arch::Arm64, Platform::Ios) => "aarch64-apple-ios",
             (Arch::Arm64, Platform::Linux) => "aarch64-unknown-linux-gnu",
             (Arch::Arm64, Platform::Macos) => "aarch64-apple-darwin",
-            (Arch::X64, Platform::Android) => "x86_64-linux-android",
             (Arch::X64, Platform::Linux) => "x86_64-unknown-linux-gnu",
             (Arch::X64, Platform::Macos) => "x86_64-apple-darwin",
             (Arch::X64, Platform::Windows) => "x86_64-pc-windows-msvc",
