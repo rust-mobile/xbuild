@@ -10,6 +10,8 @@ pub struct AndroidManifest {
     #[serde(default = "default_namespace")]
     ns_android: String,
     pub package: Option<String>,
+    #[serde(rename(serialize = "android:installLocation"))]
+    pub install_location: Option<String>,
     #[serde(rename(serialize = "android:versionCode"))]
     pub version_code: Option<u32>,
     #[serde(rename(serialize = "android:versionName"))]
@@ -40,6 +42,7 @@ impl Default for AndroidManifest {
         Self {
             ns_android: default_namespace(),
             package: Default::default(),
+            install_location: Default::default(),
             version_code: Default::default(),
             version_name: Default::default(),
             sdk: Default::default(),
