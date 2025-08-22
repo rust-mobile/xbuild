@@ -20,8 +20,8 @@ pub fn compile_xml(xml: &str, table: &Table) -> Result<Chunk> {
         chunks.push(Chunk::XmlStartNamespace(
             ResXmlNodeHeader::default(),
             ResXmlNamespace {
-                prefix: ns.name().map(|ns| strings.id(ns)).unwrap_or(-1),
-                uri: strings.id(ns.uri()),
+                prefix: ns.name().map(|ns| strings.id(ns).unwrap_or(-1)).unwrap_or(-1),
+                uri: strings.id(ns.uri())?,
             },
         ));
     }
@@ -30,8 +30,8 @@ pub fn compile_xml(xml: &str, table: &Table) -> Result<Chunk> {
         chunks.push(Chunk::XmlEndNamespace(
             ResXmlNodeHeader::default(),
             ResXmlNamespace {
-                prefix: ns.name().map(|ns| strings.id(ns)).unwrap_or(-1),
-                uri: strings.id(ns.uri()),
+                prefix: ns.name().map(|ns| strings.id(ns).unwrap_or(-1)).unwrap_or(-1),
+                uri: strings.id(ns.uri())?,
             },
         ));
     }
@@ -107,7 +107,7 @@ fn compile_node(
                 size: 8,
                 res0: 0,
                 data_type: ResValueType::String as u8,
-                data: strings.id(attr.value()) as u32,
+                data: strings.id(attr.value())? as u32,
             }
         };
         let raw_value = if value.data_type == ResValueType::String as u8 {
@@ -116,8 +116,8 @@ fn compile_node(
             -1
         };
         let attr = ResXmlAttribute {
-            namespace: attr.namespace().map(|ns| strings.id(ns)).unwrap_or(-1),
-            name: strings.id(attr.name()),
+            namespace: attr.namespace().map(|ns| strings.id(ns).unwrap_or(-1)).unwrap_or(-1),
+            name: strings.id(attr.name())?,
             raw_value,
             typed_value: value,
         };
@@ -126,9 +126,9 @@ fn compile_node(
     let namespace = node
         .tag_name()
         .namespace()
-        .map(|ns| strings.id(ns))
+        .map(|ns| strings.id(ns).unwrap_or(-1))
         .unwrap_or(-1);
-    let name = strings.id(node.tag_name().name());
+    let name = strings.id(node.tag_name().name())?;
     chunks.push(Chunk::XmlStartElement(
         ResXmlNodeHeader::default(),
         ResXmlStartElement {
@@ -145,7 +145,7 @@ fn compile_node(
     ));
     /*let mut children = BTreeMap::new();
     for node in node.children() {
-        children.insert(strings.id(node.tag_name().name()), node);
+        children.insert(strings.id(node.tag_name().name())?, node);
     }
     for (_, node) in children {
         compile_node(node, strings, chunks)?;
