@@ -84,7 +84,7 @@ pub struct Application {
     pub activities: Vec<Activity>,
     #[serde(rename(serialize = "service"))]
     #[serde(default)]
-    pub services: Vec<Service>
+    pub services: Vec<Service>,
 }
 
 /// Android [activity element](https://developer.android.com/guide/topics/manifest/activity-element).
