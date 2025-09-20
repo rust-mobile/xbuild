@@ -82,6 +82,9 @@ pub struct Application {
     #[serde(rename(serialize = "activity"))]
     #[serde(default)]
     pub activities: Vec<Activity>,
+    #[serde(rename(serialize = "service"))]
+    #[serde(default)]
+    pub services: Vec<Service>
 }
 
 /// Android [activity element](https://developer.android.com/guide/topics/manifest/activity-element).
@@ -113,6 +116,43 @@ pub struct Activity {
     pub intent_filters: Vec<IntentFilter>,
     #[serde(rename(serialize = "android:colorMode"))]
     pub color_mode: Option<String>,
+}
+
+/// Android [service element](https://developer.android.com/guide/topics/manifest/service-element).
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct Service {
+    #[serde(rename(serialize = "android:description"))]
+    pub description: Option<String>,
+    #[serde(rename(serialize = "android:directBootAware"))]
+    pub direct_boot_aware: Option<bool>,
+    #[serde(rename(serialize = "android:enabled"))]
+    pub enabled: Option<bool>,
+    #[serde(rename(serialize = "android:exported"))]
+    pub exported: Option<bool>,
+    #[serde(rename(serialize = "android:foregroundServiceType"))]
+    pub foreground_service_type: Option<String>,
+    #[serde(rename(serialize = "android:icon"))]
+    pub icon: Option<String>,
+    #[serde(rename(serialize = "android:isolatedProcess"))]
+    pub isolated_process: Option<bool>,
+    #[serde(rename(serialize = "android:label"))]
+    pub label: Option<String>,
+    #[serde(rename(serialize = "android:name"))]
+    pub name: Option<String>,
+    #[serde(rename(serialize = "android:permission"))]
+    pub permission: Option<String>,
+    #[serde(rename(serialize = "android:process"))]
+    pub process: Option<String>,
+    #[serde(rename(serialize = "android:stopWithTask"))]
+    pub stop_with_task: Option<String>,
+
+    #[serde(rename(serialize = "meta-data"))]
+    #[serde(default)]
+    pub meta_data: Vec<MetaData>,
+    #[serde(rename(serialize = "intent-filter"))]
+    #[serde(default)]
+    pub intent_filters: Vec<IntentFilter>,
 }
 
 /// Android [intent filter element](https://developer.android.com/guide/topics/manifest/intent-filter-element).
