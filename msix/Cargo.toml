@@ -12,9 +12,9 @@ base64 = "0.20.0"
 byteorder = "1.4.3"
 mime_guess = "2.0.4"
 quick-xml = { version = "0.26.0", features = ["serialize"] }
-rasn = "0.6.1"
-rasn-cms = "0.6.0"
-rasn-pkix = "0.6.0"
+rasn.workspace = true
+rasn-cms.workspace = true
+rasn-pkix.workspace = true
 serde = { version = "1.0.151", features = ["derive"] }
 sha2 = "0.10.6"
 xcommon = { version = "0.3.0", path = "../xcommon" }

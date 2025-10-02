@@ -11,3 +11,8 @@ members = [
 ]
 default-members = ["xbuild"]
 exclude = ["examples"]
+
+[workspace.dependencies]
+rasn = "0.17.3"
+rasn-cms = "0.17.3"
+rasn-pkix = "0.17.3"

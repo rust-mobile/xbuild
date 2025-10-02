@@ -10,8 +10,8 @@ license = "Apache-2.0 OR MIT"
 anyhow = "1.0.68"
 byteorder = "1.4.3"
 quick-xml = { version = "0.26.0", features = ["serialize"] }
-rasn = "0.6.1"
-rasn-pkix = "0.6.0"
+rasn.workspace = true
+rasn-pkix.workspace = true
 roxmltree = "0.16.0"
 rsa = "0.7.2"
 serde = { version = "1.0.151", features = ["derive"] }
