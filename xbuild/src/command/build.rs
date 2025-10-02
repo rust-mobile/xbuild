@@ -75,7 +75,25 @@ pub fn build(env: &BuildEnv) -> Result<()> {
             }
         }
         Platform::Android => {
-            let out = platform_dir.join(format!("{}.{}", env.name(), env.target().format()));
+            // Include architecture in filename for Android builds
+            let arch_suffix = if env.target().archs().len() == 1 {
+                format!("-{}", env.target().archs()[0])
+            } else {
+                // Multi-arch build, use "universal" or concatenate all archs
+                if env.target().archs().len() > 1 {
+                    let archs: Vec<String> =
+                        env.target().archs().iter().map(|a| a.to_string()).collect();
+                    format!("-{}", archs.join("-"))
+                } else {
+                    String::new()
+                }
+            };
+            let out = platform_dir.join(format!(
+                "{}{}.{}",
+                env.name(),
+                arch_suffix,
+                env.target().format()
+            ));
             ensure!(has_lib, "Android APKs/AABs require a library");
 
             let mut libraries = vec![];
@@ -200,6 +218,7 @@ pub fn build(env: &BuildEnv) -> Result<()> {
                 runner.end_verbose_task();
                 return Ok(());
             } else {
+                let out_clone = out.clone();
                 let mut apk = Apk::new(
                     out,
                     env.config().android().manifest.clone(),
@@ -220,6 +239,11 @@ pub fn build(env: &BuildEnv) -> Result<()> {
                 }
 
                 apk.finish(env.target().signer().cloned())?;
+
+                // Handle additional Android signing if release build and signing parameters are provided
+                if env.target().opt() == Opt::Release {
+                    crate::gradle::handle_android_signing_for_apk(env, &out_clone)?;
+                }
             }
         }
         Platform::Macos => {
