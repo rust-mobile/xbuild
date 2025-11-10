@@ -25,8 +25,9 @@ pub fn prepare(env: &BuildEnv) -> Result<()> {
             std::fs::write(wry.join("MainActivity.kt"), main_activity)?;
         }
         let (package, name) = package.rsplit_once('.').unwrap();
-        std::env::set_var("WRY_ANDROID_REVERSED_DOMAIN", package);
-        std::env::set_var("WRY_ANDROID_APP_NAME_SNAKE_CASE", name);
+        std::env::set_var("WRY_ANDROID_PACKAGE", package);
+        // XXX: This should be the library name, which coincidentally happens to be the same as the package name
+        std::env::set_var("WRY_ANDROID_LIBRARY", name);
         std::env::set_var("WRY_ANDROID_KOTLIN_FILES_OUT_DIR", wry);
     }
     Ok(())
