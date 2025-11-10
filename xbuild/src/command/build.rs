@@ -197,6 +197,7 @@ pub fn build(env: &BuildEnv) -> Result<()> {
 
             if env.target().android_gradle {
                 crate::gradle::build(env, libraries, &out)?;
+                Apk::sign(&out, env.target().signer().cloned())?;
                 runner.end_verbose_task();
                 return Ok(());
             } else {

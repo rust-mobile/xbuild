@@ -30,6 +30,13 @@ info: component 'rust-std' for target 'aarch64-linux-android' is up to date
 
 ![x](https://user-images.githubusercontent.com/741807/162616805-30b48faa-84f0-4fec-851a-4c94fd35c6bd.png)
 
+## Signing apks
+
+xbuild is able to automatically signing the file. For this a pem certificate must be available.
+- Specify as argument with `--pem <file_path>`
+- Store the content of a pem in the environment variable `X_PEM`.
+The pem file can be created described in the [Signer](https://docs.rs/xcommon/latest/xcommon/struct.Signer.html) section of the documentation
+
 ## Troubleshooting
 
 ### Command not found
