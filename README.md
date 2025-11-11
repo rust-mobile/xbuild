@@ -2,6 +2,21 @@
 xbuild is a build tool for rust projects with support for cross compiling and publishing to all
 major stores. The goal of xbuild is making native app development as easy as web development.
 
+To configure the build of the packages for the platforms a `manifest.yaml` file must be created in the working directory. To configure for an android apk check all options of `AndroidManifest` struct (https://github.com/rust-mobile/xbuild/blob/master/apk/src/manifest.rs#L8).
+
+To set internet permissions for android for example:
+```yaml
+android:
+  manifest:
+    sdk:
+      min_sdk_version: 23
+      target_sdk_version: 36
+    # See https://developer.android.com/guide/topics/manifest/uses-permission-element
+    uses_permission:
+      - name: "android.permission.INTERNET"
+      - name: "android.permission.ACCESS_NETWORK_STATE"
+```
+
 ## Getting started
 Install `xbuild`:
 ```sh
@@ -29,6 +44,20 @@ info: component 'rust-std' for target 'aarch64-linux-android' is up to date
 ```
 
 ![x](https://user-images.githubusercontent.com/741807/162616805-30b48faa-84f0-4fec-851a-4c94fd35c6bd.png)
+
+### Version compatibility (Android gradle)
+
+When using gradle with android make sure you have the correct versions installed (https://kotlinlang.org/docs/gradle-configure-project.html#kotlin-gradle-plugin-data-in-a-project)
+
+Tested:
+
+| Software      |  Version   |
+| ------------- | ---------- |
+| java          |    17      |
+| Gradle        |    8.1.1   |
+| AGP Plugin    |    7.3.0   |
+| Kotlin Plugin |   1.7.20   |
+
 
 ## Troubleshooting
 

@@ -14,4 +14,3 @@ dependencyResolutionManagement {
 }
 
 include ':app'
-include ':baseAssets'

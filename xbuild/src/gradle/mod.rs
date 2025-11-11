@@ -1,6 +1,7 @@
 use crate::{task, BuildEnv, Format, Opt};
 use anyhow::{Context, Result};
 use apk::Target;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -102,6 +103,8 @@ pub fn build(env: &BuildEnv, libraries: Vec<(Target, PathBuf)>, out: &Path) -> R
     let _ = std::fs::remove_dir_all(&base_assets);
 
     if !config.assets.is_empty() {
+        std::fs::OpenOptions::new().write(true).append(true).open(gradle.join("settings.gradle"))?.write(r#"include ':baseAssets'"#.as_bytes())?;
+
         std::fs::create_dir_all(&base_assets)?;
         let assets = format!(
             r#"
