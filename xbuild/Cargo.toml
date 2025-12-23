@@ -1,6 +1,6 @@
 [package]
 name = "xbuild"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "Builds rust mobile/desktop projects."
 repository = "https://github.com/rust-mobile/xbuild"

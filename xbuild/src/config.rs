@@ -421,6 +421,10 @@ pub struct AndroidDebugConfig {
     pub reverse: HashMap<String, String>,
 }
 
+fn default_java_version() -> usize {
+    8
+}
+
 #[derive(Clone, Debug, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AndroidConfig {
@@ -430,6 +434,27 @@ pub struct AndroidConfig {
     pub manifest: AndroidManifest,
     #[serde(default)]
     pub dependencies: Vec<String>,
+    /// Java version used for compilation
+    /// For Java 1.8 and below specify `8` and below
+    #[serde(default = "default_java_version")]
+    pub java_version: usize,
+    /// The gradle plugin version which shall be set in the main build.gradle file
+    /// Make sure it is compatible with the installed gradle version!
+    /// Depending on the plugin version a minimum gradle version must be available
+    /// Depending on the api level a minimum gradle plugin version is required
+    /// https://developer.android.com/build/releases/gradle-plugin?#kts
+    /// 
+    /// Recommendation:
+    /// 1) Select desired api level
+    /// 2) Determine minium gradle plugin version and use at least that version (See url above)
+    /// 3) Determin minium gradle version (See url above)
+    #[serde(default)]
+    pub gradle_plugin_version: Option<String>,
+    /// The kotlin version which shall be set in the main build.gradle file
+    /// Determine version from the gradle plugin version using https://developer.android.com/build/kotlin-support
+    /// Important: This version of Kotlin must be installed on the system!
+    #[serde(default)]
+    pub kotlin_version: Option<String>,
     /// Defaults to [`false`], but uses [`true`] when the user builds a format that requires
     /// `gradle` (i.e. [`Format::Aab`]).
     #[serde(default)]
