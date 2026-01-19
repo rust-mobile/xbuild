@@ -430,6 +430,8 @@ pub struct AndroidConfig {
     pub manifest: AndroidManifest,
     #[serde(default)]
     pub dependencies: Vec<String>,
+    #[serde(default)]
+    pub aars: Vec<String>,
     /// Defaults to [`false`], but uses [`true`] when the user builds a format that requires
     /// `gradle` (i.e. [`Format::Aab`]).
     #[serde(default)]
