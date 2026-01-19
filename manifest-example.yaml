@@ -1,0 +1,404 @@
+#generic application configuration
+generic:
+  #the path for the icon file for the application
+  icon: icon.svg
+  #the generic runtime libraries for the project
+  runtime_libs: [example.so, example2.so]
+#android specific configuration elements
+android:
+  #generic android configuration
+  generic:
+    #the path for the icon file for the application
+    icon: icon.svg
+    #the generic runtime libraries for the project
+    runtime_libs: [example.so, example2.so]
+  #android manifest options
+  manifest:
+    #the namesapce for the application (xmlns:android)
+    ns_android: http://schemas.android.com/apk/res/android
+    #the name of the package
+    package: "com.example.whatever"
+    # the internal application version code
+    version_code: 42
+    # the user visible version string
+    version_name: "Flaming Rhinoceros"
+    #the sdk version to compile against
+    compile_sdk_version: 33
+    # specifies android:compileSdkVersionCodename
+    compile_sdk_version_codename: 13
+    # the platform build version code
+    platform_build_version_code: 33
+    # the platformBuildVersionName option
+    platformBuildVersionName: 13
+    # specifies details about the sdk to use
+    sdk: { min_sdk_version: 21, target_sdk_version: 33, max_sdk_version: 33 }
+    # specifies xmlns:tools for the manifest
+    xmlns_tools: http://schemas.android.com/tools
+    # specifies which andoird features are used
+    uses_feature: [
+      #require the nfc feature as an example
+      { name: android.hardware.nfc, required: true }
+    ]
+    # the list of permissions required by the application
+    uses_permission: [
+      { name: android.permission.NFC, max_sdk_version: 33 },
+      name: android.permission.INTERNET,
+      name: android.permission.WRITE_EXTERNAL_STORAGE,
+      name: android.permission.ACCESS_NETWORK_STATE,
+      name: android.permission.READ_DEVICE_CONFIG,
+    ]
+    # the application settings
+    application:
+      #is the application debuggable?
+      debuggable: true
+      # the android theme for the application
+      theme: '@android:style/Theme.NoTitleBar.Fullscreen'
+      # is java code utilized?
+      has_code: true
+      # the android application icon
+      icon: android_icon.svg
+      # the user visible name of the application
+      label: 'Example application'
+      # specifies the android property android:appComponentFactory
+      app_component_factory: androidx.core.app.CoreComponentFactory
+      # specifies metadata for the application
+      meta_data: [
+        { name: example, value: test }
+      ]
+      # the android activities for the application
+      activities: [
+        {
+          # specify android:configChanges for the activity
+          config_changes: 'orientation|screenSize|keyboardHidden',
+          # label for the activity
+          label: 'Test activity',
+          # the android:launchMode property
+          launch_mode: standard,
+          # the android:name property for the activity
+          name: 'example activity',
+          # the screen orientation for the activity
+          orientation: unspecified,
+          # the android property android:windowSoftInputMode for the activity
+          window_soft_input_mode: stateVisible,
+          # is this activity exported for other applications?
+          exported: true,
+          # the android:hardwareAccelerated property
+          hardware_accelerated: true,
+          # specifies metadata for the activity
+          meta_data: [
+            { name: example2, value: test2 }
+          ],
+          # specifies intent filters for the activity
+          intent_filters: [
+            { 
+              actions: ['exampleaction'], 
+              categories: ['examplecategory'], 
+              data: [
+                # the android:scheme property
+                scheme: 'examplescheme',
+                # the android:host property
+                host: 'example',
+                # the android:port property
+                port: 'exampleport',
+                # the android:path property
+                path: 'examplepath',
+                # the andoird:pathPattern property
+                path_pattern: 'example_path_pattern',
+                # the android:pathPrefix property
+                path_prefix: 'example_path_prefix',
+                # the android:mimeType property
+                mime_type: 'example_mime_type',
+              ],
+            },
+          ],
+          #specifies the android:colorMode property
+          color_mode: 'example_color_mode',
+        }
+      ]
+      # specifies tools:replace for the application
+      tools_replace: 'android:label'
+    # the list of dependencies
+    dependencies: [dependency1, dependency2]
+    #the list of aar to include in the application, starting at the porject root directory
+    aars: [libs/example.aar]
+    # should gradle be sued for the build?
+    gradle: true
+    # set to true when using wry (a cross platform webview rendering library)
+    wry: false
+    #the list of assets for the application (TODO: not sure how to specify this)
+    assets: []
+    # the android debug config, TODO not sure how to specify the hashmap data here
+    debug: { forward: {}, reverse: {} }
+  #the linux specific configuration
+  linux:
+      #the path for the icon file for the application
+      icon: icon.svg
+      #the generic runtime libraries for the project
+      runtime_libs: [example.so, example2.so]
+  #the ios specific configuration
+  ios:
+    #the generic configuration
+    generic:
+      #the path for the icon file for the application
+      icon: icon.svg
+      #the generic runtime libraries for the project
+      runtime_libs: [example.so, example2.so]
+    # assets to add to the Assets.car path in the application
+    assets_car: example_path
+    #the info plist data
+    info: {
+      # The default language and region for the bundle, as a language ID.
+      cf_bundle_development_region: example,
+      # The user-visible name for the bundle, used by Siri and visible on the iOS Home screen.
+      cf_bundle_display_name: example,
+      # The entry point of the bundle.
+      cf_bundle_executable: example,
+      # the icons for the bundle
+      cf_bundle_icons: { cf_bundle_primary_icon: { cf_bundle_icon_name: example, },},
+      # the icon name of the bundle
+      cf_bundle_icon_name: example,
+      # a unique identifier for the bundle
+      cf_bundle_identifier: example,
+      # The current version of the Information Property List structure.
+      cf_bundle_info_dictionary_version: example,
+      # A user-visible short name for the bundle.
+      cf_bundle_name: example,
+      # The type of bundle.
+      cf_bundle_package_type: example,
+      # The release or version number of the bundle.
+      cf_bundle_short_version_string: example,
+      # A replacement for the app name in text-to-speech operations.
+      cf_bundle_spoken_name: example,
+      # CFBundleSupportedPlatforms
+      cf_bundle_supported_platforms: [platform1, platform2],
+      # The version of the build that identifies an iteration of the bundle.
+      cf_bundle_version: example,
+      # the DTCompiler property
+      dt_compiler: example,
+      # the DTPlatformBuild property
+      dt_platform_build: example,
+      # the DTPlatformName property
+      dt_platform_name: example,
+      # the DTPlatformVersion property
+      dt_platform_version: example,
+      # the DTSDKBuild property
+      dt_sdk_build: example,
+      # the DTSDKName property
+      dt_sdk_name: example,
+      # the DTXcode property
+      dt_xcode: example,
+      # the DTXcodeBuild property
+      dt_xcode_build: example,
+      #  The category that best describes your app for the App Store.
+      ls_application_category_type: examples,
+      # The minimum version of the operating system required for the app to run in macOS.
+      ls_minimum_system_version: example,
+      # A boolean value indicating whether the app must run in iOS.
+      ls_requires_ios: false,
+      # The minimum version of the operating system required for the app to run in iOS, iPadOS, tvOS, and watchOS.
+      minimum_os_version: example,
+      # A message that tells the user why the app is requesting access to the device's camera.
+      ns_camera_usage_description: 'this is an example',
+      # A human-readable copyright notice for the bundle.
+      ns_human_readable_copyright: example copyright,
+      # the UIDeviceFamilyproperty
+      ui_device_family: [1,2,3,4],
+      # the UILaunchScreenproperty
+      ui_launch_screen: {
+        # the UIColorName property
+        ui_color_name: example,
+        # the UIImageName property
+        ui_image_name: example,
+        #the UIImageRespectsSafeAreaInsets property
+        ui_image_respects_safe_area_insets: false,
+        #the UINavigationBar property
+        ui_navigation_bar: false,
+        # the UITabBar property
+        ui_tab_bar: false,
+        # the UIToolbar property
+        ui_toolbar: false,
+      },
+      # the UILaunchStoryboardName property
+      ui_launch_storyboard_name: example,
+      # the UIRequiredDeviceCapabilities property
+      ui_required_device_capabilities: [example1, example2,],
+      # the UISupportedInterfaceOrientationsproperty~ipad property
+      ui_supported_interface_orientations_ipad: [example1, example2],
+      # the UISupportedInterfaceOrientations~iphone property
+      ui_supported_interface_orientations_iphone: [example1, example2],
+    }
+  #the macos specific configuration
+  macos:
+    #the generic configuration
+    generic:
+      #the path for the icon file for the application
+      icon: icon.svg
+      #the generic runtime libraries for the project
+      runtime_libs: [example.so, example2.so]
+    #the info plist data
+    info: {
+      # The default language and region for the bundle, as a language ID.
+      cf_bundle_development_region: example,
+      # The user-visible name for the bundle, used by Siri and visible on the iOS Home screen.
+      cf_bundle_display_name: example,
+      # The entry point of the bundle.
+      cf_bundle_executable: example,
+      # the icons for the bundle
+      cf_bundle_icons: { cf_bundle_primary_icon: { cf_bundle_icon_name: example, },},
+      # the icon name of the bundle
+      cf_bundle_icon_name: example,
+      # a unique identifier for the bundle
+      cf_bundle_identifier: example,
+      # The current version of the Information Property List structure.
+      cf_bundle_info_dictionary_version: example,
+      # A user-visible short name for the bundle.
+      cf_bundle_name: example,
+      # The type of bundle.
+      cf_bundle_package_type: example,
+      # The release or version number of the bundle.
+      cf_bundle_short_version_string: example,
+      # A replacement for the app name in text-to-speech operations.
+      cf_bundle_spoken_name: example,
+      # CFBundleSupportedPlatforms
+      cf_bundle_supported_platforms: [platform1, platform2],
+      # The version of the build that identifies an iteration of the bundle.
+      cf_bundle_version: example,
+      # the DTCompiler property
+      dt_compiler: example,
+      # the DTPlatformBuild property
+      dt_platform_build: example,
+      # the DTPlatformName property
+      dt_platform_name: example,
+      # the DTPlatformVersion property
+      dt_platform_version: example,
+      # the DTSDKBuild property
+      dt_sdk_build: example,
+      # the DTSDKName property
+      dt_sdk_name: example,
+      # the DTXcode property
+      dt_xcode: example,
+      # the DTXcodeBuild property
+      dt_xcode_build: example,
+      #  The category that best describes your app for the App Store.
+      ls_application_category_type: examples,
+      # The minimum version of the operating system required for the app to run in macOS.
+      ls_minimum_system_version: example,
+      # A boolean value indicating whether the app must run in iOS.
+      ls_requires_ios: false,
+      # The minimum version of the operating system required for the app to run in iOS, iPadOS, tvOS, and watchOS.
+      minimum_os_version: example,
+      # A message that tells the user why the app is requesting access to the device's camera.
+      ns_camera_usage_description: 'this is an example',
+      # A human-readable copyright notice for the bundle.
+      ns_human_readable_copyright: example copyright,
+      # the UIDeviceFamilyproperty
+      ui_device_family: [1,2,3,4],
+      # the UILaunchScreenproperty
+      ui_launch_screen: {
+        # the UIColorName property
+        ui_color_name: example,
+        # the UIImageName property
+        ui_image_name: example,
+        #the UIImageRespectsSafeAreaInsets property
+        ui_image_respects_safe_area_insets: false,
+        #the UINavigationBar property
+        ui_navigation_bar: false,
+        # the UITabBar property
+        ui_tab_bar: false,
+        # the UIToolbar property
+        ui_toolbar: false,
+      },
+      # the UILaunchStoryboardName property
+      ui_launch_storyboard_name: example,
+      # the UIRequiredDeviceCapabilities property
+      ui_required_device_capabilities: [example1, example2,],
+      # the UISupportedInterfaceOrientationsproperty~ipad property
+      ui_supported_interface_orientations_ipad: [example1, example2],
+      # the UISupportedInterfaceOrientations~iphone property
+      ui_supported_interface_orientations_iphone: [example1, example2],
+    }
+  #the windows specific configuration
+  windows:
+    #the generic configuration
+    generic:
+      #the path for the icon file for the application
+      icon: icon.svg
+      #the generic runtime libraries for the project
+      runtime_libs: [example.so, example2.so]
+    # the windows manifest for the application
+    manifest:
+      # the xml namespace, xmlns property
+      ns: example
+      # the xmlns:uap property
+      ns_uap: example
+      # the xmlns:rescap property
+      ns_rescap: example
+      # the Identity property
+      identity: {
+        # the Name property
+        name: example,
+        # the Version property
+        version: example,
+        # the Publisher property
+        publisher: example,
+        # the ProcessorArchitecture property
+        processor_architecture: example,
+      }
+      # the Properties
+      properties: {
+        display_name: example,
+        publisher_display_name: example,
+        logo: example_logo,
+        description: example_description,
+      }
+      # Resources
+      resources: {
+        resource: [ { language: example_language, } ],
+      }
+      # Dependencies
+      dependencies: {
+        # the TargetDeviceFamily property
+        target_device_family: [
+          { name: example, min_version: example, max_version: example, },
+        ],
+      }
+      # Capabilities
+      capabilities: [
+        { 
+          # TODO 
+        },
+      ]
+      # Applications
+      applications: {
+        application: [
+          { id: example,
+            executable: example,
+            entry_point: example,
+            visual_elements: {
+              background_color: example,
+              display_name: example,
+              description: example,
+              logo_150x150: example,
+              logo_44x44: example,
+              default_tile: {
+                short_name: example,
+                logo_71x71: example,
+                logo_310x310: example,
+                logo_310x150: example,
+                show_names_on_tiles: {
+                  show_on: [
+                    { tile: example, },
+                  ],
+                },
+              },
+              splash_screen: {
+                image: example,
+              },
+              lock_screen: {
+                badge_logo: example,
+                notification: example,
+              },
+            },
+          }
+        ],
+      }

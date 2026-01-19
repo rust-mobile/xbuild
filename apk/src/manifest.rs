@@ -25,9 +25,13 @@ pub struct AndroidManifest {
     #[serde(rename(serialize = "uses-sdk"))]
     #[serde(default)]
     pub sdk: Sdk,
+    #[serde(rename(serialize = "xmlns:tools"))]
+    pub xmlns_tools: Option<String>,
     #[serde(rename(serialize = "uses-feature"))]
     #[serde(default)]
     pub uses_feature: Vec<Feature>,
+    #[serde(rename(serialize = "tools:replace"))]
+    pub tools_replace: Option<String>,
     #[serde(rename(serialize = "uses-permission"))]
     #[serde(default)]
     pub uses_permission: Vec<Permission>,
@@ -46,6 +50,8 @@ impl Default for AndroidManifest {
             uses_feature: Default::default(),
             uses_permission: Default::default(),
             application: Default::default(),
+            xmlns_tools: Default::default(),
+            tools_replace: Default::default(),
             compile_sdk_version: Default::default(),
             compile_sdk_version_codename: Default::default(),
             platform_build_version_code: Default::default(),
@@ -82,6 +88,8 @@ pub struct Application {
     #[serde(rename(serialize = "activity"))]
     #[serde(default)]
     pub activities: Vec<Activity>,
+    #[serde(rename(serialize = "tools:replace"))]
+    pub tools_replace: Option<String>,
 }
 
 /// Android [activity element](https://developer.android.com/guide/topics/manifest/activity-element).
