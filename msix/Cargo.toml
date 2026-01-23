@@ -22,4 +22,4 @@ zip = { version = "0.6.3", default-features = false }
 
 [dev-dependencies]
 der-parser = "8.1.0"
-rsa = "0.7.2"
+rsa = "0.9.10"
