@@ -85,7 +85,7 @@ pub fn build(env: &BuildEnv) -> Result<()> {
                 let cargo_dir = arch_dir.join("cargo");
                 let lib = env.cargo_artefact(&cargo_dir, target, CrateType::Cdylib)?;
 
-                let ndk = env.android_ndk();
+                let ndk = env.android_ndk_sysroot();
 
                 let deps_dir = {
                     let arch_dir = if target.is_host()? {

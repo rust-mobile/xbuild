@@ -3,6 +3,7 @@ use crate::config::Config;
 use crate::devices::Device;
 use anyhow::{ensure, Result};
 use clap::{Parser, ValueEnum};
+use std::env;
 use std::path::{Path, PathBuf};
 use xcommon::Signer;
 
@@ -635,12 +636,32 @@ impl BuildEnv {
         self.cache_dir().join("MacOSX.sdk")
     }
 
-    pub fn android_sdk(&self) -> PathBuf {
-        self.cache_dir().join("Android.sdk")
+    pub fn android_home(&self) -> Option<PathBuf> {
+        env::var("ANDROID_HOME").ok().map(|p| PathBuf::from(p))
     }
 
-    pub fn android_ndk(&self) -> PathBuf {
-        self.cache_dir().join("Android.ndk")
+    pub fn android_sdk(&self) -> PathBuf {
+        if let Some(p) = self.android_home() {
+            PathBuf::from(p)
+        } else {
+            self.cache_dir().join("Android.sdk")
+        }
+    }
+
+    pub fn android_ndk(&self) -> Option<PathBuf> {
+        env::var("ANDROID_NDK_ROOT").ok().map(|p| PathBuf::from(p))
+    }
+
+    pub fn android_ndk_sysroot(&self) -> PathBuf {
+        if self.android_ndk().is_some() {
+            if let Ok(p) = env::var("ANDROID_NDK_SYSROOT") {
+                PathBuf::from(p)
+            } else {
+                panic!("Android ndk path is set so not cached ndk will be used, but 'ANDROID_NDK_SYSROOT' is not set. Please set the environment variable 'ANDROID_NDK_SYSROOT'. It is probably in  $ANDROID_NDK_ROOT/toolchains/llvm/prebuild/<arch>/sysroot")
+            }
+        } else {
+            self.cache_dir().join("Android.ndk")
+        }
     }
 
     pub fn ios_sdk(&self) -> PathBuf {
@@ -658,7 +679,7 @@ impl BuildEnv {
     pub fn lldb_server(&self, target: CompileTarget) -> Result<PathBuf> {
         match target.platform() {
             Platform::Android => {
-                let ndk = self.android_ndk();
+                let ndk = self.android_ndk_sysroot();
                 let lib_dir = ndk.join("usr").join("lib").join(target.ndk_triple());
                 Ok(lib_dir.join("lldb-server"))
             }
@@ -676,7 +697,7 @@ impl BuildEnv {
             cargo.add_link_arg("-Wl,$ORIGIN/lib");
         }
         if target.platform() == Platform::Android {
-            let ndk = self.android_ndk();
+            let ndk = self.android_ndk_sysroot();
             let target_sdk_version = self
                 .config()
                 .android()

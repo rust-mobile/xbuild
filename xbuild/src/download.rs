@@ -187,7 +187,7 @@ impl WorkItem {
 impl WorkItem {
     const ORG: &'static str = "rust-mobile";
     const REPO: &'static str = "xbuild";
-    const VERSION: &'static str = "v0.1.0+3";
+    const VERSION: &'static str = "v0.2.1-alpha";
 
     pub fn xbuild_release(output: PathBuf, artifact: &str) -> Self {
         Self::github_release(output, Self::ORG, Self::REPO, Self::VERSION, artifact)
@@ -260,9 +260,14 @@ impl DownloadManager<'_> {
     }
 
     pub fn android_ndk(&self) -> Result<()> {
-        let output = self.env.android_ndk();
-        let item = WorkItem::xbuild_release(output, "Android.ndk.tar.zst");
-        self.fetch(item)
+        if self.env.android_ndk().is_none() {
+            let output = self.env.android_ndk_sysroot();
+            let item = WorkItem::xbuild_release(output, "Android.ndk.tar.zst");
+            self.fetch(item)
+        } else {
+            // The ndk path is set so we don't need to download anything
+            Ok(())
+        }
     }
 
     pub fn ios_sdk(&self) -> Result<()> {
