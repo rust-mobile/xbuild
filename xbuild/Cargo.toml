@@ -14,7 +14,7 @@ appbundle = { version = "0.3.0", path = "../appbundle" }
 appimage = { version = "0.4.0", path = "../appimage" }
 apple-dmg = "0.2.0"
 app-store-connect = "0.7.0"
-base64 = "0.20.0"
+base64 = "0.22.1"
 clap = { version = "4.6.1", features = ["derive"] }
 console = "0.15.11"
 dirs = "4.0.0"
