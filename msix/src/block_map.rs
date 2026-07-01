@@ -20,7 +20,7 @@ impl Default for BlockMapBuilder {
 }
 
 impl BlockMapBuilder {
-    pub fn add(&mut self, f: &mut ZipFile) -> Result<()> {
+    pub fn add<R: Read>(&mut self, f: &mut ZipFile<'_, R>) -> Result<()> {
         let name = Path::new(f.name())
             .iter()
             .map(|seg| seg.to_str().unwrap())

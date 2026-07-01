@@ -41,7 +41,7 @@ tracing-log = "0.1.4"
 tracing-subscriber = { version = "0.3.23", default-features = false, features = ["env-filter", "fmt"] }
 which = "4.4.2"
 xcommon = { version = "0.3.0", path = "../xcommon" }
-zip = { version = "0.6.6", default-features = false }
+zip = { version = "8.6.0", default-features = false }
 zstd = "0.12.4"
 
 [[bin]]

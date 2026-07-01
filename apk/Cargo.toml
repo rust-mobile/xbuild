@@ -18,7 +18,7 @@ serde = { version = "1.0.228", features = ["derive"] }
 sha2 = { version = "0.10.9", features = ["oid"] }
 tracing = "0.1.44"
 xcommon = { version = "0.3.0", path = "../xcommon" }
-zip = { version = "0.6.6", default-features = false }
+zip = { version = "8.6.0", default-features = false }
 
 [dev-dependencies]
 tracing-log = "0.1.4"

@@ -18,7 +18,7 @@ rasn-pkix = "0.28.13"
 serde = { version = "1.0.228", features = ["derive"] }
 sha2 = "0.10.9"
 xcommon = { version = "0.3.0", path = "../xcommon" }
-zip = { version = "0.6.6", default-features = false }
+zip = { version = "8.6.0", default-features = false }
 
 [dev-dependencies]
 der-parser = "8.2.0"

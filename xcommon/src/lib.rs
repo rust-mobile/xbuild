@@ -11,7 +11,7 @@ use sha2::{Digest, Sha256};
 use std::fs::{File, OpenOptions};
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
-use zip::write::FileOptions;
+use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipArchive, ZipWriter};
 
 pub use rasn_pkix::Certificate;
@@ -306,7 +306,7 @@ impl Zip {
         Ok(())
     }
 
-    pub fn add_zip_file(&mut self, f: ZipFile) -> Result<()> {
+    pub fn add_zip_file<R: Read>(&mut self, f: ZipFile<'_, R>) -> Result<()> {
         self.zip.raw_copy_file(f)?;
         Ok(())
     }
@@ -333,8 +333,10 @@ impl Zip {
         } else {
             CompressionMethod::Stored
         };
-        let zopts = FileOptions::default().compression_method(compression_method);
-        self.zip.start_file_aligned(name, zopts, opts.alignment())?;
+        let zopts = SimpleFileOptions::default()
+            .compression_method(compression_method)
+            .with_alignment(opts.alignment());
+        self.zip.start_file(name, zopts)?;
         Ok(())
     }
 
@@ -421,7 +423,7 @@ pub fn create_stamp(stamp: &Path) -> Result<()> {
     Ok(())
 }
 
-fn get_symlink_source(entry: &mut ZipFile<'_>) -> Result<Option<PathBuf>> {
+fn get_symlink_source<R: Read>(entry: &mut ZipFile<'_, R>) -> Result<Option<PathBuf>> {
     if let Some(mode) = entry.unix_mode() {
         const S_IFLNK: u32 = 0o120000; // symbolic link
         if mode & S_IFLNK == S_IFLNK {

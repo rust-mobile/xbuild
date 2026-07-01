@@ -16,4 +16,4 @@ rasn = "0.28.13"
 rasn-pkix = "0.28.13"
 rsa = "0.7.2"
 sha2 = { version = "0.10.9", features = ["oid"] }
-zip = { version = "0.6.6", default-features = false, features = ["deflate"] }
+zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
