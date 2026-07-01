@@ -37,7 +37,7 @@ symlink = "0.1.0"
 tar = "0.4.46"
 toml = "1.1.2"
 tracing = { version = "0.1.44", default-features = false }
-tracing-log = "0.1.4"
+tracing-log = "0.2.0"
 tracing-subscriber = { version = "0.3.23", default-features = false, features = ["env-filter", "fmt"] }
 which = "8.0.4"
 xcommon = { version = "0.3.0", path = "../xcommon" }

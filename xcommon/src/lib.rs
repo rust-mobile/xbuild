@@ -340,7 +340,7 @@ impl Zip {
         Ok(())
     }
 
-    pub fn finish(mut self) -> Result<()> {
+    pub fn finish(self) -> Result<()> {
         self.zip.finish()?;
         Ok(())
     }
