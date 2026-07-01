@@ -10,7 +10,7 @@ license = "Apache-2.0 OR MIT"
 anyhow = "1.0.103"
 app-store-connect = "0.7.0"
 apple-codesign = "0.29.0"
-icns = "0.3.1"
+icns = "0.4.0"
 log = "0.4.33"
 pkcs8 = { version = "0.10.2", features = ["alloc"] }
 plist = "1.9.0"

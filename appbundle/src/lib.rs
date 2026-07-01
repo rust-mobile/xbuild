@@ -103,7 +103,7 @@ impl AppBundle {
                 buf.clear();
                 let mut cursor = Cursor::new(&mut buf);
                 scaler.write(&mut cursor, ScalerOpts::new(*size))?;
-                let image = Image::read_png(&*buf)?;
+                let image = Image::read_png(Cursor::new(&*buf))?;
                 icns.add_icon(&image)?;
             }
             let path = self.resource_dir().join("AppIcon.icns");
