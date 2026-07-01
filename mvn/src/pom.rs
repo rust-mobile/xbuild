@@ -33,13 +33,11 @@ struct Dependencies {
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 #[serde(rename = "dependency")]
 pub struct Dependency {
-    #[serde(rename = "$unflatten=groupId")]
+    #[serde(rename = "groupId")]
     group: String,
-    #[serde(rename = "$unflatten=artifactId")]
+    #[serde(rename = "artifactId")]
     name: String,
-    #[serde(rename = "$unflatten=version")]
     version: String,
-    #[serde(rename = "$unflatten=scope")]
     scope: Option<String>,
 }
 

@@ -5,13 +5,13 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename = "Package")]
 pub struct AppxManifest {
-    #[serde(rename(serialize = "xmlns"))]
+    #[serde(rename(serialize = "@xmlns"))]
     #[serde(default = "default_namespace")]
     ns: String,
-    #[serde(rename(serialize = "xmlns:uap"))]
+    #[serde(rename(serialize = "@xmlns:uap"))]
     #[serde(default = "default_uap_namespace")]
     ns_uap: String,
-    #[serde(rename(serialize = "xmlns:rescap"))]
+    #[serde(rename(serialize = "@xmlns:rescap"))]
     #[serde(default = "default_rescap_namespace")]
     ns_rescap: String,
     #[serde(rename(serialize = "Identity"))]
@@ -23,8 +23,7 @@ pub struct AppxManifest {
     #[serde(rename(serialize = "Dependencies"))]
     pub dependencies: Dependencies,
     #[serde(rename(serialize = "Capabilities"))]
-    #[serde(serialize_with = "serialize_element")]
-    pub capabilities: Vec<Capability>,
+    pub capabilities: Capabilities,
     #[serde(rename(serialize = "Applications"))]
     pub applications: Applications,
 }
@@ -63,15 +62,23 @@ pub struct Dependencies {
     pub target_device_family: Vec<TargetDeviceFamily>,
 }
 
+/// The individual `Capability` variants each use their own XML tag name, so this
+/// is a `$value` choice sequence rather than a uniform `Vec<Capability>` wrapper.
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct Capabilities {
+    #[serde(rename = "$value")]
+    pub capability: Vec<Capability>,
+}
+
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Identity {
-    #[serde(rename(serialize = "Name"))]
+    #[serde(rename(serialize = "@Name"))]
     pub name: Option<String>,
-    #[serde(rename(serialize = "Version"))]
+    #[serde(rename(serialize = "@Version"))]
     pub version: Option<String>,
-    #[serde(rename(serialize = "Publisher"))]
+    #[serde(rename(serialize = "@Publisher"))]
     pub publisher: Option<String>,
-    #[serde(rename(serialize = "ProcessorArchitecture"))]
+    #[serde(rename(serialize = "@ProcessorArchitecture"))]
     pub processor_architecture: Option<String>,
 }
 
@@ -102,17 +109,17 @@ where
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Resource {
-    #[serde(rename(serialize = "Language"))]
+    #[serde(rename(serialize = "@Language"))]
     pub language: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct TargetDeviceFamily {
-    #[serde(rename(serialize = "Name"))]
+    #[serde(rename(serialize = "@Name"))]
     pub name: String,
-    #[serde(rename(serialize = "MinVersion"))]
+    #[serde(rename(serialize = "@MinVersion"))]
     pub min_version: String,
-    #[serde(rename(serialize = "MaxVersionTested"))]
+    #[serde(rename(serialize = "@MaxVersionTested"))]
     pub max_version: String,
 }
 
@@ -131,30 +138,30 @@ pub enum Capability {
     #[serde(rename(deserialize = "capability"))]
     #[serde(rename(serialize = "Capability"))]
     Capability {
-        #[serde(rename(serialize = "Name"))]
+        #[serde(rename(serialize = "@Name"))]
         name: String,
     },
     #[serde(rename(deserialize = "restricted"))]
     #[serde(rename(serialize = "rescap:Capability"))]
     Restricted {
-        #[serde(rename(serialize = "Name"))]
+        #[serde(rename(serialize = "@Name"))]
         name: String,
     },
     #[serde(rename(deserialize = "device"))]
     #[serde(rename(serialize = "DeviceCapability"))]
     Device {
-        #[serde(rename(serialize = "Name"))]
+        #[serde(rename(serialize = "@Name"))]
         name: String,
     },
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Application {
-    #[serde(rename(serialize = "Id"))]
+    #[serde(rename(serialize = "@Id"))]
     pub id: Option<String>,
-    #[serde(rename(serialize = "Executable"))]
+    #[serde(rename(serialize = "@Executable"))]
     pub executable: Option<String>,
-    #[serde(rename(serialize = "EntryPoint"))]
+    #[serde(rename(serialize = "@EntryPoint"))]
     pub entry_point: Option<String>,
     #[serde(rename(serialize = "uap:VisualElements"))]
     pub visual_elements: VisualElements,
@@ -162,15 +169,15 @@ pub struct Application {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct VisualElements {
-    #[serde(rename(serialize = "BackgroundColor"))]
+    #[serde(rename(serialize = "@BackgroundColor"))]
     pub background_color: Option<String>,
-    #[serde(rename(serialize = "DisplayName"))]
+    #[serde(rename(serialize = "@DisplayName"))]
     pub display_name: Option<String>,
-    #[serde(rename(serialize = "Description"))]
+    #[serde(rename(serialize = "@Description"))]
     pub description: Option<String>,
-    #[serde(rename(serialize = "Square150x150Logo"))]
+    #[serde(rename(serialize = "@Square150x150Logo"))]
     pub logo_150x150: Option<String>,
-    #[serde(rename(serialize = "Square44x44Logo"))]
+    #[serde(rename(serialize = "@Square44x44Logo"))]
     pub logo_44x44: Option<String>,
     #[serde(rename(serialize = "uap:DefaultTile"))]
     pub default_tile: Option<DefaultTile>,
@@ -182,13 +189,13 @@ pub struct VisualElements {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct DefaultTile {
-    #[serde(rename(serialize = "ShortName"))]
+    #[serde(rename(serialize = "@ShortName"))]
     pub short_name: Option<String>,
-    #[serde(rename(serialize = "Square71x71Logo"))]
+    #[serde(rename(serialize = "@Square71x71Logo"))]
     pub logo_71x71: Option<String>,
-    #[serde(rename(serialize = "Square310x310Logo"))]
+    #[serde(rename(serialize = "@Square310x310Logo"))]
     pub logo_310x310: Option<String>,
-    #[serde(rename(serialize = "Wide310x150Logo"))]
+    #[serde(rename(serialize = "@Wide310x150Logo"))]
     pub logo_310x150: Option<String>,
     #[serde(rename(serialize = "uap:ShowNameOnTiles"))]
     pub show_names_on_tiles: ShowNameOnTiles,
@@ -202,21 +209,21 @@ pub struct ShowNameOnTiles {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct ShowOn {
-    #[serde(rename(serialize = "Tile"))]
+    #[serde(rename(serialize = "@Tile"))]
     pub tile: String,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct SplashScreen {
-    #[serde(rename(serialize = "Image"))]
+    #[serde(rename(serialize = "@Image"))]
     pub image: String,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct LockScreen {
-    #[serde(rename(serialize = "BadgeLogo"))]
+    #[serde(rename(serialize = "@BadgeLogo"))]
     pub badge_logo: String,
-    #[serde(rename(serialize = "Notification"))]
+    #[serde(rename(serialize = "@Notification"))]
     pub notification: String,
 }
 
@@ -246,7 +253,7 @@ mod tests {
             description: Some("".into()),
         };
         let xml = quick_xml::se::to_string(&props).unwrap();
-        assert_eq!(xml, "<Properties><DisplayName></DisplayName><PublisherDisplayName></PublisherDisplayName><Logo></Logo><Description></Description></Properties>");
+        assert_eq!(xml, "<Properties><DisplayName/><PublisherDisplayName/><Logo/><Description/></Properties>");
     }
 
     #[test]
@@ -274,17 +281,19 @@ mod tests {
             dependencies: Dependencies {
                 target_device_family: vec![Default::default()],
             },
-            capabilities: vec![
-                Capability::Capability {
-                    name: "internetClient".into(),
-                },
-                Capability::Restricted {
-                    name: "runFullTrust".into(),
-                },
-                Capability::Device {
-                    name: "location".into(),
-                },
-            ],
+            capabilities: Capabilities {
+                capability: vec![
+                    Capability::Capability {
+                        name: "internetClient".into(),
+                    },
+                    Capability::Restricted {
+                        name: "runFullTrust".into(),
+                    },
+                    Capability::Device {
+                        name: "location".into(),
+                    },
+                ],
+            },
             applications: Applications {
                 application: vec![Application {
                     id: Some("fluttertodoapp".into()),
@@ -328,6 +337,18 @@ mod tests {
             ..Default::default()
         };
         let xml = quick_xml::se::to_string(&manifest).unwrap();
-        println!("{xml}");
+        assert!(xml.starts_with(concat!(
+            r#"<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10" "#,
+            r#"xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10" "#,
+            r#"xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities">"#,
+        )));
+        assert!(xml.contains(r#"<Identity Name="com.flutter.fluttertodoapp" Version="1.0.0.0""#));
+        assert!(xml.contains(r#"<Capability Name="internetClient"/>"#));
+        assert!(xml.contains(r#"<rescap:Capability Name="runFullTrust"/>"#));
+        assert!(xml.contains(r#"<DeviceCapability Name="location"/>"#));
+        assert!(xml.contains(r#"<Application Id="fluttertodoapp" Executable="todoapp.exe""#));
+        assert!(xml.contains(r#"<uap:ShowOn Tile="square150x150Logo"/>"#));
+        assert!(!xml.contains("<xmlns>"));
+        assert!(!xml.contains("<Name>"));
     }
 }

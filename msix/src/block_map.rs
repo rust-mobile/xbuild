@@ -60,10 +60,10 @@ impl BlockMapBuilder {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename(serialize = "BlockMap"))]
 pub struct AppxBlockMap {
-    #[serde(rename(serialize = "xmlns"))]
+    #[serde(rename(serialize = "@xmlns"))]
     #[serde(default = "default_namespace")]
     ns: String,
-    #[serde(rename(serialize = "HashMethod"))]
+    #[serde(rename(serialize = "@HashMethod"))]
     #[serde(default = "default_hash_method")]
     hash_method: String,
     /// Files in the package.
@@ -85,15 +85,15 @@ impl Default for AppxBlockMap {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct File {
     /// Root path and file name.
-    #[serde(rename(serialize = "Name"))]
+    #[serde(rename(serialize = "@Name"))]
     pub name: String,
     /// Size, in bytes, of the file's uncompressed data.
-    #[serde(rename(serialize = "Size"))]
+    #[serde(rename(serialize = "@Size"))]
     pub size: u64,
     /// Size, in bytes, of the file's Local File Header (LFH) structure in the
     /// package. For more info about file headers, see ZIP file format
     /// specification.
-    #[serde(rename(serialize = "LfhSize"))]
+    #[serde(rename(serialize = "@LfhSize"))]
     pub lfh_size: u16,
     /// Blocks that make up the file.
     #[serde(rename(serialize = "Block"))]
@@ -104,12 +104,12 @@ pub struct File {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Block {
     /// The hash value of the uncompressed data block.
-    #[serde(rename(serialize = "Hash"))]
+    #[serde(rename(serialize = "@Hash"))]
     pub hash: String,
     /// The size, in bytes, of the data block when stored in the package. If
     /// the file data is compressed, the size of each compressed block
     /// potentially varies in size.
-    #[serde(rename(serialize = "Size"))]
+    #[serde(rename(serialize = "@Size"))]
     pub size: Option<u16>,
 }
 
@@ -148,8 +148,9 @@ mod tests {
             size: Some(12),
         });
         map.files.push(file);
-        let _xml = quick_xml::se::to_string(&map).unwrap();
-        //println!("{}", xml);
-        //assert!(false);
+        let xml = quick_xml::se::to_string(&map).unwrap();
+        assert!(xml.contains(r#"<File Name="file.ext" Size="12" LfhSize="30">"#));
+        assert!(xml.contains(r#"<Block Hash="base64" Size="12"/>"#));
+        assert!(!xml.contains("<Name>"));
     }
 }

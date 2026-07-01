@@ -4,9 +4,9 @@ use std::cmp::Ordering;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub struct Package {
-    #[serde(rename = "$unflatten=groupId")]
+    #[serde(rename = "groupId")]
     pub group: String,
-    #[serde(rename = "$unflatten=artifactId")]
+    #[serde(rename = "artifactId")]
     pub name: String,
 }
 

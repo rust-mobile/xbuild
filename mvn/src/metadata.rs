@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Deserialize, Serialize)]
 #[serde(rename = "metadata")]
 pub struct Metadata {
-    #[serde(rename = "$unflatten=versioning")]
     versioning: Versioning,
 }
 
@@ -25,13 +24,12 @@ impl Metadata {
 struct Versioning {
     latest: String,
     release: String,
-    #[serde(rename = "$unflatten=versions")]
     versions: Versions,
 }
 
 #[derive(Deserialize, Serialize)]
 struct Versions {
-    #[serde(rename = "$unflatten=version")]
+    #[serde(rename = "version")]
     #[serde(default)]
     versions: Vec<String>,
 }

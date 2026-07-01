@@ -9,7 +9,7 @@ license = "Apache-2.0 OR MIT"
 [dependencies]
 anyhow = "1.0.103"
 byteorder = "1.5.0"
-quick-xml = { version = "0.26.0", features = ["serialize"] }
+quick-xml = { version = "0.41.0", features = ["serialize"] }
 rasn = "0.28.13"
 rasn-pkix = "0.28.13"
 roxmltree = "0.16.0"

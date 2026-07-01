@@ -28,7 +28,7 @@ msix = { version = "0.4.0", path = "../msix" }
 mvn = { version = "0.2.0", path = "../mvn" }
 path-slash = "0.2.1"
 plist = "1.9.0"
-quick-xml = { version = "0.26.0", features = ["serialize"] }
+quick-xml = { version = "0.41.0", features = ["serialize"] }
 reqwest = { version = "0.11.27", default-features = false, features = ["blocking", "rustls-tls"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_yaml = "0.9.34"

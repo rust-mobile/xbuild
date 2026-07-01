@@ -162,6 +162,6 @@ fn to_xml<T: Serialize>(xml: &T, standalone: bool) -> Vec<u8> {
     buf.extend_from_slice(
         format!(r#"<?xml version="1.0" encoding="UTF-8" standalone="{standalone}"?>"#).as_bytes(),
     );
-    quick_xml::se::to_writer(&mut buf, xml).unwrap();
+    quick_xml::se::to_utf8_io_writer(&mut buf, xml).unwrap();
     buf
 }
