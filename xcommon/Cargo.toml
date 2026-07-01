@@ -14,6 +14,6 @@ image = { version = "0.24.9", default-features = false, features = ["png", "webp
 pem = "1.1.1"
 rasn = "0.28.13"
 rasn-pkix = "0.28.13"
-rsa = "0.7.2"
+rsa = "0.9.10"
 sha2 = { version = "0.10.9", features = ["oid"] }
 zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
