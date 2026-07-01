@@ -6,21 +6,22 @@ use serde::{Deserialize, Serialize, Serializer};
 #[serde(rename = "manifest")]
 #[serde(deny_unknown_fields)]
 pub struct AndroidManifest {
-    #[serde(rename(serialize = "xmlns:android"))]
+    #[serde(rename(serialize = "@xmlns:android"))]
     #[serde(default = "default_namespace")]
     ns_android: String,
+    #[serde(rename(serialize = "@package"))]
     pub package: Option<String>,
-    #[serde(rename(serialize = "android:versionCode"))]
+    #[serde(rename(serialize = "@android:versionCode"))]
     pub version_code: Option<u32>,
-    #[serde(rename(serialize = "android:versionName"))]
+    #[serde(rename(serialize = "@android:versionName"))]
     pub version_name: Option<String>,
-    #[serde(rename(serialize = "android:compileSdkVersion"))]
+    #[serde(rename(serialize = "@android:compileSdkVersion"))]
     pub compile_sdk_version: Option<u32>,
-    #[serde(rename(serialize = "android:compileSdkVersionCodename"))]
+    #[serde(rename(serialize = "@android:compileSdkVersionCodename"))]
     pub compile_sdk_version_codename: Option<u32>,
-    #[serde(rename(serialize = "platformBuildVersionCode"))]
+    #[serde(rename(serialize = "@platformBuildVersionCode"))]
     pub platform_build_version_code: Option<u32>,
-    #[serde(rename(serialize = "platformBuildVersionName"))]
+    #[serde(rename(serialize = "@platformBuildVersionName"))]
     pub platform_build_version_name: Option<u32>,
     #[serde(rename(serialize = "uses-sdk"))]
     #[serde(default)]
@@ -64,17 +65,17 @@ impl std::fmt::Display for AndroidManifest {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Application {
-    #[serde(rename(serialize = "android:debuggable"))]
+    #[serde(rename(serialize = "@android:debuggable"))]
     pub debuggable: Option<bool>,
-    #[serde(rename(serialize = "android:theme"))]
+    #[serde(rename(serialize = "@android:theme"))]
     pub theme: Option<String>,
-    #[serde(rename(serialize = "android:hasCode"))]
+    #[serde(rename(serialize = "@android:hasCode"))]
     pub has_code: Option<bool>,
-    #[serde(rename(serialize = "android:icon"))]
+    #[serde(rename(serialize = "@android:icon"))]
     pub icon: Option<String>,
-    #[serde(rename(serialize = "android:label"))]
+    #[serde(rename(serialize = "@android:label"))]
     pub label: Option<String>,
-    #[serde(rename(serialize = "android:appComponentFactory"))]
+    #[serde(rename(serialize = "@android:appComponentFactory"))]
     pub app_component_factory: Option<String>,
     #[serde(rename(serialize = "meta-data"))]
     #[serde(default)]
@@ -88,21 +89,21 @@ pub struct Application {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Activity {
-    #[serde(rename(serialize = "android:configChanges"))]
+    #[serde(rename(serialize = "@android:configChanges"))]
     pub config_changes: Option<String>,
-    #[serde(rename(serialize = "android:label"))]
+    #[serde(rename(serialize = "@android:label"))]
     pub label: Option<String>,
-    #[serde(rename(serialize = "android:launchMode"))]
+    #[serde(rename(serialize = "@android:launchMode"))]
     pub launch_mode: Option<String>,
-    #[serde(rename(serialize = "android:name"))]
+    #[serde(rename(serialize = "@android:name"))]
     pub name: Option<String>,
-    #[serde(rename(serialize = "android:screenOrientation"))]
+    #[serde(rename(serialize = "@android:screenOrientation"))]
     pub orientation: Option<String>,
-    #[serde(rename(serialize = "android:windowSoftInputMode"))]
+    #[serde(rename(serialize = "@android:windowSoftInputMode"))]
     pub window_soft_input_mode: Option<String>,
-    #[serde(rename(serialize = "android:exported"))]
+    #[serde(rename(serialize = "@android:exported"))]
     pub exported: Option<bool>,
-    #[serde(rename(serialize = "android:hardwareAccelerated"))]
+    #[serde(rename(serialize = "@android:hardwareAccelerated"))]
     pub hardware_accelerated: Option<bool>,
     #[serde(rename(serialize = "meta-data"))]
     #[serde(default)]
@@ -111,7 +112,7 @@ pub struct Activity {
     #[serde(rename(serialize = "intent-filter"))]
     #[serde(default)]
     pub intent_filters: Vec<IntentFilter>,
-    #[serde(rename(serialize = "android:colorMode"))]
+    #[serde(rename(serialize = "@android:colorMode"))]
     pub color_mode: Option<String>,
 }
 
@@ -141,7 +142,7 @@ where
 
     #[derive(Serialize)]
     struct Action {
-        #[serde(rename = "android:name")]
+        #[serde(rename = "@android:name")]
         name: String,
     }
     let mut seq = serializer.serialize_seq(Some(actions.len()))?;
@@ -161,7 +162,7 @@ where
 
     #[derive(Serialize)]
     struct Category {
-        #[serde(rename = "android:name")]
+        #[serde(rename = "@android:name")]
         pub name: String,
     }
 
@@ -178,19 +179,19 @@ where
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct IntentFilterData {
-    #[serde(rename(serialize = "android:scheme"))]
+    #[serde(rename(serialize = "@android:scheme"))]
     pub scheme: Option<String>,
-    #[serde(rename(serialize = "android:host"))]
+    #[serde(rename(serialize = "@android:host"))]
     pub host: Option<String>,
-    #[serde(rename(serialize = "android:port"))]
+    #[serde(rename(serialize = "@android:port"))]
     pub port: Option<String>,
-    #[serde(rename(serialize = "android:path"))]
+    #[serde(rename(serialize = "@android:path"))]
     pub path: Option<String>,
-    #[serde(rename(serialize = "android:pathPattern"))]
+    #[serde(rename(serialize = "@android:pathPattern"))]
     pub path_pattern: Option<String>,
-    #[serde(rename(serialize = "android:pathPrefix"))]
+    #[serde(rename(serialize = "@android:pathPrefix"))]
     pub path_prefix: Option<String>,
-    #[serde(rename(serialize = "android:mimeType"))]
+    #[serde(rename(serialize = "@android:mimeType"))]
     pub mime_type: Option<String>,
 }
 
@@ -198,9 +199,9 @@ pub struct IntentFilterData {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct MetaData {
-    #[serde(rename(serialize = "android:name"))]
+    #[serde(rename(serialize = "@android:name"))]
     pub name: String,
-    #[serde(rename(serialize = "android:value"))]
+    #[serde(rename(serialize = "@android:value"))]
     pub value: String,
 }
 
@@ -208,9 +209,9 @@ pub struct MetaData {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Feature {
-    #[serde(rename(serialize = "android:name"))]
+    #[serde(rename(serialize = "@android:name"))]
     pub name: Option<String>,
-    #[serde(rename(serialize = "android:required"))]
+    #[serde(rename(serialize = "@android:required"))]
     pub required: Option<bool>,
     /// The `version` field is currently used for the following features:
     ///
@@ -222,9 +223,9 @@ pub struct Feature {
     ///
     /// - `name="android.hardware.vulkan.version"`: Represents the value of Vulkan's `VkPhysicalDeviceProperties::apiVersion`. See the [Android documentation](https://developer.android.com/reference/android/content/pm/PackageManager#FEATURE_VULKAN_HARDWARE_VERSION)
     ///   for available levels and the respective Vulkan features required/provided.
-    #[serde(rename(serialize = "android:version"))]
+    #[serde(rename(serialize = "@android:version"))]
     pub version: Option<u32>,
-    #[serde(rename(serialize = "android:glEsVersion"))]
+    #[serde(rename(serialize = "@android:glEsVersion"))]
     #[serde(serialize_with = "serialize_opengles_version")]
     pub opengles_version: Option<(u8, u8)>,
 }
@@ -249,9 +250,9 @@ where
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Permission {
-    #[serde(rename(serialize = "android:name"))]
+    #[serde(rename(serialize = "@android:name"))]
     pub name: String,
-    #[serde(rename(serialize = "android:maxSdkVersion"))]
+    #[serde(rename(serialize = "@android:maxSdkVersion"))]
     pub max_sdk_version: Option<u32>,
 }
 
@@ -259,14 +260,46 @@ pub struct Permission {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Sdk {
-    #[serde(rename(serialize = "android:minSdkVersion"))]
+    #[serde(rename(serialize = "@android:minSdkVersion"))]
     pub min_sdk_version: Option<u32>,
-    #[serde(rename(serialize = "android:targetSdkVersion"))]
+    #[serde(rename(serialize = "@android:targetSdkVersion"))]
     pub target_sdk_version: Option<u32>,
-    #[serde(rename(serialize = "android:maxSdkVersion"))]
+    #[serde(rename(serialize = "@android:maxSdkVersion"))]
     pub max_sdk_version: Option<u32>,
 }
 
 fn default_namespace() -> String {
     "http://schemas.android.com/apk/res/android".to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_serialize_attributes() {
+        let mut manifest = AndroidManifest {
+            package: Some("com.example.app".into()),
+            version_code: Some(1),
+            ..Default::default()
+        };
+        manifest.application.label = Some("helloworld".into());
+        manifest.application.debuggable = Some(true);
+        manifest.application.activities.push(Activity {
+            name: Some("MainActivity".into()),
+            launch_mode: Some("singleTop".into()),
+            ..Default::default()
+        });
+        let xml = manifest.to_string();
+        // Android-namespaced fields must be serialized as attributes, not
+        // child elements, or the resulting manifest won't parse.
+        assert!(xml.contains(r#"package="com.example.app""#));
+        assert!(xml.contains(r#"android:versionCode="1""#));
+        assert!(xml.contains(r#"android:label="helloworld""#));
+        assert!(xml.contains(r#"android:debuggable="true""#));
+        assert!(xml.contains(r#"android:name="MainActivity""#));
+        assert!(xml.contains(r#"android:launchMode="singleTop""#));
+        assert!(!xml.contains("<android:"));
+        assert!(!xml.contains("<package>"));
+    }
 }

@@ -3,15 +3,15 @@ pub mod llvm;
 use anyhow::{Context, Result};
 use byteorder::{LittleEndian, ReadBytesExt};
 use image::imageops::FilterType;
-use image::io::Reader as ImageReader;
-use image::{DynamicImage, GenericImageView, ImageOutputFormat, RgbaImage};
+use image::{DynamicImage, GenericImageView, ImageFormat, ImageReader, RgbaImage};
+use rsa::pkcs1v15::Pkcs1v15Sign;
 use rsa::pkcs8::DecodePrivateKey;
-use rsa::{PaddingScheme, RsaPrivateKey, RsaPublicKey};
+use rsa::{RsaPrivateKey, RsaPublicKey};
 use sha2::{Digest, Sha256};
 use std::fs::{File, OpenOptions};
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
-use zip::write::FileOptions;
+use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipArchive, ZipWriter};
 
 pub use rasn_pkix::Certificate;
@@ -64,13 +64,13 @@ impl Scaler {
             .img
             .resize(opts.scaled_size, opts.scaled_size, FilterType::Nearest);
         if opts.scaled_size == opts.target_width && opts.scaled_size == opts.target_height {
-            resized.write_to(w, ImageOutputFormat::Png)?;
+            resized.write_to(w, ImageFormat::Png)?;
         } else {
             let x = (opts.target_width - opts.scaled_size) / 2;
             let y = (opts.target_height - opts.scaled_size) / 2;
             let mut padded = RgbaImage::new(opts.target_width, opts.target_height);
             image::imageops::overlay(&mut padded, &resized, x as i64, y as i64);
-            padded.write_to(w, ImageOutputFormat::Png)?;
+            padded.write_to(w, ImageFormat::Png)?;
         }
         Ok(())
     }
@@ -159,13 +159,13 @@ impl Signer {
     /// ```
     pub fn new(pem: &str) -> Result<Self> {
         let pem = pem::parse_many(pem)?;
-        let key = if let Some(key) = pem.iter().find(|pem| pem.tag == "PRIVATE KEY") {
-            RsaPrivateKey::from_pkcs8_der(&key.contents)?
+        let key = if let Some(key) = pem.iter().find(|pem| pem.tag() == "PRIVATE KEY") {
+            RsaPrivateKey::from_pkcs8_der(key.contents())?
         } else {
             anyhow::bail!("no private key found");
         };
-        let cert = if let Some(cert) = pem.iter().find(|pem| pem.tag == "CERTIFICATE") {
-            rasn::der::decode::<Certificate>(&cert.contents)
+        let cert = if let Some(cert) = pem.iter().find(|pem| pem.tag() == "CERTIFICATE") {
+            rasn::der::decode::<Certificate>(cert.contents())
                 .map_err(|err| anyhow::anyhow!("{}", err))?
         } else {
             anyhow::bail!("no certificate found");
@@ -180,7 +180,7 @@ impl Signer {
 
     pub fn sign(&self, bytes: &[u8]) -> Vec<u8> {
         let digest = Sha256::digest(bytes);
-        let padding = PaddingScheme::new_pkcs1v15_sign::<sha2::Sha256>();
+        let padding = Pkcs1v15Sign::new::<sha2::Sha256>();
         self.key.sign(padding, &digest).unwrap()
     }
 
@@ -306,7 +306,7 @@ impl Zip {
         Ok(())
     }
 
-    pub fn add_zip_file(&mut self, f: ZipFile) -> Result<()> {
+    pub fn add_zip_file<R: Read>(&mut self, f: ZipFile<'_, R>) -> Result<()> {
         self.zip.raw_copy_file(f)?;
         Ok(())
     }
@@ -333,12 +333,14 @@ impl Zip {
         } else {
             CompressionMethod::Stored
         };
-        let zopts = FileOptions::default().compression_method(compression_method);
-        self.zip.start_file_aligned(name, zopts, opts.alignment())?;
+        let zopts = SimpleFileOptions::default()
+            .compression_method(compression_method)
+            .with_alignment(opts.alignment());
+        self.zip.start_file(name, zopts)?;
         Ok(())
     }
 
-    pub fn finish(mut self) -> Result<()> {
+    pub fn finish(self) -> Result<()> {
         self.zip.finish()?;
         Ok(())
     }
@@ -421,7 +423,7 @@ pub fn create_stamp(stamp: &Path) -> Result<()> {
     Ok(())
 }
 
-fn get_symlink_source(entry: &mut ZipFile<'_>) -> Result<Option<PathBuf>> {
+fn get_symlink_source<R: Read>(entry: &mut ZipFile<'_, R>) -> Result<Option<PathBuf>> {
     if let Some(mode) = entry.unix_mode() {
         const S_IFLNK: u32 = 0o120000; // symbolic link
         if mode & S_IFLNK == S_IFLNK {

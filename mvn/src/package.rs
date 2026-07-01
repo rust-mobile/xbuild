@@ -4,9 +4,9 @@ use std::cmp::Ordering;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub struct Package {
-    #[serde(rename = "$unflatten=groupId")]
+    #[serde(rename = "groupId")]
     pub group: String,
-    #[serde(rename = "$unflatten=artifactId")]
+    #[serde(rename = "artifactId")]
     pub name: String,
 }
 
@@ -77,31 +77,6 @@ impl Ord for Version {
             (None, None) => Ordering::Equal,
             (Some(_), None) => Ordering::Less,
             (None, Some(_)) => Ordering::Greater,
-        }
-    }
-}
-
-impl pubgrub::version::Version for Version {
-    fn lowest() -> Self {
-        Self {
-            major: 0,
-            minor: 0,
-            patch: 0,
-            suffix: None,
-        }
-    }
-
-    fn bump(&self) -> Self {
-        let patch = if self.suffix.is_some() {
-            self.patch
-        } else {
-            self.patch + 1
-        };
-        Self {
-            major: self.major,
-            minor: self.minor,
-            patch,
-            suffix: None,
         }
     }
 }

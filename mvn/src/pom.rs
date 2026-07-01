@@ -1,6 +1,6 @@
 use crate::package::{Package, Version};
 use anyhow::{Context, Result};
-use pubgrub::range::Range;
+use pubgrub::Ranges;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
@@ -33,13 +33,11 @@ struct Dependencies {
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 #[serde(rename = "dependency")]
 pub struct Dependency {
-    #[serde(rename = "$unflatten=groupId")]
+    #[serde(rename = "groupId")]
     group: String,
-    #[serde(rename = "$unflatten=artifactId")]
+    #[serde(rename = "artifactId")]
     name: String,
-    #[serde(rename = "$unflatten=version")]
     version: String,
-    #[serde(rename = "$unflatten=scope")]
     scope: Option<String>,
 }
 
@@ -55,7 +53,7 @@ impl Dependency {
         self.scope.as_deref()
     }
 
-    pub fn range(&self) -> Result<Range<Version>> {
+    pub fn range(&self) -> Result<Ranges<Version>> {
         crate::range::range(&self.version)
     }
 }

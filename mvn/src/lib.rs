@@ -2,13 +2,13 @@ use crate::metadata::Metadata;
 use crate::package::Artifact;
 use crate::pom::{Dependency, Pom};
 use anyhow::{Context, Result};
-use pubgrub::error::PubGrubError;
-use pubgrub::range::Range;
-use pubgrub::report::{DefaultStringReporter, Reporter};
-use pubgrub::solver::{Dependencies, DependencyProvider};
-use std::borrow::Borrow;
+use pubgrub::{
+    DefaultStringReporter, Dependencies, DependencyConstraints, DependencyProvider,
+    PackageResolutionStatistics, PubGrubError, Ranges, Reporter,
+};
+use std::cmp::Reverse;
 use std::collections::HashMap;
-use std::error::Error;
+use std::convert::Infallible;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -27,7 +27,7 @@ pub struct Maven<D: Download> {
     client: D,
     cache_dir: PathBuf,
     repositories: Vec<&'static str>,
-    local: HashMap<(Package, Version), Dependencies<Package, Version>>,
+    local: HashMap<(Package, Version), Dependencies<Package, Ranges<Version>, String>>,
 }
 
 impl<D: Download> Maven<D> {
@@ -51,18 +51,15 @@ impl<D: Download> Maven<D> {
             .map(|dep| (dep.package(), dep.range().unwrap()))
             .collect();
         self.local
-            .insert((package, version), Dependencies::Known(deps));
+            .insert((package, version), Dependencies::Available(deps));
     }
 
     pub fn resolve(&self, package: Package, version: Version) -> Result<Vec<PathBuf>> {
-        Ok(pubgrub::solver::resolve(self, package, version)
+        Ok(pubgrub::resolve(self, package, version)
             .map_err(|err| {
-                if let PubGrubError::NoSolution(mut tree) = err {
-                    tree.collapse_no_versions();
-                    anyhow::anyhow!("{}", DefaultStringReporter::report(&tree))
-                } else {
-                    anyhow::anyhow!("{:?}", err)
-                }
+                let PubGrubError::NoSolution(mut tree) = err;
+                tree.collapse_no_versions();
+                anyhow::anyhow!("{}", DefaultStringReporter::report(&tree))
             })?
             .into_iter()
             .filter_map(
@@ -96,7 +93,7 @@ impl<D: Download> Maven<D> {
         self.artifact(artifact, pom.packaging())
     }
 
-    fn versions(&self, package: &Package, range: &Range<Version>) -> Vec<Version> {
+    fn versions(&self, package: &Package, range: &Ranges<Version>) -> Vec<Version> {
         match self.metadata(package) {
             Ok(metadata) => metadata
                 .versions()
@@ -108,7 +105,16 @@ impl<D: Download> Maven<D> {
                 .collect(),
             Err(err) => {
                 log::debug!("failed to get metadata for {package}: {err}");
-                range.lowest_version().into_iter().collect()
+                range
+                    .bounding_range()
+                    .and_then(|(lower, _)| match lower {
+                        std::ops::Bound::Included(v) | std::ops::Bound::Excluded(v) => {
+                            Some(v.clone())
+                        }
+                        std::ops::Bound::Unbounded => None,
+                    })
+                    .into_iter()
+                    .collect()
             }
         }
     }
@@ -170,48 +176,52 @@ impl<D: Download> Maven<D> {
     }
 }
 
-impl<D: Download> DependencyProvider<Package, Version> for Maven<D> {
-    fn choose_package_version<T: Borrow<Package>, U: Borrow<Range<Version>>>(
+impl<D: Download> DependencyProvider for Maven<D> {
+    type P = Package;
+    type V = Version;
+    type VS = Ranges<Version>;
+    type M = String;
+    type Err = Infallible;
+    type Priority = (u32, Reverse<usize>);
+
+    fn prioritize(
         &self,
-        potential_packages: impl Iterator<Item = (T, U)>,
-    ) -> Result<(T, Option<Version>), Box<dyn Error>> {
-        let mut selected: Option<(_, Vec<_>)> = None;
-        for (p, r) in potential_packages {
-            let versions = self.versions(p.borrow(), r.borrow());
-            if let Some((_, v)) = &selected {
-                if v.len() < versions.len() {
-                    continue;
-                }
-            }
-            let early_exit = versions.len() < 2;
-            selected = Some((p, versions));
-            if early_exit {
-                break;
-            }
+        package: &Package,
+        range: &Ranges<Version>,
+        package_conflicts_counts: &PackageResolutionStatistics,
+    ) -> Self::Priority {
+        let version_count = self.versions(package, range).len();
+        if version_count == 0 {
+            return (u32::MAX, Reverse(0));
         }
-        let (p, v) = selected.expect("non empty iterator");
-        let v = v.into_iter().next();
-        //log::debug!("chose {} {:?} (latest {}) (release {})", p.borrow(), v);
-        Ok((p, v))
+        (package_conflicts_counts.conflict_count(), Reverse(version_count))
+    }
+
+    fn choose_version(
+        &self,
+        package: &Package,
+        range: &Ranges<Version>,
+    ) -> Result<Option<Version>, Infallible> {
+        Ok(self.versions(package, range).into_iter().next())
     }
 
     fn get_dependencies(
         &self,
         package: &Package,
         version: &Version,
-    ) -> Result<Dependencies<Package, Version>, Box<dyn Error>> {
+    ) -> Result<Dependencies<Package, Ranges<Version>, String>, Infallible> {
         if let Some(deps) = self.local.get(&(package.clone(), version.clone())) {
             return Ok(deps.clone());
         }
         //println!("get dependencies {} {}", package, version);
         let pom = self.pom(Artifact { package, version }).unwrap();
-        let deps = pom
+        let deps: DependencyConstraints<Package, Ranges<Version>> = pom
             .dependencies()
             .iter()
             .filter(|dep| dep.scope() != Some("test"))
             .map(|dep| (dep.package(), dep.range().unwrap()))
             .collect();
         //log::debug!("{} {} has deps {:?}", package, version, deps);
-        Ok(Dependencies::Known(deps))
+        Ok(Dependencies::Available(deps))
     }
 }

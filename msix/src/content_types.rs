@@ -41,8 +41,10 @@ impl Default for ContentTypesBuilder {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename(serialize = "Types"))]
 pub struct ContentTypes {
+    #[serde(rename(serialize = "@xmlns"))]
     #[serde(default = "default_namespace")]
     xmlns: String,
+    #[serde(rename(serialize = "$value"))]
     pub rules: Vec<Rule>,
 }
 
@@ -67,19 +69,36 @@ impl Default for ContentTypes {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum Rule {
     Default {
-        #[serde(rename(serialize = "Extension"))]
+        #[serde(rename(serialize = "@Extension"))]
         ext: String,
-        #[serde(rename(serialize = "ContentType"))]
+        #[serde(rename(serialize = "@ContentType"))]
         mime: String,
     },
     Override {
-        #[serde(rename(serialize = "PartName"))]
+        #[serde(rename(serialize = "@PartName"))]
         part_name: String,
-        #[serde(rename(serialize = "ContentType"))]
+        #[serde(rename(serialize = "@ContentType"))]
         mime: String,
     },
 }
 
 fn default_namespace() -> String {
     "http://schemas.openxmlformats.org/package/2006/content-types".into()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_content_types() {
+        let content_types = ContentTypes::default();
+        let xml = quick_xml::se::to_string(&content_types).unwrap();
+        assert!(xml.starts_with(
+            r#"<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">"#
+        ));
+        assert!(xml.contains(r#"<Override PartName="/AppxBlockMap.xml" ContentType="application/vnd.ms-appx.blockmap+xml"/>"#));
+        assert!(!xml.contains("<PartName>"));
+        assert!(!xml.contains("<xmlns>"));
+    }
 }

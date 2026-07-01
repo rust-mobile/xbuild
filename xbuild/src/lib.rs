@@ -2,6 +2,8 @@ use crate::cargo::{Cargo, CargoBuild, CrateType};
 use crate::config::Config;
 use crate::devices::Device;
 use anyhow::{ensure, Result};
+use base64::engine::general_purpose::STANDARD;
+use base64::Engine;
 use clap::{Parser, ValueEnum};
 use std::path::{Path, PathBuf};
 use xcommon::Signer;
@@ -411,7 +413,7 @@ impl BuildTargetArgs {
             Some(std::fs::read(profile)?)
         } else if let Ok(mut profile) = std::env::var("X_PROVISIONING_PROFILE") {
             profile.retain(|c| !c.is_whitespace());
-            Some(base64::decode(&profile)?)
+            Some(STANDARD.decode(&profile)?)
         } else {
             None
         };

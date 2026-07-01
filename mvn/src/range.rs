@@ -1,7 +1,7 @@
 use crate::package::Version;
 use anyhow::Result;
-use pubgrub::range::Range as SRange;
-use pubgrub::version::Version as _;
+use pubgrub::Ranges as SRange;
+use std::ops::Bound as RangeBound;
 use std::str::FromStr;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -138,16 +138,17 @@ impl<I: Iterator<Item = Token>> Iterator for Parser<I> {
 
 pub fn range(range_str: &str) -> Result<SRange<Version>> {
     let parser = Parser::new(Tokenizer::new(range_str.chars()));
-    let mut range = SRange::none();
+    let mut range = SRange::empty();
     for partial_range in parser {
         let srange = match partial_range {
-            Range::Exact(version) => SRange::exact(Version::from_str(&version)?),
+            Range::Exact(version) => SRange::singleton(Version::from_str(&version)?),
             Range::Lower(Bound { version, inclusive }) => {
-                let mut version = Version::from_str(&version)?;
+                let version = Version::from_str(&version)?;
                 if inclusive {
-                    version = version.bump();
+                    SRange::lower_than(version)
+                } else {
+                    SRange::strictly_lower_than(version)
                 }
-                SRange::strictly_lower_than(version)
             }
             Range::Greater(Bound { version, .. }) => {
                 let version = Version::from_str(&version)?;
@@ -155,11 +156,13 @@ pub fn range(range_str: &str) -> Result<SRange<Version>> {
             }
             Range::Between(lower_bound, upper_bound) => {
                 let lower_version = Version::from_str(&lower_bound.version)?;
-                let mut upper_version = Version::from_str(&upper_bound.version)?;
-                if upper_bound.inclusive {
-                    upper_version = upper_version.bump();
-                }
-                SRange::between(lower_version, upper_version)
+                let upper_version = Version::from_str(&upper_bound.version)?;
+                let upper = if upper_bound.inclusive {
+                    RangeBound::Included(upper_version)
+                } else {
+                    RangeBound::Excluded(upper_version)
+                };
+                SRange::from_range_bounds((RangeBound::Included(lower_version), upper))
             }
         };
         range = range.union(&srange);
