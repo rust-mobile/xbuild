@@ -31,7 +31,7 @@ pub fn p7x(signer: &Signer, digests: &Digests) -> Vec<u8> {
     let payload = Payload::encode(digests);
     let encap_content_info = EncapsulatedContentInfo {
         content_type: SPC_INDIRECT_DATA_OBJID.into(),
-        content: Any::new(payload),
+        content: Some(Any::new(payload)),
     };
     let signed_data = build_pkcs7(signer, encap_content_info);
     let content_info = ContentInfo {
@@ -247,9 +247,10 @@ mod tests {
         let payload = Payload::encode(&HASHES);
         let encap_content_info = EncapsulatedContentInfo {
             content_type: SPC_INDIRECT_DATA_OBJID.into(),
-            content: Any::new(payload),
+            content: Some(Any::new(payload)),
         };
-        let digest = Sha256::digest(&encap_content_info.content.as_bytes()[8..]);
+        let digest =
+            Sha256::digest(&encap_content_info.content.as_ref().unwrap().as_bytes()[8..]);
         let orig_digest = [
             68, 234, 15, 167, 40, 66, 12, 133, 19, 239, 228, 168, 72, 147, 90, 139, 75, 131, 41,
             111, 247, 70, 28, 251, 130, 190, 57, 136, 200, 159, 93, 116,
