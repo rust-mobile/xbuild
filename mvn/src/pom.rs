@@ -1,6 +1,6 @@
 use crate::package::{Package, Version};
 use anyhow::{Context, Result};
-use pubgrub::range::Range;
+use pubgrub::Ranges;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
@@ -55,7 +55,7 @@ impl Dependency {
         self.scope.as_deref()
     }
 
-    pub fn range(&self) -> Result<Range<Version>> {
+    pub fn range(&self) -> Result<Ranges<Version>> {
         crate::range::range(&self.version)
     }
 }

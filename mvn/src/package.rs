@@ -81,31 +81,6 @@ impl Ord for Version {
     }
 }
 
-impl pubgrub::version::Version for Version {
-    fn lowest() -> Self {
-        Self {
-            major: 0,
-            minor: 0,
-            patch: 0,
-            suffix: None,
-        }
-    }
-
-    fn bump(&self) -> Self {
-        let patch = if self.suffix.is_some() {
-            self.patch
-        } else {
-            self.patch + 1
-        };
-        Self {
-            major: self.major,
-            minor: self.minor,
-            patch,
-            suffix: None,
-        }
-    }
-}
-
 impl std::str::FromStr for Version {
     type Err = anyhow::Error;
 
