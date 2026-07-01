@@ -3,8 +3,7 @@ pub mod llvm;
 use anyhow::{Context, Result};
 use byteorder::{LittleEndian, ReadBytesExt};
 use image::imageops::FilterType;
-use image::io::Reader as ImageReader;
-use image::{DynamicImage, GenericImageView, ImageOutputFormat, RgbaImage};
+use image::{DynamicImage, GenericImageView, ImageFormat, ImageReader, RgbaImage};
 use rsa::pkcs1v15::Pkcs1v15Sign;
 use rsa::pkcs8::DecodePrivateKey;
 use rsa::{RsaPrivateKey, RsaPublicKey};
@@ -65,13 +64,13 @@ impl Scaler {
             .img
             .resize(opts.scaled_size, opts.scaled_size, FilterType::Nearest);
         if opts.scaled_size == opts.target_width && opts.scaled_size == opts.target_height {
-            resized.write_to(w, ImageOutputFormat::Png)?;
+            resized.write_to(w, ImageFormat::Png)?;
         } else {
             let x = (opts.target_width - opts.scaled_size) / 2;
             let y = (opts.target_height - opts.scaled_size) / 2;
             let mut padded = RgbaImage::new(opts.target_width, opts.target_height);
             image::imageops::overlay(&mut padded, &resized, x as i64, y as i64);
-            padded.write_to(w, ImageOutputFormat::Png)?;
+            padded.write_to(w, ImageFormat::Png)?;
         }
         Ok(())
     }
@@ -160,13 +159,13 @@ impl Signer {
     /// ```
     pub fn new(pem: &str) -> Result<Self> {
         let pem = pem::parse_many(pem)?;
-        let key = if let Some(key) = pem.iter().find(|pem| pem.tag == "PRIVATE KEY") {
-            RsaPrivateKey::from_pkcs8_der(&key.contents)?
+        let key = if let Some(key) = pem.iter().find(|pem| pem.tag() == "PRIVATE KEY") {
+            RsaPrivateKey::from_pkcs8_der(key.contents())?
         } else {
             anyhow::bail!("no private key found");
         };
-        let cert = if let Some(cert) = pem.iter().find(|pem| pem.tag == "CERTIFICATE") {
-            rasn::der::decode::<Certificate>(&cert.contents)
+        let cert = if let Some(cert) = pem.iter().find(|pem| pem.tag() == "CERTIFICATE") {
+            rasn::der::decode::<Certificate>(cert.contents())
                 .map_err(|err| anyhow::anyhow!("{}", err))?
         } else {
             anyhow::bail!("no certificate found");
