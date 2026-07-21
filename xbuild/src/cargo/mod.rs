@@ -287,11 +287,13 @@ impl CargoBuild {
         })
     }
 
-    pub fn use_android_ndk(&mut self, path: &Path, target_sdk_version: u32) -> Result<()> {
+    pub fn use_android_ndk(&mut self, path: &Path, min_sdk_version: u32) -> Result<()> {
         let path = dunce::canonicalize(path)?;
         let ndk_triple = self.target.ndk_triple();
         assert_eq!(Some(ndk_triple), self.triple);
-        let ndk_versioned_triple = format!("{ndk_triple}{target_sdk_version}");
+        // The `<api>` suffix sets `__ANDROID_API__`, the compile-time symbol
+        // availability floor — hence min, not target, SDK (see the call site).
+        let ndk_versioned_triple = format!("{ndk_triple}{min_sdk_version}");
         self.cfg_tool(Tool::Cc, "clang");
         self.cfg_tool(Tool::Cxx, "clang++");
         self.cfg_tool(Tool::Ar, "llvm-ar");
@@ -300,11 +302,11 @@ impl CargoBuild {
         self.add_cflag(&format!("--target={ndk_versioned_triple}"));
         self.add_cxxflag("-stdlib=libc++");
         let lib_dir = path.join("usr").join("lib").join(ndk_triple);
-        let sdk_lib_dir = lib_dir.join(target_sdk_version.to_string());
+        let sdk_lib_dir = lib_dir.join(min_sdk_version.to_string());
         anyhow::ensure!(
             sdk_lib_dir.exists(),
             "ndk doesn't support sdk version {}",
-            target_sdk_version
+            min_sdk_version
         );
         self.use_ld("lld");
         self.add_link_arg(&format!("--target={ndk_versioned_triple}"));

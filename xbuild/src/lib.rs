@@ -677,14 +677,20 @@ impl BuildEnv {
         }
         if target.platform() == Platform::Android {
             let ndk = self.android_ndk();
-            let target_sdk_version = self
+            // Native code is compiled against the min SDK/API level, not the
+            // target SDK: the NDK compile level gates symbol availability, so a
+            // level above min_sdk links symbols absent on the oldest supported
+            // device. aapt and `android.jar` track the target SDK separately.
+            // Matches cargo-apk: https://github.com/rust-mobile/ndk/pull/197
+            // https://developer.android.com/ndk/guides/sdk-versions#minsdkversion
+            let min_sdk_version = self
                 .config()
                 .android()
                 .manifest
                 .sdk
-                .target_sdk_version
+                .min_sdk_version
                 .unwrap();
-            cargo.use_android_ndk(&ndk, target_sdk_version)?;
+            cargo.use_android_ndk(&ndk, min_sdk_version)?;
         }
         if target.platform() == Platform::Windows {
             let sdk = self.windows_sdk();
